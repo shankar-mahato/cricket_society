@@ -16,11 +16,11 @@ class TeamAdmin(admin.ModelAdmin):
 
 @admin.register(Player)
 class PlayerAdmin(admin.ModelAdmin):
-    list_display = ['name', 'team', 'role', 'batting_average', 'strike_rate', 'api_id']
+    list_display = ['name', 'team', 'role', 'batting_average', 'strike_rate', 'is_in_playing_eleven', 'api_id']
     search_fields = ['name', 'api_id']
-    list_filter = ['team', 'role']
+    list_filter = ['team', 'role', 'is_in_playing_eleven']
     raw_id_fields = ['team']
-    fields = ['name', 'api_id', 'team', 'role', 'picture', 'batting_average', 'strike_rate']
+    fields = ['name', 'api_id', 'team', 'role', 'picture', 'batting_average', 'strike_rate', 'is_in_playing_eleven']
     readonly_fields = ['created_at', 'updated_at']
 
 

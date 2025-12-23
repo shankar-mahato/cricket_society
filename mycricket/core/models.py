@@ -31,6 +31,7 @@ class Player(models.Model):
     picture = models.ImageField(upload_to='players/', null=True, blank=True, help_text="Player profile picture")
     batting_average = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Batting average")
     strike_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, help_text="Strike rate")
+    is_in_playing_eleven = models.BooleanField(default=False, help_text="Whether this player is in the playing eleven for the current/upcoming match")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
