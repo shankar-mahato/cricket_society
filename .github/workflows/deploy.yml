@@ -1,0 +1,55 @@
+name: Deploy to PythonAnywhere
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Deploy to PythonAnywhere
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.PYTHONANYWHERE_HOST }}
+        username: ${{ secrets.PYTHONANYWHERE_USERNAME }}
+        key: ${{ secrets.PYTHONANYWHERE_SSH_KEY }}
+        script: |
+          cd ${{ secrets.PYTHONANYWHERE_PROJECT_PATH }}
+          
+          # Pull latest code
+          echo "Pulling latest code from main branch..."
+          git pull origin main
+          
+          # Navigate to Django project directory (adjust if needed)
+          cd mycricket 2>/dev/null || echo "Already in project directory"
+          
+          # Activate virtual environment
+          echo "Activating virtual environment..."
+          source ../venv/bin/activate || source venv/bin/activate || source ~/venv/bin/activate
+          
+          # Install/update dependencies
+          echo "Installing/updating dependencies..."
+          pip install --upgrade pip --quiet
+          pip install -r ../requirements.txt --quiet || pip install -r requirements.txt --quiet
+          
+          # Run database migrations
+          echo "Running database migrations..."
+          python manage.py migrate --noinput
+          
+          # Collect static files
+          echo "Collecting static files..."
+          python manage.py collectstatic --noinput
+          
+          # Reload web app using PythonAnywhere API
+          echo "Reloading web app..."
+          curl -X POST https://www.pythonanywhere.com/api/v0/user/${{ secrets.PYTHONANYWHERE_USERNAME }}/webapps/${{ secrets.PYTHONANYWHERE_WEBAPP_DOMAIN }}/reload/ \
+            -H "Authorization: Token ${{ secrets.PYTHONANYWHERE_API_TOKEN }}"
+          
+          echo "✅ Deployment completed successfully!"
+
