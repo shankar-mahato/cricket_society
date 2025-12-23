@@ -76,7 +76,22 @@ git remote set-url origin git@github.com:shankar-mahato/cricket_society.git
 git remote set-url origin https://YOUR_TOKEN@github.com/shankar-mahato/cricket_society.git
 ```
 
-### 7. Initial Setup on PythonAnywhere
+### 7. Configure WSGI File on PythonAnywhere
+
+**CRITICAL STEP:** The WSGI file must be configured correctly for your project structure.
+
+1. Go to PythonAnywhere Dashboard → Web tab
+2. Click on your web app
+3. Click on "WSGI configuration file" link
+4. Replace the entire content with the configuration from `wsgi_pythonanywhere.py` in this repository
+5. **Update the paths** in the WSGI file to match your actual PythonAnywhere paths:
+   - `project_home = '/home/cricketsociety/cricket_society'` → Your actual project root
+   - `mycricket_path = '/home/cricketsociety/cricket_society/mycricket'` → Your actual Django project path
+6. Save and reload the web app
+
+See `PYTHONANYWHERE_WSGI_CONFIG.md` for detailed instructions and troubleshooting.
+
+### 8. Initial Setup on PythonAnywhere
 
 Run these commands on PythonAnywhere for the first time:
 
