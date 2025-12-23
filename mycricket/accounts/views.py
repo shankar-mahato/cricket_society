@@ -13,14 +13,23 @@ def signup(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            # Create wallet for the new user
-            Wallet.objects.get_or_create(user=user)
-            # Profile is automatically created via signal
-            # Automatically log in the user after signup
-            login(request, user)
-            messages.success(request, 'Registration successful! Welcome to CricketDuel!')
-            return redirect('core:home')
+            try:
+                user = form.save()
+                # Create wallet for the new user
+                Wallet.objects.get_or_create(user=user)
+                # Ensure profile exists (signal should create it, but ensure it exists)
+                UserProfile.objects.get_or_create(user=user)
+                # Automatically log in the user after signup
+                login(request, user)
+                messages.success(request, 'Registration successful! Welcome to CricketDuel!')
+                return redirect('core:home')
+            except Exception as e:
+                # Log the error and show user-friendly message
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error during signup: {str(e)}", exc_info=True)
+                messages.error(request, 'An error occurred during registration. Please try again.')
+                # Don't redirect, show form again with error
     else:
         form = CustomUserCreationForm()
     return render(request, 'registration/signup.html', {'form': form})

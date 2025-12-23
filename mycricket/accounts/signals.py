@@ -8,7 +8,13 @@ from .models import UserProfile
 def create_user_profile(sender, instance, created, **kwargs):
     """Automatically create profile when user is created"""
     if created:
-        UserProfile.objects.get_or_create(user=instance)
+        try:
+            UserProfile.objects.get_or_create(user=instance)
+        except Exception as e:
+            # Log error but don't fail user creation
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error creating profile for user {instance.username}: {str(e)}", exc_info=True)
 
 
 @receiver(post_save, sender=User)
