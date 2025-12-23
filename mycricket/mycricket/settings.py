@@ -143,10 +143,12 @@ LOGOUT_REDIRECT_URL = '/'
 # For development: emails are printed to console
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# Production settings - uncomment and configure for deployment
-# import os
-# ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
-# DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+# Production settings - can be overridden by environment variables
+# Allow environment variable override for production
+if os.environ.get('ALLOWED_HOSTS'):
+    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+if os.environ.get('DEBUG') is not None:
+    DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 # For production, use SMTP backend and configure these settings:
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
