@@ -31,6 +31,8 @@ db.sqlite3-journal
 /media
 /static
 /staticfiles
+mycricket/staticfiles/
+mycricket/media/
 
 # IDE
 .vscode/
