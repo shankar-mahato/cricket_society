@@ -1,0 +1,58 @@
+{% extends 'core/base.html' %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 30px auto;">
+    <h2>My Profile</h2>
+    
+    <div style="text-align: center; margin-bottom: 30px;">
+        {% if profile.profile_picture %}
+            <img src="{{ profile.profile_picture.url }}" alt="{{ user.username }}" 
+                 style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 4px solid #667eea; margin-bottom: 15px;">
+        {% else %}
+            <div style="width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 48px; 
+                        margin: 0 auto 15px; border: 4px solid #667eea;">
+                {{ user.username|first|upper }}
+            </div>
+        {% endif %}
+        <h3>{{ user.username }}</h3>
+        <p style="color: #666;">{{ user.email }}</p>
+    </div>
+    
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="profile_picture">Profile Picture:</label>
+            <input type="file" id="profile_picture" name="profile_picture" accept="image/*" class="form-control">
+            <small style="color: #666;">Upload a profile picture (JPG, PNG, etc.)</small>
+        </div>
+        
+        <button type="submit" class="btn" style="width: 100%;">Update Profile Picture</button>
+    </form>
+    
+    <form method="post" style="margin-top: 20px;">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="bio">Bio:</label>
+            <textarea id="bio" name="bio" class="form-control" rows="4" placeholder="Tell us about yourself...">{{ profile.bio|default:"" }}</textarea>
+        </div>
+        
+        <button type="submit" class="btn" style="width: 100%;">Update Bio</button>
+    </form>
+    
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0;">
+        <p><strong>Member since:</strong> {{ user.date_joined|date:"F d, Y" }}</p>
+        {% if profile.bio %}
+            <div style="margin-top: 15px;">
+                <strong>Bio:</strong>
+                <p style="color: #555; margin-top: 5px;">{{ profile.bio }}</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

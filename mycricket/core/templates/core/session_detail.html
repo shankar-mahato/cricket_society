@@ -1,0 +1,567 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Session #{{ session.id }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
+        {% if session.match.team_a.logo %}
+            <img src="{{ session.match.team_a.logo.url }}" alt="{{ session.match.team_a.name }}" 
+                 style="width: 60px; height: 60px; object-fit: contain;">
+        {% elif session.match.team_a.logo_url %}
+            <img src="{{ session.match.team_a.logo_url }}" alt="{{ session.match.team_a.name }}" 
+                 style="width: 60px; height: 60px; object-fit: contain;">
+        {% else %}
+            <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px; border: 2px solid #667eea;">
+                {{ session.match.team_a.name|first|upper }}
+            </div>
+        {% endif %}
+        <div style="text-align: center; flex: 1;">
+            <h2 style="margin: 0;">Betting Session #{{ session.id }}</h2>
+            <p style="margin: 5px 0;"><strong>{{ session.match.team_a.name }} vs {{ session.match.team_b.name }}</strong></p>
+        </div>
+        {% if session.match.team_b.logo %}
+            <img src="{{ session.match.team_b.logo.url }}" alt="{{ session.match.team_b.name }}" 
+                 style="width: 60px; height: 60px; object-fit: contain;">
+        {% elif session.match.team_b.logo_url %}
+            <img src="{{ session.match.team_b.logo_url }}" alt="{{ session.match.team_b.name }}" 
+                 style="width: 60px; height: 60px; object-fit: contain;">
+        {% else %}
+            <div style="width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px; border: 2px solid #667eea;">
+                {{ session.match.team_b.name|first|upper }}
+            </div>
+        {% endif %}
+    </div>
+    <p>Status: <span style="color: {% if session.status == 'completed' %}#666{% elif session.status == 'betting' %}#ff9800{% else %}#667eea{% endif %}; font-weight: bold;">
+        {{ session.get_status_display }}
+    </span></p>
+    <p>Players per side: {{ session.players_per_side }}</p>
+    
+    {% if can_perform_toss and not toss_completed %}
+        <div style="margin-top: 15px; padding: 15px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 6px;">
+            <h3 style="margin-top: 0; color: #856404;">🎲 Toss Required</h3>
+            <p>Both players have joined! Perform the toss to determine who picks first.</p>
+            <form method="post" action="{% url 'core:perform_toss' session.id %}" style="margin-top: 10px;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success">Perform Toss</button>
+            </form>
+        </div>
+    {% elif toss_completed %}
+        <p style="margin-top: 10px; padding: 10px; background: #d4edda; border-radius: 6px;">
+            <strong>🏆 Toss Winner:</strong> <strong style="color: #155724;">{{ toss_winner.username }}</strong> will pick first!
+        </p>
+    {% endif %}
+    
+    {% if session.status == 'picking' %}
+        <p style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 6px;">
+            {% if is_my_turn %}
+                <strong style="color: #1976d2;">🎯 It's your turn to pick a player!</strong>
+            {% else %}
+                Waiting for <strong>{{ session.current_turn.username }}</strong> to pick...
+            {% endif %}
+        </p>
+    {% endif %}
+</div>
+
+<div class="responsive-grid" style="margin-top: 20px;">
+    <div class="card">
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+            {% if session.better_a.profile.profile_picture %}
+                <img src="{{ session.better_a.profile.profile_picture.url }}" alt="{{ session.better_a.username }}" 
+                     style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #667eea;">
+            {% else %}
+                <div style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px; border: 2px solid #667eea;">
+                    {{ session.better_a.username|first|upper }}
+                </div>
+            {% endif %}
+            <h3 style="margin: 0;">{{ session.better_a.username }}'s Picks</h3>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            {% if session.match.team_a.logo %}
+                <img src="{{ session.match.team_a.logo.url }}" alt="{{ session.match.team_a.name }}" 
+                     style="width: 24px; height: 24px; object-fit: contain;">
+            {% elif session.match.team_a.logo_url %}
+                <img src="{{ session.match.team_a.logo_url }}" alt="{{ session.match.team_a.name }}" 
+                     style="width: 24px; height: 24px; object-fit: contain;">
+            {% endif %}
+            <p style="margin: 0;"><strong>{{ session.match.team_a.name }}:</strong> {{ better_a_team_a_count }}/{{ session.players_per_side }}</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            {% if session.match.team_b.logo %}
+                <img src="{{ session.match.team_b.logo.url }}" alt="{{ session.match.team_b.name }}" 
+                     style="width: 24px; height: 24px; object-fit: contain;">
+            {% elif session.match.team_b.logo_url %}
+                <img src="{{ session.match.team_b.logo_url }}" alt="{{ session.match.team_b.name }}" 
+                     style="width: 24px; height: 24px; object-fit: contain;">
+            {% endif %}
+            <p style="margin: 0;"><strong>{{ session.match.team_b.name }}:</strong> {{ better_a_team_b_count }}/{{ session.players_per_side }}</p>
+        </div>
+        <ul style="margin-top: 10px;">
+            {% for pick in better_a_picks %}
+                <li>{{ pick.player.name }} ({{ pick.player.team.name }})</li>
+            {% empty %}
+                <li>No picks yet</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="card">
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+            {% if session.better_b.profile.profile_picture %}
+                <img src="{{ session.better_b.profile.profile_picture.url }}" alt="{{ session.better_b.username }}" 
+                     style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid #667eea;">
+            {% else %}
+                <div style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px; border: 2px solid #667eea;">
+                    {{ session.better_b.username|first|upper }}
+                </div>
+            {% endif %}
+            <h3 style="margin: 0;">{{ session.better_b.username }}'s Picks</h3>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            {% if session.match.team_a.logo %}
+                <img src="{{ session.match.team_a.logo.url }}" alt="{{ session.match.team_a.name }}" 
+                     style="width: 24px; height: 24px; object-fit: contain;">
+            {% elif session.match.team_a.logo_url %}
+                <img src="{{ session.match.team_a.logo_url }}" alt="{{ session.match.team_a.name }}" 
+                     style="width: 24px; height: 24px; object-fit: contain;">
+            {% endif %}
+            <p style="margin: 0;"><strong>{{ session.match.team_a.name }}:</strong> {{ better_b_team_a_count }}/{{ session.players_per_side }}</p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            {% if session.match.team_b.logo %}
+                <img src="{{ session.match.team_b.logo.url }}" alt="{{ session.match.team_b.name }}" 
+                     style="width: 24px; height: 24px; object-fit: contain;">
+            {% elif session.match.team_b.logo_url %}
+                <img src="{{ session.match.team_b.logo_url }}" alt="{{ session.match.team_b.name }}" 
+                     style="width: 24px; height: 24px; object-fit: contain;">
+            {% endif %}
+            <p style="margin: 0;"><strong>{{ session.match.team_b.name }}:</strong> {{ better_b_team_b_count }}/{{ session.players_per_side }}</p>
+        </div>
+        <ul style="margin-top: 10px;">
+            {% for pick in better_b_picks %}
+                <li>{{ pick.player.name }} ({{ pick.player.team.name }})</li>
+            {% empty %}
+                <li>No picks yet</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+{% if session.status == 'picking' and is_my_turn %}
+    <div class="card">
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+            {% if session.match.team_a.logo %}
+                <img src="{{ session.match.team_a.logo.url }}" alt="{{ session.match.team_a.name }}" 
+                     style="width: 40px; height: 40px; object-fit: contain;">
+            {% elif session.match.team_a.logo_url %}
+                <img src="{{ session.match.team_a.logo_url }}" alt="{{ session.match.team_a.name }}" 
+                     style="width: 40px; height: 40px; object-fit: contain;">
+            {% else %}
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; border: 2px solid #667eea;">
+                    {{ session.match.team_a.name|first|upper }}
+                </div>
+            {% endif %}
+            <h3 style="margin: 0;">Available Players - {{ session.match.team_a.name }}</h3>
+        </div>
+        <div class="player-list">
+            {% for player in team_a_available %}
+                <div class="player-card" onclick="pickPlayer({{ player.id }})">
+                    {% if player.picture %}
+                        <img src="{{ player.picture.url }}" alt="{{ player.name }}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin-bottom: 8px;">
+                    {% else %}
+                        <div style="width: 60px; height: 60px; border-radius: 50%; background: #ddd; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                            👤
+                        </div>
+                    {% endif %}
+                    <strong>{{ player.name }}</strong>
+                    {% if player.role %}<br><small>{{ player.role }}</small>{% endif %}
+                    {% if player.batting_average or player.strike_rate %}
+                        <div style="margin-top: 5px; font-size: 12px; color: #666;">
+                            {% if player.batting_average %}Avg: {{ player.batting_average }}{% endif %}
+                            {% if player.batting_average and player.strike_rate %} | {% endif %}
+                            {% if player.strike_rate %}SR: {{ player.strike_rate }}{% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% empty %}
+                <p>No players available</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+            {% if session.match.team_b.logo %}
+                <img src="{{ session.match.team_b.logo.url }}" alt="{{ session.match.team_b.name }}" 
+                     style="width: 40px; height: 40px; object-fit: contain;">
+            {% elif session.match.team_b.logo_url %}
+                <img src="{{ session.match.team_b.logo_url }}" alt="{{ session.match.team_b.name }}" 
+                     style="width: 40px; height: 40px; object-fit: contain;">
+            {% else %}
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; border: 2px solid #667eea;">
+                    {{ session.match.team_b.name|first|upper }}
+                </div>
+            {% endif %}
+            <h3 style="margin: 0;">Available Players - {{ session.match.team_b.name }}</h3>
+        </div>
+        <div class="player-list">
+            {% for player in team_b_available %}
+                <div class="player-card" onclick="pickPlayer({{ player.id }})">
+                    {% if player.picture %}
+                        <img src="{{ player.picture.url }}" alt="{{ player.name }}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin-bottom: 8px;">
+                    {% else %}
+                        <div style="width: 60px; height: 60px; border-radius: 50%; background: #ddd; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                            👤
+                        </div>
+                    {% endif %}
+                    <strong>{{ player.name }}</strong>
+                    {% if player.role %}<br><small>{{ player.role }}</small>{% endif %}
+                    {% if player.batting_average or player.strike_rate %}
+                        <div style="margin-top: 5px; font-size: 12px; color: #666;">
+                            {% if player.batting_average %}Avg: {{ player.batting_average }}{% endif %}
+                            {% if player.batting_average and player.strike_rate %} | {% endif %}
+                            {% if player.strike_rate %}SR: {{ player.strike_rate }}{% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% empty %}
+                <p>No players available</p>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+
+{% if session.status == 'betting' %}
+    <div class="card">
+        <h3>Place Bets on Your Players</h3>
+        <p>Enter the amount you want to bet per run for each player.</p>
+        
+        <h4 style="margin-top: 20px;">{{ session.better_a.username }}'s Bets</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Team</th>
+                    <th>Amount per Run</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pick in better_a_picks %}
+                    <tr>
+                        <td>{{ pick.player.name }}</td>
+                        <td>{{ pick.player.team.name }}</td>
+                        <td>
+                            {% if pick.bet %}
+                                ₹{{ pick.bet.amount_per_run }}
+                            {% elif session.better_a == user %}
+                                <input type="number" id="bet_amount_{{ pick.id }}" placeholder="Amount per run" min="0.01" step="0.01" style="width: 120px;">
+                                <button onclick="placeBet({{ pick.id }})" class="btn" style="margin-left: 10px;">Place Bet</button>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if pick.bet %}
+                                <span style="color: #4caf50;">✓ Bet Placed</span>
+                            {% else %}
+                                <span style="color: #ff9800;">Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+
+        <h4 style="margin-top: 30px;">{{ session.better_b.username }}'s Bets</h4>
+        <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Team</th>
+                    <th>Amount per Run</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pick in better_b_picks %}
+                    <tr>
+                        <td>{{ pick.player.name }}</td>
+                        <td>{{ pick.player.team.name }}</td>
+                        <td>
+                            {% if pick.bet %}
+                                ₹{{ pick.bet.amount_per_run }}
+                            {% elif session.better_b == user %}
+                                <input type="number" id="bet_amount_{{ pick.id }}" placeholder="Amount per run" min="0.01" step="0.01" style="width: 120px;">
+                                <button onclick="placeBet({{ pick.id }})" class="btn" style="margin-left: 10px;">Place Bet</button>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if pick.bet %}
+                                <span style="color: #4caf50;">✓ Bet Placed</span>
+                            {% else %}
+                                <span style="color: #ff9800;">Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+{% endif %}
+
+{% if session.status == 'completed' %}
+    <div class="card" style="background: #e8f5e9;">
+        <h3>Session Completed!</h3>
+        <p><strong>{{ session.better_a.username }}'s Total Winnings:</strong> ₹{{ session.better_a_total_winnings }}</p>
+        <p><strong>{{ session.better_b.username }}'s Total Winnings:</strong> ₹{{ session.better_b_total_winnings }}</p>
+        
+        <h4 style="margin-top: 20px;">Bet Results</h4>
+        <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Better</th>
+                    <th>Player</th>
+                    <th>Runs Scored</th>
+                    <th>Amount per Run</th>
+                    <th>Total Payout</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bet in better_a_bets %}
+                    <tr>
+                        <td>{{ bet.better.username }}</td>
+                        <td>{{ bet.picked_player.player.name }}</td>
+                        <td>{{ bet.runs_scored|default:"-" }}</td>
+                        <td>₹{{ bet.amount_per_run }}</td>
+                        <td>₹{{ bet.total_payout|default:"-" }}</td>
+                    </tr>
+                {% endfor %}
+                {% for bet in better_b_bets %}
+                    <tr>
+                        <td>{{ bet.better.username }}</td>
+                        <td>{{ bet.picked_player.player.name }}</td>
+                        <td>{{ bet.runs_scored|default:"-" }}</td>
+                        <td>₹{{ bet.amount_per_run }}</td>
+                        <td>₹{{ bet.total_payout|default:"-" }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+{% elif session.match.status == 'completed' and session.status == 'betting' %}
+    <div class="card">
+        <form method="post" action="{% url 'core:settle_session' session.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success">Settle Session & Update Wallets</button>
+        </form>
+    </div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Confirmation Modal - Cannot be closed without making a choice (no X button, cannot click outside) -->
+<div id="confirmModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Confirm Selection</h3>
+        </div>
+        <div class="modal-body" id="modalBody">
+            <!-- Content will be inserted here -->
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn modal-btn-secondary" onclick="closeModal()">Cancel</button>
+            <button class="modal-btn modal-btn-primary" id="confirmBtn" onclick="confirmPick()">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let pendingPlayerId = null;
+let pendingPlayerName = null;
+
+function pickPlayer(playerId) {
+    // Get player name from the card
+    const playerCard = event.target.closest('.player-card');
+    const playerName = playerCard.querySelector('strong').textContent;
+    
+    pendingPlayerId = playerId;
+    pendingPlayerName = playerName;
+    
+    // Show modal with title and content
+    document.getElementById('modalTitle').textContent = 'Confirm Player Selection';
+    document.getElementById('modalBody').innerHTML = `
+        <p>Are you sure you want to pick <strong>${playerName}</strong>?</p>
+        <p style="color: #666; font-size: 14px;">This selection cannot be undone.</p>
+    `;
+    document.getElementById('confirmBtn').textContent = 'Confirm';
+    document.getElementById('confirmBtn').onclick = confirmPick;
+    document.getElementById('confirmBtn').disabled = false;
+    document.getElementById('confirmModal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('confirmModal').style.display = 'none';
+    pendingPlayerId = null;
+    pendingPlayerName = null;
+}
+
+function confirmPick() {
+    if (!pendingPlayerId) return;
+    
+    // Disable confirm button
+    const confirmBtn = document.getElementById('confirmBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Picking...';
+    
+    fetch(`{% url 'core:pick_player' session.id %}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({player_id: pendingPlayerId})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message in modal
+            document.getElementById('modalBody').innerHTML = `
+                <p style="color: #4caf50; font-size: 16px;">✓ Successfully picked <strong>${pendingPlayerName}</strong>!</p>
+            `;
+            confirmBtn.style.display = 'none';
+            setTimeout(() => {
+                closeModal();
+                location.reload();
+            }, 1000);
+        } else {
+            // Show error message in modal
+            document.getElementById('modalBody').innerHTML = `
+                <p style="color: #f44336;">Error: ${data.error}</p>
+            `;
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Close';
+            confirmBtn.onclick = closeModal;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('modalBody').innerHTML = `
+            <p style="color: #f44336;">An error occurred. Please try again.</p>
+        `;
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Close';
+        confirmBtn.onclick = closeModal;
+    });
+}
+
+// Prevent closing modal by clicking outside - user must make a choice
+// Removed the window.onclick handler to prevent accidental closes
+
+function placeBet(pickedPlayerId) {
+    const amountInput = document.getElementById('bet_amount_' + pickedPlayerId);
+    const amount = parseFloat(amountInput.value);
+    
+    if (!amount || amount <= 0) {
+        showModalMessage('Please enter a valid amount', 'error');
+        return;
+    }
+    
+    // Get player name
+    const row = amountInput.closest('tr');
+    const playerName = row.querySelector('td:first-child').textContent.trim();
+    
+    // Show confirmation modal
+    pendingPlayerId = pickedPlayerId;
+    document.getElementById('modalTitle').textContent = 'Confirm Bet Placement';
+    document.getElementById('modalBody').innerHTML = `
+        <p>Place bet of <strong>₹${amount}</strong> per run on <strong>${playerName}</strong>?</p>
+        <p style="color: #666; font-size: 14px;">Your payout will be: runs scored × ₹${amount}</p>
+    `;
+    document.getElementById('confirmBtn').textContent = 'Place Bet';
+    document.getElementById('confirmBtn').onclick = confirmBet;
+    document.getElementById('confirmBtn').disabled = false;
+    document.getElementById('confirmBtn').style.display = 'block';
+    document.getElementById('confirmModal').style.display = 'block';
+}
+
+function confirmBet() {
+    if (!pendingPlayerId) return;
+    
+    const amountInput = document.getElementById('bet_amount_' + pendingPlayerId);
+    const amount = parseFloat(amountInput.value);
+    
+    const confirmBtn = document.getElementById('confirmBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Placing Bet...';
+    
+    fetch(`{% url 'core:place_bet' session.id %}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            picked_player_id: pendingPlayerId,
+            amount_per_run: amount
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('modalBody').innerHTML = `
+                <p style="color: #4caf50; font-size: 16px;">✓ ${data.message}</p>
+            `;
+            confirmBtn.style.display = 'none';
+            setTimeout(() => {
+                closeModal();
+                location.reload();
+            }, 1000);
+        } else {
+            document.getElementById('modalBody').innerHTML = `
+                <p style="color: #f44336;">Error: ${data.error}</p>
+            `;
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Close';
+            confirmBtn.onclick = closeModal;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('modalBody').innerHTML = `
+            <p style="color: #f44336;">An error occurred. Please try again.</p>
+        `;
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Close';
+        confirmBtn.onclick = closeModal;
+    });
+}
+
+function showModalMessage(message, type = 'info') {
+    const color = type === 'error' ? '#f44336' : type === 'success' ? '#4caf50' : '#667eea';
+    document.getElementById('modalBody').innerHTML = `<p style="color: ${color};">${message}</p>`;
+    document.getElementById('confirmBtn').textContent = 'Close';
+    document.getElementById('confirmBtn').onclick = closeModal;
+    document.getElementById('confirmModal').style.display = 'block';
+}
+
+{% if session.status == 'picking' %}
+// Auto-refresh every 5 seconds during picking phase
+setTimeout(() => location.reload(), 5000);
+{% endif %}
+</script>
+{% endblock %}
