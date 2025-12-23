@@ -282,25 +282,36 @@ def pick_player(request, session_id):
         
         # Create picked player with database constraint as final safeguard
         try:
-            picked_player = PickedPlayer.objects.create(
-                session=session,
-                better=request.user,
-                player=player
-            )
+            with db_transaction.atomic():
+                picked_player = PickedPlayer.objects.create(
+                    session=session,
+                    better=request.user,
+                    player=player
+                )
+                
+                # Refresh session from database to get latest state
+                session.refresh_from_db()
+                
+                # Switch turn (only if picking is not complete)
+                if not session.picks_completed:
+                    session.switch_turn()
+                    session.save()
+                
+                # Check if picking is complete (this may change status)
+                session.check_picks_complete()
+                
+                # Refresh again to get updated status
+                session.refresh_from_db()
         except IntegrityError:
             return JsonResponse({'success': False, 'error': 'This player was already picked. Please select another player.'})
-        
-        # Switch turn
-        session.switch_turn()
-        
-        # Check if picking is complete
-        session.check_picks_complete()
         
         return JsonResponse({
             'success': True,
             'message': f'Picked {player.name}',
             'picks_completed': session.picks_completed,
-            'current_turn': session.current_turn.username if session.current_turn else None
+            'current_turn': session.current_turn.username if session.current_turn else None,
+            'session_status': session.status,
+            'is_my_turn': session.current_turn == request.user if session.current_turn else False
         })
         
     except Exception as e:

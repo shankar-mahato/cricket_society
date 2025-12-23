@@ -192,10 +192,21 @@ class BettingSession(models.Model):
 
     def switch_turn(self):
         """Switch turn to the other player"""
-        if self.current_turn == self.better_a:
+        if not self.current_turn:
+            # If no current turn, set to the other player (not the one who just picked)
+            # This shouldn't happen, but handle it gracefully
+            if self.better_a and self.better_b:
+                self.current_turn = self.better_b
+        elif self.current_turn == self.better_a:
             self.current_turn = self.better_b
-        else:
+        elif self.current_turn == self.better_b:
             self.current_turn = self.better_a
+        else:
+            # Fallback: alternate between better_a and better_b
+            if self.current_turn == self.better_a:
+                self.current_turn = self.better_b
+            else:
+                self.current_turn = self.better_a
         self.save()
 
     def check_picks_complete(self):

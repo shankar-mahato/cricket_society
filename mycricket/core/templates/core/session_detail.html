@@ -442,12 +442,22 @@ function confirmPick() {
             // Show success message in modal
             document.getElementById('modalBody').innerHTML = `
                 <p style="color: #4caf50; font-size: 16px;">✓ Successfully picked <strong>${pendingPlayerName}</strong>!</p>
+                <p style="color: #666; font-size: 14px; margin-top: 10px;">Updating session...</p>
             `;
             confirmBtn.style.display = 'none';
+            
+            // Stop any polling before reloading
+            {% if session.status == 'picking' %}
+            if (typeof stopPolling === 'function') {
+                stopPolling();
+            }
+            {% endif %}
+            
+            // Reload after a short delay to show success message
             setTimeout(() => {
                 closeModal();
-                location.reload();
-            }, 1000);
+                location.reload(true); // Force reload from server
+            }, 1500);
         } else {
             // Show error message in modal
             document.getElementById('modalBody').innerHTML = `
@@ -560,8 +570,81 @@ function showModalMessage(message, type = 'info') {
 }
 
 {% if session.status == 'picking' %}
-// Auto-refresh every 5 seconds during picking phase
-setTimeout(() => location.reload(), 5000);
+// Smart polling: only poll when waiting for the other player
+let pollingInterval = null;
+let isPolling = false;
+let lastTurnUser = '{{ session.current_turn.username|default:"" }}';
+
+function startPolling() {
+    // Only poll if it's NOT your turn (waiting for other player)
+    {% if not is_my_turn %}
+    if (!isPolling) {
+        isPolling = true;
+        pollingInterval = setInterval(() => {
+            // Check if page is visible (not in background)
+            if (document.visibilityState === 'visible') {
+                // Simple page reload to check for updates
+                // This is less aggressive than constant polling
+                fetch(window.location.href, {
+                    method: 'GET',
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                })
+                .then(response => response.text())
+                .then(html => {
+                    // Simple check: if the page content changed significantly, reload
+                    // We check if "It's your turn" appears in the response
+                    if (html.includes("It's your turn")) {
+                        stopPolling();
+                        location.reload(true);
+                    }
+                })
+                .catch(error => {
+                    console.error('Polling error:', error);
+                });
+            }
+        }, 4000); // Poll every 4 seconds (less aggressive than 5)
+    }
+    {% endif %}
+}
+
+function stopPolling() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+        isPolling = false;
+    }
+}
+
+// Start polling if waiting for other player
+{% if not is_my_turn %}
+// Delay start to avoid immediate polling on page load
+setTimeout(() => {
+    startPolling();
+}, 2000);
+{% endif %}
+
+// Stop polling when page becomes hidden (user switches tabs)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+        stopPolling();
+    } else if (document.visibilityState === 'visible') {
+        {% if not is_my_turn %}
+        if (!isPolling) {
+            setTimeout(() => startPolling(), 1000);
+        }
+        {% endif %}
+    }
+});
+
+// Stop polling when user picks a player
+const originalConfirmPick = confirmPick;
+confirmPick = function() {
+    stopPolling();
+    return originalConfirmPick.apply(this, arguments);
+};
 {% endif %}
 </script>
 {% endblock %}
