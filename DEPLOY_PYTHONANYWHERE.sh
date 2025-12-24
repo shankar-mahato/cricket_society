@@ -30,3 +30,6 @@ echo "2. Configure WSGI file in Web tab"
 echo "3. Set up static/media file mappings"
 echo "4. Reload your web app"
 
+
+
+

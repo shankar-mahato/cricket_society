@@ -253,3 +253,6 @@ Render.com also offers free Django hosting:
 - [ ] Superuser created
 - [ ] HTTPS enabled (on paid tiers)
 
+
+
+

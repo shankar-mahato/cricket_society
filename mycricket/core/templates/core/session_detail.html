@@ -55,7 +55,7 @@
     {% endif %}
     
     {% if session.status == 'picking' %}
-        <p style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 6px;">
+        <p id="turn-indicator" data-is-my-turn="{% if is_my_turn %}true{% else %}false{% endif %}" data-current-turn-user="{{ session.current_turn.username|default:'' }}" style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 6px;">
             {% if is_my_turn %}
                 <strong style="color: #1976d2;">🎯 It's your turn to pick a player!</strong>
             {% else %}
@@ -395,6 +395,13 @@ let pendingPlayerId = null;
 let pendingPlayerName = null;
 
 function pickPlayer(playerId) {
+    // Stop polling immediately when user clicks a player
+    {% if session.status == 'picking' %}
+    if (typeof stopPolling === 'function') {
+        stopPolling();
+    }
+    {% endif %}
+    
     // Get player name from the card
     const playerCard = event.target.closest('.player-card');
     const playerName = playerCard.querySelector('strong').textContent;
@@ -573,39 +580,67 @@ function showModalMessage(message, type = 'info') {
 // Smart polling: only poll when waiting for the other player
 let pollingInterval = null;
 let isPolling = false;
-let lastTurnUser = '{{ session.current_turn.username|default:"" }}';
+let lastReloadTime = 0;
+const RELOAD_COOLDOWN = 3000; // Don't reload more than once every 3 seconds
+let initialTurnUser = '{{ session.current_turn.username|default:"" }}';
 
 function startPolling() {
     // Only poll if it's NOT your turn (waiting for other player)
     {% if not is_my_turn %}
+    // Check if it's already the user's turn (shouldn't happen, but double-check)
+    const turnIndicator = document.getElementById('turn-indicator');
+    if (turnIndicator && turnIndicator.dataset.isMyTurn === 'true') {
+        stopPolling();
+        return;
+    }
+    
     if (!isPolling) {
         isPolling = true;
         pollingInterval = setInterval(() => {
             // Check if page is visible (not in background)
-            if (document.visibilityState === 'visible') {
-                // Simple page reload to check for updates
-                // This is less aggressive than constant polling
-                fetch(window.location.href, {
-                    method: 'GET',
-                    headers: {
-                        'Cache-Control': 'no-cache',
-                        'Pragma': 'no-cache'
-                    }
-                })
-                .then(response => response.text())
-                .then(html => {
-                    // Simple check: if the page content changed significantly, reload
-                    // We check if "It's your turn" appears in the response
-                    if (html.includes("It's your turn")) {
-                        stopPolling();
-                        location.reload(true);
-                    }
-                })
-                .catch(error => {
-                    console.error('Polling error:', error);
-                });
+            if (document.visibilityState !== 'visible') {
+                return; // Skip polling if page is hidden
             }
-        }, 4000); // Poll every 4 seconds (less aggressive than 5)
+            
+            // Check cooldown to prevent rapid reloads
+            const now = Date.now();
+            if (now - lastReloadTime < RELOAD_COOLDOWN) {
+                return;
+            }
+            
+            // Fetch current page to check for turn change
+            fetch(window.location.href, {
+                method: 'GET',
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache',
+                    'X-Requested-With': 'XMLHttpRequest' // Helps identify as AJAX request
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                // Parse HTML to find turn indicator
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const turnIndicator = doc.getElementById('turn-indicator');
+                
+                if (turnIndicator) {
+                    const isMyTurnNow = turnIndicator.dataset.isMyTurn === 'true';
+                    const currentTurnUser = turnIndicator.dataset.currentTurnUser || '';
+                    
+                    // Only reload if it's now the user's turn (turn changed from other player to current user)
+                    if (isMyTurnNow) {
+                        stopPolling();
+                        lastReloadTime = now;
+                        location.reload();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Polling error:', error);
+                // Don't reload on error, just log it
+            });
+        }, 5000); // Poll every 5 seconds (reduced frequency)
     }
     {% endif %}
 }
@@ -622,8 +657,12 @@ function stopPolling() {
 {% if not is_my_turn %}
 // Delay start to avoid immediate polling on page load
 setTimeout(() => {
-    startPolling();
-}, 2000);
+    // Double-check that it's still not the user's turn before starting
+    const turnIndicator = document.getElementById('turn-indicator');
+    if (turnIndicator && turnIndicator.dataset.isMyTurn !== 'true') {
+        startPolling();
+    }
+}, 3000); // Increased delay to 3 seconds
 {% endif %}
 
 // Stop polling when page becomes hidden (user switches tabs)
@@ -632,19 +671,14 @@ document.addEventListener('visibilitychange', () => {
         stopPolling();
     } else if (document.visibilityState === 'visible') {
         {% if not is_my_turn %}
-        if (!isPolling) {
-            setTimeout(() => startPolling(), 1000);
+        // Re-check if it's still not the user's turn before restarting
+        const turnIndicator = document.getElementById('turn-indicator');
+        if (turnIndicator && turnIndicator.dataset.isMyTurn !== 'true' && !isPolling) {
+            setTimeout(() => startPolling(), 2000);
         }
         {% endif %}
     }
 });
-
-// Stop polling when user picks a player
-const originalConfirmPick = confirmPick;
-confirmPick = function() {
-    stopPolling();
-    return originalConfirmPick.apply(this, arguments);
-};
 {% endif %}
 </script>
 {% endblock %}

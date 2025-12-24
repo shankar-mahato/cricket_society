@@ -92,3 +92,6 @@ python manage.py shell
 >>> print(settings.STATIC_ROOT)
 ```
 
+
+
+

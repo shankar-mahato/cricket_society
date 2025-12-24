@@ -19,3 +19,6 @@ def check_for_completed_jobs(request):
         'completed_jobs': [],
         'message': 'Job system not yet implemented'
     })
+
+
+
