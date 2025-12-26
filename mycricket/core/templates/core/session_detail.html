@@ -118,19 +118,19 @@
     </div>
 
     <!-- Player Selection Progress -->
-    <div class="card">
+    <div class="card" id="progress-card">
         <div class="card-header">
             <h3>Your Progress</h3>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
             <div style="text-align: center; padding: 20px; background: #f7fafc; border-radius: 6px;">
-                <div style="font-size: 32px; font-weight: 600; color: #4299e1;">
+                <div id="team-a-progress" style="font-size: 32px; font-weight: 600; color: #4299e1; transition: all 0.3s ease;">
                     {% if session.better_a == user %}{{ better_a_team_a_count }}{% else %}{{ better_b_team_a_count }}{% endif %}/{{ session.players_per_side }}
                 </div>
                 <div style="color: #718096; margin-top: 8px; font-size: 14px;">{{ session.match.team_a.name }}</div>
             </div>
             <div style="text-align: center; padding: 20px; background: #f7fafc; border-radius: 6px;">
-                <div style="font-size: 32px; font-weight: 600; color: #4299e1;">
+                <div id="team-b-progress" style="font-size: 32px; font-weight: 600; color: #4299e1; transition: all 0.3s ease;">
                     {% if session.better_a == user %}{{ better_a_team_b_count }}{% else %}{{ better_b_team_b_count }}{% endif %}/{{ session.players_per_side }}
                 </div>
                 <div style="color: #718096; margin-top: 8px; font-size: 14px;">{{ session.match.team_b.name }}</div>
@@ -138,11 +138,13 @@
         </div>
         <div style="text-align: center; padding: 12px; background: #ebf8ff; border-radius: 6px; color: #2c5282;">
             <strong>Total Picked:</strong> 
-            {% if session.better_a == user %}
-                {{ better_a_picks|length }}
-            {% else %}
-                {{ better_b_picks|length }}
-            {% endif %}
+            <span id="total-picked">
+                {% if session.better_a == user %}
+                    {{ better_a_picks|length }}
+                {% else %}
+                    {{ better_b_picks|length }}
+                {% endif %}
+            </span>
             /{{ session.players_per_side|add:session.players_per_side }}
         </div>
     </div>
@@ -153,9 +155,9 @@
             <div class="card-header">
                 <h3>{{ session.match.team_a.name }} Players</h3>
             </div>
-            <div class="player-list">
+            <div class="player-list" id="team-a-players-list">
                 {% for player in team_a_available %}
-                    <div class="player-card" onclick="pickPlayer({{ player.id }})">
+                    <div class="player-card" data-player-id="{{ player.id }}" onclick="pickPlayer({{ player.id }})">
                         {% if player.picture %}
                             <img src="{{ player.picture.url }}" alt="{{ player.name }}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin-bottom: 8px;">
                         {% else %}
@@ -176,9 +178,9 @@
             <div class="card-header">
                 <h3>{{ session.match.team_b.name }} Players</h3>
             </div>
-            <div class="player-list">
+            <div class="player-list" id="team-b-players-list">
                 {% for player in team_b_available %}
-                    <div class="player-card" onclick="pickPlayer({{ player.id }})">
+                    <div class="player-card" data-player-id="{{ player.id }}" onclick="pickPlayer({{ player.id }})">
                         {% if player.picture %}
                             <img src="{{ player.picture.url }}" alt="{{ player.name }}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; margin-bottom: 8px;">
                         {% else %}
@@ -197,26 +199,26 @@
     {% endif %}
 
     <!-- Selected Players Display -->
-    <div class="card">
+    <div class="card" id="selected-players-card">
         <div class="card-header">
             <h3>Selected Players</h3>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-            <div>
+            <div id="better-a-picks">
                 <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #4a5568;">{{ session.better_a.username }}</h4>
-                <div>
+                <div id="better-a-picks-list">
                     {% for pick in better_a_picks %}
-                        <span class="badge badge-info" style="margin: 4px 4px 4px 0; display: inline-block;">{{ pick.player.name }}</span>
+                        <span class="badge badge-info" data-player-id="{{ pick.player.id }}" style="margin: 4px 4px 4px 0; display: inline-block; animation: fadeIn 0.3s ease-in;">{{ pick.player.name }}</span>
                     {% empty %}
                         <p style="color: #718096; font-size: 13px;">No players selected yet</p>
                     {% endfor %}
                 </div>
             </div>
-            <div>
+            <div id="better-b-picks">
                 <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #4a5568;">{{ session.better_b.username }}</h4>
-                <div>
+                <div id="better-b-picks-list">
                     {% for pick in better_b_picks %}
-                        <span class="badge badge-info" style="margin: 4px 4px 4px 0; display: inline-block;">{{ pick.player.name }}</span>
+                        <span class="badge badge-info" data-player-id="{{ pick.player.id }}" style="margin: 4px 4px 4px 0; display: inline-block; animation: fadeIn 0.3s ease-in;">{{ pick.player.name }}</span>
                     {% empty %}
                         <p style="color: #718096; font-size: 13px;">No players selected yet</p>
                     {% endfor %}
@@ -637,6 +639,26 @@ function showToast(message, type = 'info') {
                 opacity: 0;
             }
         }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+        }
     `;
     if (!document.getElementById('toast-styles')) {
         style.id = 'toast-styles';
@@ -664,6 +686,175 @@ function showToast(message, type = 'info') {
             }
         }, 300);
     });
+}
+
+function updateSelectedPlayers(data) {
+    const betterAPicksList = document.getElementById('better-a-picks-list');
+    const betterBPicksList = document.getElementById('better-b-picks-list');
+    
+    if (!betterAPicksList || !betterBPicksList) return;
+    
+    // Update better A picks
+    const currentBetterAPicks = Array.from(betterAPicksList.querySelectorAll('[data-player-id]')).map(el => parseInt(el.dataset.playerId));
+    const newBetterAPicks = data.better_a_picks.map(p => p.player_id);
+    
+    // Remove players that are no longer picked (shouldn't happen, but handle it)
+    currentBetterAPicks.forEach(playerId => {
+        if (!newBetterAPicks.includes(playerId)) {
+            const badge = betterAPicksList.querySelector(`[data-player-id="${playerId}"]`);
+            if (badge) {
+                badge.style.animation = 'fadeOut 0.3s ease-out';
+                setTimeout(() => badge.remove(), 300);
+            }
+        }
+    });
+    
+    // Add new players
+    newBetterAPicks.forEach(playerId => {
+        if (!currentBetterAPicks.includes(playerId)) {
+            const pick = data.better_a_picks.find(p => p.player_id === playerId);
+            if (pick) {
+                const badge = document.createElement('span');
+                badge.className = 'badge badge-info';
+                badge.dataset.playerId = playerId;
+                badge.textContent = pick.player_name;
+                badge.style.cssText = 'margin: 4px 4px 4px 0; display: inline-block; animation: fadeIn 0.3s ease-in;';
+                betterAPicksList.appendChild(badge);
+                
+                // If list was empty, remove the empty message
+                const emptyMsg = betterAPicksList.querySelector('p');
+                if (emptyMsg) emptyMsg.remove();
+            }
+        }
+    });
+    
+    // Update better B picks
+    const currentBetterBPicks = Array.from(betterBPicksList.querySelectorAll('[data-player-id]')).map(el => parseInt(el.dataset.playerId));
+    const newBetterBPicks = data.better_b_picks.map(p => p.player_id);
+    
+    // Remove players that are no longer picked
+    currentBetterBPicks.forEach(playerId => {
+        if (!newBetterBPicks.includes(playerId)) {
+            const badge = betterBPicksList.querySelector(`[data-player-id="${playerId}"]`);
+            if (badge) {
+                badge.style.animation = 'fadeOut 0.3s ease-out';
+                setTimeout(() => badge.remove(), 300);
+            }
+        }
+    });
+    
+    // Add new players
+    newBetterBPicks.forEach(playerId => {
+        if (!currentBetterBPicks.includes(playerId)) {
+            const pick = data.better_b_picks.find(p => p.player_id === playerId);
+            if (pick) {
+                const badge = document.createElement('span');
+                badge.className = 'badge badge-info';
+                badge.dataset.playerId = playerId;
+                badge.textContent = pick.player_name;
+                badge.style.cssText = 'margin: 4px 4px 4px 0; display: inline-block; animation: fadeIn 0.3s ease-in;';
+                betterBPicksList.appendChild(badge);
+                
+                // If list was empty, remove the empty message
+                const emptyMsg = betterBPicksList.querySelector('p');
+                if (emptyMsg) emptyMsg.remove();
+            }
+        }
+    });
+    
+    // If both lists are empty, add empty messages
+    if (betterAPicksList.children.length === 0) {
+        const emptyMsg = document.createElement('p');
+        emptyMsg.style.cssText = 'color: #718096; font-size: 13px;';
+        emptyMsg.textContent = 'No players selected yet';
+        betterAPicksList.appendChild(emptyMsg);
+    }
+    if (betterBPicksList.children.length === 0) {
+        const emptyMsg = document.createElement('p');
+        emptyMsg.style.cssText = 'color: #718096; font-size: 13px;';
+        emptyMsg.textContent = 'No players selected yet';
+        betterBPicksList.appendChild(emptyMsg);
+    }
+}
+
+function updateProgress(data) {
+    const isBetterA = {{ session.better_a.id }} === currentUserId;
+    
+    // Update team counts
+    if (isBetterA) {
+        document.getElementById('team-a-progress').textContent = `${data.better_a_team_a_count}/{{ session.players_per_side }}`;
+        document.getElementById('team-b-progress').textContent = `${data.better_a_team_b_count}/{{ session.players_per_side }}`;
+        document.getElementById('total-picked').textContent = data.better_a_picks_count;
+    } else {
+        document.getElementById('team-a-progress').textContent = `${data.better_b_team_a_count}/{{ session.players_per_side }}`;
+        document.getElementById('team-b-progress').textContent = `${data.better_b_team_b_count}/{{ session.players_per_side }}`;
+        document.getElementById('total-picked').textContent = data.better_b_picks_count;
+    }
+    
+    // Add pulse animation when count changes
+    const teamAProgress = document.getElementById('team-a-progress');
+    const teamBProgress = document.getElementById('team-b-progress');
+    teamAProgress.style.transform = 'scale(1.1)';
+    teamBProgress.style.transform = 'scale(1.1)';
+    setTimeout(() => {
+        teamAProgress.style.transform = 'scale(1)';
+        teamBProgress.style.transform = 'scale(1)';
+    }, 300);
+}
+
+function removePickedPlayersFromAvailable(data) {
+    // Get all picked player IDs
+    const allPickedIds = new Set();
+    data.better_a_picks.forEach(p => allPickedIds.add(p.player_id));
+    data.better_b_picks.forEach(p => allPickedIds.add(p.player_id));
+    
+    // Remove from team A list
+    const teamAList = document.getElementById('team-a-players-list');
+    if (teamAList) {
+        const teamACards = teamAList.querySelectorAll('.player-card[data-player-id]');
+        teamACards.forEach(card => {
+            const playerId = parseInt(card.dataset.playerId);
+            if (allPickedIds.has(playerId)) {
+                card.style.animation = 'fadeOut 0.3s ease-out';
+                card.style.pointerEvents = 'none';
+                card.style.opacity = '0.5';
+                setTimeout(() => {
+                    card.remove();
+                    // Check if list is empty
+                    if (teamAList.querySelectorAll('.player-card').length === 0) {
+                        const emptyMsg = document.createElement('p');
+                        emptyMsg.style.cssText = 'text-align: center; color: #718096; padding: 20px; grid-column: 1 / -1;';
+                        emptyMsg.textContent = 'No more players available from this team';
+                        teamAList.appendChild(emptyMsg);
+                    }
+                }, 300);
+            }
+        });
+    }
+    
+    // Remove from team B list
+    const teamBList = document.getElementById('team-b-players-list');
+    if (teamBList) {
+        const teamBCards = teamBList.querySelectorAll('.player-card[data-player-id]');
+        teamBCards.forEach(card => {
+            const playerId = parseInt(card.dataset.playerId);
+            if (allPickedIds.has(playerId)) {
+                card.style.animation = 'fadeOut 0.3s ease-out';
+                card.style.pointerEvents = 'none';
+                card.style.opacity = '0.5';
+                setTimeout(() => {
+                    card.remove();
+                    // Check if list is empty
+                    if (teamBList.querySelectorAll('.player-card').length === 0) {
+                        const emptyMsg = document.createElement('p');
+                        emptyMsg.style.cssText = 'text-align: center; color: #718096; padding: 20px; grid-column: 1 / -1;';
+                        emptyMsg.textContent = 'No more players available from this team';
+                        teamBList.appendChild(emptyMsg);
+                    }
+                }, 300);
+            }
+        });
+    }
 }
 
 function updateSessionState(data) {
@@ -696,6 +887,17 @@ function updateSessionState(data) {
         turnIndicator.dataset.isMyTurn = isMyTurn;
     }
     
+    // Update selected players list smoothly
+    updateSelectedPlayers(data);
+    
+    // Update progress counters
+    updateProgress(data);
+    
+    // Remove picked players from available list (if it's your turn)
+    if (data.is_my_turn) {
+        removePickedPlayersFromAvailable(data);
+    }
+    
     // Show notification for opponent's picks
     if (data.recent_picks && data.recent_picks.length > 0) {
         data.recent_picks.forEach(pick => {
@@ -711,7 +913,7 @@ function updateSessionState(data) {
     lastUpdateTime = data.updated_at;
     
     // If status changed or picks completed, reload page for full update
-    if (data.session_status !== '{{ session.status }}' || data.picks_completed) {
+    if (data.status !== '{{ session.status }}' || data.picks_completed) {
         setTimeout(() => {
             location.reload();
         }, 1000);
@@ -743,9 +945,10 @@ function checkForUpdates() {
             
             // If it's now my turn, reload to show player selection
             if (data.is_my_turn && turnIndicator && turnIndicator.dataset.isMyTurn !== 'true') {
+                // Small delay to show the notification first
                 setTimeout(() => {
                     location.reload();
-                }, 500);
+                }, 800);
             }
         }
     })
@@ -755,13 +958,14 @@ function checkForUpdates() {
     });
 }
 
-// Start polling when page is visible and it's not user's turn
-if (turnIndicator && turnIndicator.dataset.isMyTurn !== 'true') {
+// Start polling when page is visible
+// Poll more frequently when it's not your turn to catch opponent's picks quickly
+if (turnIndicator) {
     // Check immediately
     checkForUpdates();
     
-    // Then poll every 2 seconds for faster updates
-    pollingInterval = setInterval(checkForUpdates, 2000);
+    // Poll every 1.5 seconds for very responsive updates
+    pollingInterval = setInterval(checkForUpdates, 1500);
     
     // Also check when page becomes visible
     document.addEventListener('visibilitychange', () => {

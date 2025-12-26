@@ -588,8 +588,14 @@ def check_session_updates(request, session_id):
     last_update = request.GET.get('last_update')
     
     # Get current session state
-    better_a_picks = PickedPlayer.objects.filter(session=session, better=session.better_a).select_related('player')
-    better_b_picks = PickedPlayer.objects.filter(session=session, better=session.better_b).select_related('player')
+    better_a_picks = PickedPlayer.objects.filter(session=session, better=session.better_a).select_related('player', 'player__team')
+    better_b_picks = PickedPlayer.objects.filter(session=session, better=session.better_b).select_related('player', 'player__team')
+    
+    # Count picks per team for each better
+    better_a_team_a_count = better_a_picks.filter(player__team=session.match.team_a).count()
+    better_a_team_b_count = better_a_picks.filter(player__team=session.match.team_b).count()
+    better_b_team_a_count = better_b_picks.filter(player__team=session.match.team_a).count()
+    better_b_team_b_count = better_b_picks.filter(player__team=session.match.team_b).count()
     
     # Get recently picked players (in last 30 seconds) for notifications
     from datetime import timedelta
@@ -609,7 +615,7 @@ def check_session_updates(request, session_id):
         except:
             pass
     
-    # Build response
+    # Build response with full pick lists
     response_data = {
         'session_id': session.id,
         'status': session.status,
@@ -620,9 +626,32 @@ def check_session_updates(request, session_id):
         'picks_completed': session.picks_completed,
         'better_a_picks_count': better_a_picks.count(),
         'better_b_picks_count': better_b_picks.count(),
+        'better_a_team_a_count': better_a_team_a_count,
+        'better_a_team_b_count': better_a_team_b_count,
+        'better_b_team_a_count': better_b_team_a_count,
+        'better_b_team_b_count': better_b_team_b_count,
+        'better_a_username': session.better_a.username,
+        'better_b_username': session.better_b.username,
         'session_updated': session_updated,
+        'better_a_picks': [
+            {
+                'player_id': pick.player.id,
+                'player_name': pick.player.name,
+                'team_name': pick.player.team.name
+            }
+            for pick in better_a_picks
+        ],
+        'better_b_picks': [
+            {
+                'player_id': pick.player.id,
+                'player_name': pick.player.name,
+                'team_name': pick.player.team.name
+            }
+            for pick in better_b_picks
+        ],
         'recent_picks': [
             {
+                'player_id': pick.player.id,
                 'player_name': pick.player.name,
                 'better_username': pick.better.username,
                 'picked_at': pick.picked_at.isoformat(),
