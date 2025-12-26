@@ -153,6 +153,9 @@ class BettingSession(models.Model):
     # Configuration
     players_per_side = models.IntegerField(default=5, validators=[MinValueValidator(1)],
                                            help_text="Number of players each better can pick per team")
+    fixed_bet_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('100.00'),
+                                          validators=[MinValueValidator(Decimal('0.01'))],
+                                          help_text="Fixed bet amount for the entire session (combined bet)")
     current_turn = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                      related_name='active_sessions')
     pick_order_randomized = models.BooleanField(default=False)

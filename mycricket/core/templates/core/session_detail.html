@@ -198,7 +198,7 @@
         </div>
     {% endif %}
 
-    <!-- Selected Players Display -->
+    <!-- Selected Players Display - Side by Side -->
     <div class="card" id="selected-players-card">
         <div class="card-header">
             <h3>Selected Players</h3>
@@ -206,9 +206,16 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
             <div id="better-a-picks">
                 <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #4a5568;">{{ session.better_a.username }}</h4>
-                <div id="better-a-picks-list">
+                <div id="better-a-picks-list" style="display: flex; flex-wrap: wrap; gap: 8px;">
                     {% for pick in better_a_picks %}
-                        <span class="badge badge-info" data-player-id="{{ pick.player.id }}" style="margin: 4px 4px 4px 0; display: inline-block; animation: fadeIn 0.3s ease-in;">{{ pick.player.name }}</span>
+                        <div class="player-badge" data-player-id="{{ pick.player.id }}" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #ebf8ff; border-radius: 6px; border: 1px solid #4299e1; animation: fadeIn 0.3s ease-in;">
+                            {% if pick.player.picture %}
+                                <img src="{{ pick.player.picture.url }}" alt="{{ pick.player.name }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                            {% else %}
+                                <div style="width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-size: 14px;">👤</div>
+                            {% endif %}
+                            <span style="font-weight: 500; color: #2c5282;">{{ pick.player.name }}</span>
+                        </div>
                     {% empty %}
                         <p style="color: #718096; font-size: 13px;">No players selected yet</p>
                     {% endfor %}
@@ -216,9 +223,16 @@
             </div>
             <div id="better-b-picks">
                 <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #4a5568;">{{ session.better_b.username }}</h4>
-                <div id="better-b-picks-list">
+                <div id="better-b-picks-list" style="display: flex; flex-wrap: wrap; gap: 8px;">
                     {% for pick in better_b_picks %}
-                        <span class="badge badge-info" data-player-id="{{ pick.player.id }}" style="margin: 4px 4px 4px 0; display: inline-block; animation: fadeIn 0.3s ease-in;">{{ pick.player.name }}</span>
+                        <div class="player-badge" data-player-id="{{ pick.player.id }}" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fff5e6; border-radius: 6px; border: 1px solid #ed8936; animation: fadeIn 0.3s ease-in;">
+                            {% if pick.player.picture %}
+                                <img src="{{ pick.player.picture.url }}" alt="{{ pick.player.name }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                            {% else %}
+                                <div style="width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-size: 14px;">👤</div>
+                            {% endif %}
+                            <span style="font-weight: 500; color: #7c2d12;">{{ pick.player.name }}</span>
+                        </div>
                     {% empty %}
                         <p style="color: #718096; font-size: 13px;">No players selected yet</p>
                     {% endfor %}
@@ -231,95 +245,86 @@
 <!-- Step 3: Betting -->
 {% if session.status == 'betting' %}
     <div class="card" style="background: #fffaf0; border-color: #ed8936;">
-        <h3 style="margin: 0 0 12px 0;">Place Your Bets</h3>
-        <p style="margin: 0; color: #7c2d12;">Enter the amount you want to bet per run for each of your players. If your player scores 50 runs and you bet ₹10 per run, you win ₹500.</p>
+        <h3 style="margin: 0 0 12px 0;">Place Your Bet</h3>
+        <p style="margin: 0; color: #7c2d12;">Fixed bet amount for this session: <strong>₹{{ session.fixed_bet_amount }}</strong></p>
+        <p style="margin: 8px 0 0 0; color: #7c2d12; font-size: 13px;">Winner gets both bet amounts (₹{{ session.fixed_bet_amount|add:session.fixed_bet_amount }}). Winner is determined by total runs scored by all selected players.</p>
     </div>
 
     <div class="card">
         <div class="card-header">
-            <h3>Your Players - Place Bets</h3>
+            <h3>Your Selected Players</h3>
         </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+            {% if session.better_a == user %}
+                {% for pick in better_a_picks %}
+                    <div style="padding: 12px; background: #f7fafc; border-radius: 6px; border: 1px solid #e2e8f0; min-width: 150px;">
+                        <strong style="display: block; margin-bottom: 4px;">{{ pick.player.name }}</strong>
+                        <span style="color: #718096; font-size: 12px;">{{ pick.player.team.name }}</span>
+                    </div>
+                {% endfor %}
+            {% else %}
+                {% for pick in better_b_picks %}
+                    <div style="padding: 12px; background: #f7fafc; border-radius: 6px; border: 1px solid #e2e8f0; min-width: 150px;">
+                        <strong style="display: block; margin-bottom: 4px;">{{ pick.player.name }}</strong>
+                        <span style="color: #718096; font-size: 12px;">{{ pick.player.team.name }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
         {% if session.better_a == user %}
-            {% for pick in better_a_picks %}
-                <div class="card" style="padding: 16px; margin-bottom: 12px; {% if pick.bet %}background: #f0fff4; border-color: #48bb78;{% endif %}">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                        <div>
-                            <strong style="font-size: 16px; display: block; margin-bottom: 4px;">{{ pick.player.name }}</strong>
-                            <span style="color: #718096; font-size: 13px;">{{ pick.player.team.name }}</span>
-                        </div>
-                        {% if pick.bet %}
-                            <div style="text-align: right;">
-                                <div style="font-size: 20px; color: #48bb78; font-weight: 600;">₹{{ pick.bet.amount_per_run }}/run</div>
-                                <span class="badge badge-success" style="margin-top: 4px; display: inline-block;">Bet Placed</span>
-                            </div>
-                        {% else %}
-                            <div style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 200px;">
-                                <input type="number" id="bet_amount_{{ pick.id }}" placeholder="Amount" min="0.01" step="0.01" class="form-control" style="flex: 1;">
-                                <button onclick="placeBet({{ pick.id }})" class="btn">Place Bet</button>
-                            </div>
-                        {% endif %}
-                    </div>
+            {% if better_a_bets.exists %}
+                <div style="padding: 16px; background: #f0fff4; border-radius: 6px; border: 1px solid #48bb78; text-align: center;">
+                    <div style="font-size: 18px; color: #48bb78; font-weight: 600; margin-bottom: 8px;">✓ Bet Placed</div>
+                    <div style="color: #22543d; font-size: 14px;">You have placed ₹{{ session.fixed_bet_amount }} for this session</div>
                 </div>
-            {% endfor %}
+            {% else %}
+                <div style="text-align: center; padding: 20px;">
+                    <div style="margin-bottom: 16px;">
+                        <div style="font-size: 24px; font-weight: 600; color: #4a5568; margin-bottom: 8px;">₹{{ session.fixed_bet_amount }}</div>
+                        <div style="color: #718096; font-size: 14px;">Fixed Bet Amount</div>
+                    </div>
+                    <button onclick="placeFixedBet()" class="btn" style="width: 100%; max-width: 300px;">Place Bet</button>
+                </div>
+            {% endif %}
         {% else %}
-            {% for pick in better_b_picks %}
-                <div class="card" style="padding: 16px; margin-bottom: 12px; {% if pick.bet %}background: #f0fff4; border-color: #48bb78;{% endif %}">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                        <div>
-                            <strong style="font-size: 16px; display: block; margin-bottom: 4px;">{{ pick.player.name }}</strong>
-                            <span style="color: #718096; font-size: 13px;">{{ pick.player.team.name }}</span>
-                        </div>
-                        {% if pick.bet %}
-                            <div style="text-align: right;">
-                                <div style="font-size: 20px; color: #48bb78; font-weight: 600;">₹{{ pick.bet.amount_per_run }}/run</div>
-                                <span class="badge badge-success" style="margin-top: 4px; display: inline-block;">Bet Placed</span>
-                            </div>
-                        {% else %}
-                            <div style="display: flex; gap: 8px; align-items: center; flex: 1; min-width: 200px;">
-                                <input type="number" id="bet_amount_{{ pick.id }}" placeholder="Amount" min="0.01" step="0.01" class="form-control" style="flex: 1;">
-                                <button onclick="placeBet({{ pick.id }})" class="btn">Place Bet</button>
-                            </div>
-                        {% endif %}
-                    </div>
+            {% if better_b_bets.exists %}
+                <div style="padding: 16px; background: #f0fff4; border-radius: 6px; border: 1px solid #48bb78; text-align: center;">
+                    <div style="font-size: 18px; color: #48bb78; font-weight: 600; margin-bottom: 8px;">✓ Bet Placed</div>
+                    <div style="color: #22543d; font-size: 14px;">You have placed ₹{{ session.fixed_bet_amount }} for this session</div>
                 </div>
-            {% endfor %}
+            {% else %}
+                <div style="text-align: center; padding: 20px;">
+                    <div style="margin-bottom: 16px;">
+                        <div style="font-size: 24px; font-weight: 600; color: #4a5568; margin-bottom: 8px;">₹{{ session.fixed_bet_amount }}</div>
+                        <div style="color: #718096; font-size: 14px;">Fixed Bet Amount</div>
+                    </div>
+                    <button onclick="placeFixedBet()" class="btn" style="width: 100%; max-width: 300px;">Place Bet</button>
+                </div>
+            {% endif %}
         {% endif %}
     </div>
 
-    <!-- Opponent's Bets -->
+    <!-- Opponent's Status -->
     <div class="card">
         <div class="card-header">
-            <h3>Opponent's Bets</h3>
+            <h3>Opponent's Status</h3>
         </div>
-        {% if session.better_a == user %}
-            {% for pick in better_b_picks %}
-                <div class="card" style="padding: 16px; margin-bottom: 12px; {% if not pick.bet %}opacity: 0.6;{% endif %}">
-                    <div>
-                        <strong style="font-size: 16px; display: block; margin-bottom: 4px;">{{ pick.player.name }}</strong>
-                        <span style="color: #718096; font-size: 13px;">{{ pick.player.team.name }}</span>
-                    </div>
-                    {% if pick.bet %}
-                        <div style="margin-top: 8px; color: #48bb78; font-weight: 600;">₹{{ pick.bet.amount_per_run }}/run</div>
-                    {% else %}
-                        <div style="margin-top: 8px; color: #718096;">Waiting for bet...</div>
-                    {% endif %}
-                </div>
-            {% endfor %}
-        {% else %}
-            {% for pick in better_a_picks %}
-                <div class="card" style="padding: 16px; margin-bottom: 12px; {% if not pick.bet %}opacity: 0.6;{% endif %}">
-                    <div>
-                        <strong style="font-size: 16px; display: block; margin-bottom: 4px;">{{ pick.player.name }}</strong>
-                        <span style="color: #718096; font-size: 13px;">{{ pick.player.team.name }}</span>
-                    </div>
-                    {% if pick.bet %}
-                        <div style="margin-top: 8px; color: #48bb78; font-weight: 600;">₹{{ pick.bet.amount_per_run }}/run</div>
-                    {% else %}
-                        <div style="margin-top: 8px; color: #718096;">Waiting for bet...</div>
-                    {% endif %}
-                </div>
-            {% endfor %}
-        {% endif %}
+        <div style="text-align: center; padding: 20px;">
+            {% if session.better_a == user %}
+                {% if better_b_bets.exists %}
+                    <div style="color: #48bb78; font-weight: 600;">✓ {{ session.better_b.username }} has placed their bet</div>
+                {% else %}
+                    <div style="color: #718096;">Waiting for {{ session.better_b.username }} to place bet...</div>
+                {% endif %}
+            {% else %}
+                {% if better_a_bets.exists %}
+                    <div style="color: #48bb78; font-weight: 600;">✓ {{ session.better_a.username }} has placed their bet</div>
+                {% else %}
+                    <div style="color: #718096;">Waiting for {{ session.better_a.username }} to place bet...</div>
+                {% endif %}
+            {% endif %}
+        </div>
     </div>
 {% endif %}
 
@@ -330,18 +335,83 @@
         <p style="margin: 0; color: #22543d;">Here are your final results.</p>
     </div>
 
+    <!-- Winner Declaration -->
+    <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+        <div style="text-align: center; padding: 32px;">
+            {% if winner %}
+                <div style="font-size: 48px; margin-bottom: 16px;">🏆</div>
+                <h2 style="margin: 0 0 8px 0; font-size: 28px;">Winner: {{ winner.username }}</h2>
+                <div style="font-size: 36px; font-weight: 700; margin: 16px 0;">₹{{ session.fixed_bet_amount|add:session.fixed_bet_amount }}</div>
+                <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">Total Runs: 
+                    {% if winner == session.better_a %}
+                        {{ better_a_total_runs }}
+                    {% else %}
+                        {{ better_b_total_runs }}
+                    {% endif %}
+                </p>
+            {% else %}
+                <div style="font-size: 48px; margin-bottom: 16px;">🤝</div>
+                <h2 style="margin: 0 0 8px 0; font-size: 28px;">It's a Tie!</h2>
+                <div style="font-size: 20px; margin: 16px 0; opacity: 0.9;">Both players scored {{ better_a_total_runs }} runs</div>
+                <div style="font-size: 24px; font-weight: 600; margin-top: 16px;">Refund: ₹{{ session.fixed_bet_amount }} each</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Winnings Display with Action Buttons -->
+    {% if winner == user or not winner %}
+        <div class="card">
+            <div class="card-header">
+                <h3>Your Winnings</h3>
+            </div>
+            <div style="text-align: center; padding: 32px;">
+                <div style="font-size: 48px; font-weight: 700; color: #48bb78; margin-bottom: 16px;">
+                    ₹{% if winner == user %}{{ session.fixed_bet_amount|add:session.fixed_bet_amount }}{% else %}{{ session.fixed_bet_amount }}{% endif %}
+                </div>
+                <p style="color: #718096; margin-bottom: 24px;">
+                    {% if winner == user %}
+                        Congratulations! You won the match.
+                    {% else %}
+                        Match ended in a tie. Your bet amount has been refunded.
+                    {% endif %}
+                </p>
+                <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                    <form method="post" action="{% url 'core:add_winnings_to_wallet' session.id %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn" style="background: #48bb78; min-width: 150px;">
+                            💰 Add to Wallet
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'core:withdraw_winnings' session.id %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn" style="background: #4299e1; min-width: 150px;">
+                            💸 Withdraw
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Total Runs Comparison -->
     <div class="card">
         <div class="card-header">
-            <h3>Final Winnings</h3>
+            <h3>Total Runs Scored</h3>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div style="text-align: center; padding: 24px; background: #f7fafc; border-radius: 6px;">
                 <div style="font-size: 13px; color: #718096; margin-bottom: 8px;">{{ session.better_a.username }}</div>
-                <div style="font-size: 32px; font-weight: 600; color: #48bb78;">₹{{ session.better_a_total_winnings }}</div>
+                <div style="font-size: 32px; font-weight: 600; color: {% if better_a_total_runs > better_b_total_runs %}#48bb78{% else %}#4a5568{% endif %};">
+                    {{ better_a_total_runs }}
+                </div>
+                <div style="font-size: 12px; color: #718096; margin-top: 4px;">runs</div>
             </div>
             <div style="text-align: center; padding: 24px; background: #f7fafc; border-radius: 6px;">
                 <div style="font-size: 13px; color: #718096; margin-bottom: 8px;">{{ session.better_b.username }}</div>
-                <div style="font-size: 32px; font-weight: 600; color: #48bb78;">₹{{ session.better_b_total_winnings }}</div>
+                <div style="font-size: 32px; font-weight: 600; color: {% if better_b_total_runs > better_a_total_runs %}#48bb78{% else %}#4a5568{% endif %};">
+                    {{ better_b_total_runs }}
+                </div>
+                <div style="font-size: 12px; color: #718096; margin-top: 4px;">runs</div>
             </div>
         </div>
     </div>
@@ -485,41 +555,31 @@ function confirmPick() {
     });
 }
 
-function placeBet(pickedPlayerId) {
-    const amountInput = document.getElementById('bet_amount_' + pickedPlayerId);
-    const amount = parseFloat(amountInput.value);
-    
-    if (!amount || amount <= 0) {
-        alert('Please enter a valid amount (e.g., 10)');
-        return;
-    }
-    
-    const row = amountInput.closest('.card');
-    const playerName = row.querySelector('strong').textContent;
+function placeFixedBet() {
+    const fixedBetAmount = {{ session.fixed_bet_amount }};
     
     pendingAction = 'bet';
-    pendingData = {
-        picked_player_id: pickedPlayerId,
-        amount_per_run: amount,
-        insurance_percentage: 0
-    };
+    pendingData = {};
     
-    document.getElementById('modalTitle').textContent = 'Place Bet?';
+    document.getElementById('modalTitle').textContent = 'Place Fixed Bet?';
     document.getElementById('modalBody').innerHTML = `
-        <p>Bet <strong>₹${amount}</strong> per run on <strong>${playerName}</strong>?</p>
+        <p>Place fixed bet of <strong>₹${fixedBetAmount}</strong> for this session?</p>
         <p style="color: #718096; font-size: 13px; margin-top: 8px;">
-            Example: If they score 50 runs, you win ₹${(amount * 50).toFixed(2)}
+            Winner gets both bet amounts (₹${fixedBetAmount * 2}). Winner is determined by total runs scored by all your selected players.
         </p>
     `;
     document.getElementById('confirmBtn').textContent = 'Yes, Place Bet';
-    document.getElementById('confirmBtn').onclick = confirmBet;
+    document.getElementById('confirmBtn').onclick = confirmFixedBet;
     document.getElementById('confirmBtn').disabled = false;
     document.getElementById('confirmModal').style.display = 'block';
 }
 
-function confirmBet() {
-    if (!pendingData) return;
-    
+function placeBet(pickedPlayerId) {
+    // Legacy function - not used with fixed bet amount
+    placeFixedBet();
+}
+
+function confirmFixedBet() {
     const confirmBtn = document.getElementById('confirmBtn');
     confirmBtn.disabled = true;
     confirmBtn.textContent = 'Placing Bet...';
@@ -530,7 +590,7 @@ function confirmBet() {
             'Content-Type': 'application/json',
             'X-CSRFToken': '{{ csrf_token }}'
         },
-        body: JSON.stringify(pendingData)
+        body: JSON.stringify({})
     })
     .then(response => response.json())
     .then(data => {
@@ -560,6 +620,11 @@ function confirmBet() {
         confirmBtn.textContent = 'Close';
         confirmBtn.onclick = closeModal;
     });
+}
+
+function confirmBet() {
+    // Legacy function - redirect to fixed bet
+    confirmFixedBet();
 }
 
 function closeModal() {

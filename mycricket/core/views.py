@@ -100,6 +100,11 @@ def create_betting_session(request, match_id):
         messages.error(request, "Players per side must be between 1 and 11")
         return redirect('core:match_detail', match_id=match_id)
     
+    fixed_bet_amount = Decimal(str(request.POST.get('fixed_bet_amount', 100)))
+    if fixed_bet_amount <= 0:
+        messages.error(request, "Bet amount must be greater than 0")
+        return redirect('core:match_detail', match_id=match_id)
+    
     # Check if user already has an active session for this match
     existing = BettingSession.objects.filter(
         match=match
@@ -120,6 +125,7 @@ def create_betting_session(request, match_id):
         better_a=request.user,
         better_b=request.user,  # Placeholder, will be updated when someone joins
         players_per_side=players_per_side,
+        fixed_bet_amount=fixed_bet_amount,
         status='pending'
     )
     
@@ -205,6 +211,30 @@ def session_detail(request, session_id):
     team_a_available = available_players.filter(team=session.match.team_a)
     team_b_available = available_players.filter(team=session.match.team_b)
     
+    # Calculate total runs for each better (for completed sessions)
+    better_a_total_runs = 0
+    better_b_total_runs = 0
+    winner = None
+    
+    if session.status == 'completed':
+        better_a_bets_list = list(better_a_bets)
+        better_b_bets_list = list(better_b_bets)
+        
+        for bet in better_a_bets_list:
+            if bet.runs_scored is not None:
+                better_a_total_runs += bet.runs_scored
+        
+        for bet in better_b_bets_list:
+            if bet.runs_scored is not None:
+                better_b_total_runs += bet.runs_scored
+        
+        # Determine winner
+        if better_a_total_runs > better_b_total_runs:
+            winner = session.better_a
+        elif better_b_total_runs > better_a_total_runs:
+            winner = session.better_b
+        # else: tie (winner is None)
+    
     context = {
         'session': session,
         'better_a_picks': better_a_picks,
@@ -221,6 +251,9 @@ def session_detail(request, session_id):
         'toss_completed': session.toss_completed,
         'toss_winner': session.toss_winner,
         'can_perform_toss': session.status == 'pending' and session.better_b != session.better_a,
+        'better_a_total_runs': better_a_total_runs,
+        'better_b_total_runs': better_b_total_runs,
+        'winner': winner,
     }
     return render(request, 'core/session_detail.html', context)
 
@@ -330,7 +363,7 @@ def pick_player(request, session_id):
 @login_required
 @require_http_methods(["POST"])
 def place_bet(request, session_id):
-    """Place bet on a picked player"""
+    """Place fixed bet amount for the session"""
     session = get_object_or_404(BettingSession, id=session_id)
     
     if session.better_a != request.user and session.better_b != request.user:
@@ -340,87 +373,60 @@ def place_bet(request, session_id):
         return JsonResponse({'success': False, 'error': 'Betting phase is not active'})
     
     try:
-        data = json.loads(request.body)
-        picked_player_id = data.get('picked_player_id')
-        amount_per_run = Decimal(str(data.get('amount_per_run', 0)))
-        insurance_percentage = Decimal(str(data.get('insurance_percentage', 0)))
-        
-        if amount_per_run <= 0:
-            return JsonResponse({'success': False, 'error': 'Amount must be greater than 0'})
-        
-        # Validate insurance percentage (0-20%)
-        if insurance_percentage < 0 or insurance_percentage > 20:
-            return JsonResponse({'success': False, 'error': 'Insurance percentage must be between 0 and 20'})
-        
-        picked_player = get_object_or_404(PickedPlayer, id=picked_player_id, session=session, better=request.user)
-        
-        # Check if bet already exists
-        if Bet.objects.filter(picked_player=picked_player).exists():
-            return JsonResponse({'success': False, 'error': 'Bet already placed on this player'})
-        
         # Get or create wallet
         wallet, _ = Wallet.objects.get_or_create(user=request.user)
         
-        # Calculate insurance if requested
-        insurance_premium = Decimal('0.00')
-        insured_amount = Decimal('0.00')
+        # Check if user has already placed bet
+        user_bets = Bet.objects.filter(session=session, better=request.user)
+        if user_bets.exists():
+            return JsonResponse({'success': False, 'error': 'You have already placed your bet for this session'})
         
-        if insurance_percentage > 0:
-            # Create temporary bet object to calculate insurance
-            temp_bet = Bet(
-                amount_per_run=amount_per_run,
-                insurance_percentage=insurance_percentage
-            )
-            premium, insured_amt = temp_bet.calculate_insurance(estimated_max_runs=100)
-            insurance_premium = premium
-            insured_amount = insured_amt
-            
-            # Check if user has enough balance for insurance premium
-            if wallet.balance < insurance_premium:
-                return JsonResponse({
-                    'success': False, 
-                    'error': f'Insufficient balance. Insurance premium: ₹{insurance_premium}, Your balance: ₹{wallet.balance}'
-                })
-            
-            # Deduct insurance premium immediately
-            wallet.withdraw(insurance_premium)
-            Transaction.objects.create(
-                user=request.user,
-                transaction_type='insurance_premium',
-                amount=insurance_premium,
-                balance_after=wallet.balance,
-                description=f'Insurance premium for bet on {picked_player.player.name}'
-            )
+        # Check if user has enough balance
+        if wallet.balance < session.fixed_bet_amount:
+            return JsonResponse({
+                'success': False,
+                'error': f'Insufficient balance. Required: ₹{session.fixed_bet_amount}, Your balance: ₹{wallet.balance}'
+            })
         
-        # Create bet with insurance details
-        bet = Bet.objects.create(
-            session=session,
-            better=request.user,
-            picked_player=picked_player,
-            amount_per_run=amount_per_run,
-            insurance_percentage=insurance_percentage,
-            insurance_premium=insurance_premium,
-            insured_amount=insured_amount
+        # Deduct bet amount from wallet
+        wallet.withdraw(session.fixed_bet_amount)
+        Transaction.objects.create(
+            user=request.user,
+            transaction_type='bet_placed',
+            amount=session.fixed_bet_amount,
+            balance_after=wallet.balance,
+            description=f'Fixed bet amount for session #{session.id}'
         )
         
-        # Check if all bets are placed
-        total_picks = PickedPlayer.objects.filter(session=session).count()
-        total_bets = Bet.objects.filter(session=session).count()
+        # Create bet records for all picked players (using fixed bet amount)
+        user_picks = PickedPlayer.objects.filter(session=session, better=request.user)
+        for picked_player in user_picks:
+            # Calculate amount per run based on fixed bet amount
+            # Distribute fixed amount equally across all picks
+            amount_per_run = session.fixed_bet_amount / Decimal(str(user_picks.count()))
+            
+            Bet.objects.create(
+                session=session,
+                better=request.user,
+                picked_player=picked_player,
+                amount_per_run=amount_per_run,
+                insurance_percentage=Decimal('0.00'),
+                insurance_premium=Decimal('0.00'),
+                insured_amount=Decimal('0.00')
+            )
         
-        if total_bets >= total_picks:
+        # Check if both betters have placed bets
+        better_a_bets = Bet.objects.filter(session=session, better=session.better_a).exists()
+        better_b_bets = Bet.objects.filter(session=session, better=session.better_b).exists()
+        
+        if better_a_bets and better_b_bets:
             session.bets_completed = True
             session.save()
         
-        message = f'Bet placed: ₹{amount_per_run} per run'
-        if insurance_percentage > 0:
-            message += f' (Insurance: {insurance_percentage}%, Premium: ₹{insurance_premium})'
-        
         return JsonResponse({
             'success': True,
-            'message': message,
-            'bets_completed': session.bets_completed,
-            'insurance_premium': float(insurance_premium),
-            'insured_amount': float(insured_amount)
+            'message': f'Bet placed: ₹{session.fixed_bet_amount} (distributed across {user_picks.count()} players)',
+            'bets_completed': session.bets_completed
         })
         
     except Exception as e:
@@ -487,11 +493,11 @@ def settle_session(request, session_id):
     score_data = cricket_api.get_match_score(session.match.api_id)
     player_stats = score_data.get('player_stats', {})
     
-    better_a_total = Decimal('0.00')
-    better_b_total = Decimal('0.00')
+    better_a_total_runs = 0
+    better_b_total_runs = 0
     
     with db_transaction.atomic():
-        # Process all bets
+        # Process all bets and calculate total runs
         bets = Bet.objects.filter(session=session, is_settled=False)
         
         for bet in bets:
@@ -502,26 +508,6 @@ def settle_session(request, session_id):
             # Update bet with runs scored
             bet.runs_scored = runs_scored
             bet.calculate_payout()
-            
-            # Process insurance if applicable
-            insurance_refund = Decimal('0.00')
-            if bet.insurance_percentage > 0 and bet.should_claim_insurance(threshold_runs=20):
-                # User "lost" (low runs), refund insured amount
-                insurance_refund = bet.insured_amount
-                bet.insurance_claimed = True
-                bet.insurance_refunded = insurance_refund
-                
-                # Refund insured amount to user's wallet
-                wallet = Wallet.objects.get(user=bet.better)
-                wallet.deposit(insurance_refund)
-                Transaction.objects.create(
-                    user=bet.better,
-                    transaction_type='insurance_refund',
-                    amount=insurance_refund,
-                    balance_after=wallet.balance,
-                    description=f'Insurance refund for bet on {bet.picked_player.player.name} (scored {runs_scored} runs)'
-                )
-            
             bet.is_settled = True
             bet.save()
             
@@ -532,46 +518,111 @@ def settle_session(request, session_id):
                 defaults={'runs_scored': runs_scored}
             )
             
-            # Add to respective better's total (payout + insurance refund if applicable)
-            total_for_better = bet.total_payout + insurance_refund
+            # Add runs to respective better's total
             if bet.better == session.better_a:
-                better_a_total += total_for_better
+                better_a_total_runs += runs_scored
             else:
-                better_b_total += total_for_better
+                better_b_total_runs += runs_scored
         
-        # Update session totals
-        session.better_a_total_winnings = better_a_total
-        session.better_b_total_winnings = better_b_total
+        # Determine winner (player with higher total runs)
+        winner = None
+        winner_winnings = Decimal('0.00')
+        
+        if better_a_total_runs > better_b_total_runs:
+            winner = session.better_a
+            winner_winnings = session.fixed_bet_amount * 2  # Winner gets both bet amounts
+            session.better_a_total_winnings = winner_winnings
+            session.better_b_total_winnings = Decimal('0.00')
+        elif better_b_total_runs > better_a_total_runs:
+            winner = session.better_b
+            winner_winnings = session.fixed_bet_amount * 2  # Winner gets both bet amounts
+            session.better_a_total_winnings = Decimal('0.00')
+            session.better_b_total_winnings = winner_winnings
+        else:
+            # Tie - refund both players
+            winner = None
+            session.better_a_total_winnings = session.fixed_bet_amount
+            session.better_b_total_winnings = session.fixed_bet_amount
+        
+        # Store winner and totals
         session.status = 'completed'
         session.save()
-        
-        # Update wallets
-        wallet_a, _ = Wallet.objects.get_or_create(user=session.better_a)
-        wallet_b, _ = Wallet.objects.get_or_create(user=session.better_b)
-        
-        if better_a_total > 0:
-            old_balance = wallet_a.balance
-            wallet_a.deposit(better_a_total)
-            Transaction.objects.create(
-                user=session.better_a,
-                transaction_type='bet_won',
-                amount=better_a_total,
-                balance_after=wallet_a.balance,
-                description=f'Won from betting session: {session}'
-            )
-        
-        if better_b_total > 0:
-            old_balance = wallet_b.balance
-            wallet_b.deposit(better_b_total)
-            Transaction.objects.create(
-                user=session.better_b,
-                transaction_type='bet_won',
-                amount=better_b_total,
-                balance_after=wallet_b.balance,
-                description=f'Won from betting session: {session}'
-            )
     
     messages.success(request, "Session settled successfully!")
+    return redirect('core:session_detail', session_id=session_id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def add_winnings_to_wallet(request, session_id):
+    """Add winnings to wallet"""
+    session = get_object_or_404(BettingSession, id=session_id)
+    
+    if session.better_a != request.user and session.better_b != request.user:
+        messages.error(request, "You are not authorized to perform this action")
+        return redirect('core:session_detail', session_id=session_id)
+    
+    if session.status != 'completed':
+        messages.error(request, "Session is not completed yet")
+        return redirect('core:session_detail', session_id=session_id)
+    
+    # Get user's winnings
+    if request.user == session.better_a:
+        winnings = session.better_a_total_winnings
+    else:
+        winnings = session.better_b_total_winnings
+    
+    if winnings <= 0:
+        messages.error(request, "You have no winnings to add to wallet")
+        return redirect('core:session_detail', session_id=session_id)
+    
+    try:
+        wallet, _ = Wallet.objects.get_or_create(user=request.user)
+        
+        with db_transaction.atomic():
+            wallet.deposit(winnings)
+            Transaction.objects.create(
+                user=request.user,
+                transaction_type='bet_won',
+                amount=winnings,
+                balance_after=wallet.balance,
+                description=f'Winnings from betting session #{session.id}'
+            )
+        
+        messages.success(request, f'Successfully added ₹{winnings} to your wallet!')
+    except Exception as e:
+        messages.error(request, f'Error: {str(e)}')
+    
+    return redirect('core:session_detail', session_id=session_id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def withdraw_winnings(request, session_id):
+    """Withdraw winnings (transfer to external account)"""
+    session = get_object_or_404(BettingSession, id=session_id)
+    
+    if session.better_a != request.user and session.better_b != request.user:
+        messages.error(request, "You are not authorized to perform this action")
+        return redirect('core:session_detail', session_id=session_id)
+    
+    if session.status != 'completed':
+        messages.error(request, "Session is not completed yet")
+        return redirect('core:session_detail', session_id=session_id)
+    
+    # Get user's winnings
+    if request.user == session.better_a:
+        winnings = session.better_a_total_winnings
+    else:
+        winnings = session.better_b_total_winnings
+    
+    if winnings <= 0:
+        messages.error(request, "You have no winnings to withdraw")
+        return redirect('core:session_detail', session_id=session_id)
+    
+    # For now, just show a message (withdrawal functionality would need payment gateway integration)
+    messages.info(request, f'Withdrawal request for ₹{winnings} has been submitted. This feature requires payment gateway integration.')
+    
     return redirect('core:session_detail', session_id=session_id)
 
 

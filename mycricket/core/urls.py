@@ -15,6 +15,8 @@ urlpatterns = [
     path('session/<int:session_id>/check-updates/', views.check_session_updates, name='check_session_updates'),
     path('session/<int:session_id>/place-bet/', views.place_bet, name='place_bet'),
     path('session/<int:session_id>/settle/', views.settle_session, name='settle_session'),
+    path('session/<int:session_id>/add-winnings/', views.add_winnings_to_wallet, name='add_winnings_to_wallet'),
+    path('session/<int:session_id>/withdraw-winnings/', views.withdraw_winnings, name='withdraw_winnings'),
     path('wallet/', views.wallet_view, name='wallet'),
     path('wallet/deposit/', views.deposit_wallet, name='deposit_wallet'),
     # Job endpoint (to prevent 404 errors from polling)
