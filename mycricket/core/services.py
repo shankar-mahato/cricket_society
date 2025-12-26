@@ -9,7 +9,7 @@ except ImportError:
 
 from django.conf import settings
 from django.utils import timezone
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 logger = logging.getLogger(__name__)
@@ -259,5 +259,277 @@ class CricAPIService(CricketAPIService):
             return []
 """
 
-# Singleton instance
+
+class OddsAPIService:
+    """
+    Service to fetch cricket data from The Odds API (the-odds-api.com)
+    """
+    
+    def __init__(self):
+        self.api_key = getattr(settings, 'ODDS_API_KEY', None)
+        self.base_url = getattr(settings, 'ODDS_API_BASE_URL', 'https://api.the-odds-api.com/v4')
+        self.cricket_sport_keys = [
+            'cricket_test_match',
+            'cricket_odi',
+            'cricket_t20',
+            'cricket_big_bash',
+            'cricket_ipl',
+            'cricket_psl',
+            'cricket_cpl',
+            'cricket_bb',
+            'cricket_world_cup',
+        ]
+    
+    def get_cricket_sports(self):
+        """
+        Get list of available cricket sports from The Odds API
+        Returns list of sport objects
+        """
+        if not self.api_key or not requests:
+            logger.warning("Odds API key not configured or requests library not available")
+            return []
+        
+        try:
+            url = f"{self.base_url}/sports"
+            response = requests.get(url, params={'apiKey': self.api_key}, timeout=10)
+            
+            if response.status_code == 200:
+                sports = response.json()
+                # Filter for cricket sports
+                cricket_sports = [sport for sport in sports if 'cricket' in sport.get('key', '').lower()]
+                logger.info(f"Found {len(cricket_sports)} cricket sports")
+                return cricket_sports
+            else:
+                logger.error(f"Odds API error: {response.status_code} - {response.text}")
+                return []
+        except Exception as e:
+            logger.error(f"Error fetching cricket sports from Odds API: {str(e)}")
+            return []
+    
+    def get_upcoming_matches_24h(self):
+        """
+        Get upcoming cricket matches in the next 24 hours from The Odds API
+        Returns list of match dictionaries with structure:
+        {
+            'id': 'event_id',
+            'name': 'Match Title',
+            'team_a': {'id': 'team_id', 'name': 'Team Name'},
+            'team_b': {'id': 'team_id', 'name': 'Team Name'},
+            'status': 'upcoming',
+            'date': 'ISO datetime string',
+            'venue': 'Venue Name' (if available)
+        }
+        """
+        if not self.api_key or not requests:
+            logger.warning("Odds API key not configured or requests library not available")
+            return []
+        
+        all_matches = []
+        now = timezone.now()
+        next_24h = now + timedelta(hours=24)
+        
+        # Try to get cricket sports first
+        cricket_sports = self.get_cricket_sports()
+        if not cricket_sports:
+            # Fallback to known cricket sport keys
+            cricket_sports = [{'key': key} for key in self.cricket_sport_keys]
+        
+        for sport in cricket_sports:
+            sport_key = sport.get('key')
+            if not sport_key:
+                continue
+            
+            try:
+                url = f"{self.base_url}/sports/{sport_key}/odds"
+                params = {
+                    'apiKey': self.api_key,
+                    'regions': 'us,uk,au',  # Multiple regions for better coverage
+                    'markets': 'h2h',  # Head to head market
+                    'oddsFormat': 'decimal',
+                }
+                
+                response = requests.get(url, params=params, timeout=10)
+                
+                if response.status_code == 200:
+                    matches = response.json()
+                    
+                    for match in matches:
+                        try:
+                            # Parse commence_time
+                            commence_time_str = match.get('commence_time', '')
+                            if commence_time_str:
+                                commence_time = datetime.fromisoformat(commence_time_str.replace('Z', '+00:00'))
+                                if timezone.is_naive(commence_time):
+                                    commence_time = timezone.make_aware(commence_time)
+                                
+                                # Filter for matches in next 24 hours
+                                if now <= commence_time <= next_24h:
+                                    home_team = match.get('home_team', '')
+                                    away_team = match.get('away_team', '')
+                                    
+                                    # Determine which team is team_a and team_b
+                                    # Use home_team as team_a and away_team as team_b
+                                    # Generate unique team IDs
+                                    team_a_id = f"odds_team_{home_team.lower().replace(' ', '_').replace('-', '_')}"
+                                    team_b_id = f"odds_team_{away_team.lower().replace(' ', '_').replace('-', '_')}"
+                                    
+                                    formatted_match = {
+                                        'id': match.get('id', ''),
+                                        'name': f"{home_team} vs {away_team}",
+                                        'team_a': {
+                                            'id': team_a_id,
+                                            'name': home_team
+                                        },
+                                        'team_b': {
+                                            'id': team_b_id,
+                                            'name': away_team
+                                        },
+                                        'status': 'upcoming',
+                                        'date': commence_time.isoformat(),
+                                        'venue': match.get('sport_title', 'TBA'),  # Use sport title as venue fallback
+                                        'sport_key': sport_key,
+                                    }
+                                    all_matches.append(formatted_match)
+                        except Exception as e:
+                            logger.warning(f"Error parsing match {match.get('id', 'unknown')}: {str(e)}")
+                            continue
+                
+                elif response.status_code == 429:
+                    logger.warning("Rate limit reached for Odds API")
+                    break
+                else:
+                    logger.warning(f"Odds API error for sport {sport_key}: {response.status_code}")
+                    
+            except Exception as e:
+                logger.error(f"Error fetching matches for sport {sport_key}: {str(e)}")
+                continue
+        
+        # Remove duplicates based on match ID
+        seen_ids = set()
+        unique_matches = []
+        for match in all_matches:
+            if match['id'] not in seen_ids:
+                seen_ids.add(match['id'])
+                unique_matches.append(match)
+        
+        logger.info(f"Found {len(unique_matches)} upcoming matches in next 24 hours")
+        return unique_matches
+    
+    def get_match_participants(self, event_id, sport_key='cricket_t20'):
+        """
+        Get participants/players for a specific match from The Odds API
+        Returns dict with team_a_players and team_b_players
+        """
+        if not self.api_key or not requests:
+            logger.warning("Odds API key not configured or requests library not available")
+            return {'team_a_players': [], 'team_b_players': []}
+        
+        try:
+            url = f"{self.base_url}/sports/{sport_key}/events/{event_id}/participants"
+            response = requests.get(url, params={'apiKey': self.api_key}, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                participants = data.get('participants', [])
+                
+                # The Odds API returns participants, but we need to map them to teams
+                # Since we don't know which team they belong to from the API,
+                # we'll return all participants and let the sync logic handle team assignment
+                team_a_players = []
+                team_b_players = []
+                
+                # Split participants - typically first half for team_a, second half for team_b
+                # This is a heuristic and may need adjustment based on actual API response
+                mid_point = len(participants) // 2
+                
+                for i, participant in enumerate(participants):
+                    player_name = participant.get('name', '')
+                    if player_name:
+                        player_data = {
+                            'id': f"player_{participant.get('id', i)}",
+                            'name': player_name,
+                            'role': 'Player',  # The Odds API doesn't provide role info
+                        }
+                        
+                        if i < mid_point:
+                            team_a_players.append(player_data)
+                        else:
+                            team_b_players.append(player_data)
+                
+                return {
+                    'team_a_players': team_a_players,
+                    'team_b_players': team_b_players
+                }
+            else:
+                logger.warning(f"Could not fetch participants for event {event_id}: {response.status_code}")
+                return {'team_a_players': [], 'team_b_players': []}
+                
+        except Exception as e:
+            logger.error(f"Error fetching participants for event {event_id}: {str(e)}")
+            return {'team_a_players': [], 'team_b_players': []}
+    
+    def get_match_players_alternative(self, event_id, sport_key, home_team, away_team):
+        """
+        Alternative method to get players by trying to fetch from event odds
+        This is a workaround since The Odds API may not always have participants endpoint
+        Returns dict with team_a_players and team_b_players
+        """
+        if not self.api_key or not requests:
+            return {'team_a_players': [], 'team_b_players': []}
+        
+        try:
+            # Try to get player markets from odds endpoint
+            url = f"{self.base_url}/sports/{sport_key}/events/{event_id}/odds"
+            params = {
+                'apiKey': self.api_key,
+                'regions': 'us,uk,au',
+                'markets': 'player_runs,player_wickets',  # Player-specific markets
+            }
+            
+            response = requests.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                bookmakers = data.get('bookmakers', [])
+                
+                # Extract player names from markets
+                players_set = set()
+                
+                for bookmaker in bookmakers:
+                    markets = bookmaker.get('markets', [])
+                    for market in markets:
+                        outcomes = market.get('outcomes', [])
+                        for outcome in outcomes:
+                            # Player markets have description field with player name
+                            player_name = outcome.get('description', '')
+                            if player_name:
+                                players_set.add(player_name)
+                
+                # Convert to player list format
+                # Since we can't determine team from player markets, we'll split them
+                players_list = list(players_set)
+                mid_point = len(players_list) // 2
+                
+                team_a_players = [
+                    {'id': f"player_{i}", 'name': name, 'role': 'Player'}
+                    for i, name in enumerate(players_list[:mid_point])
+                ]
+                team_b_players = [
+                    {'id': f"player_{i+mid_point}", 'name': name, 'role': 'Player'}
+                    for i, name in enumerate(players_list[mid_point:])
+                ]
+                
+                return {
+                    'team_a_players': team_a_players,
+                    'team_b_players': team_b_players
+                }
+            
+        except Exception as e:
+            logger.warning(f"Could not fetch players from odds for event {event_id}: {str(e)}")
+        
+        return {'team_a_players': [], 'team_b_players': []}
+
+
+# Singleton instances
 cricket_api = CricketAPIService()
+odds_api = OddsAPIService()

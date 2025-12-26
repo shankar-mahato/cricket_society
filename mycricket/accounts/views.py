@@ -21,7 +21,7 @@ def signup(request):
                 UserProfile.objects.get_or_create(user=user)
                 # Automatically log in the user after signup
                 login(request, user)
-                messages.success(request, 'Registration successful! Welcome to CricketDuel!')
+                messages.success(request, 'Registration successful! Welcome to CricketSociety!')
                 return redirect('core:home')
             except Exception as e:
                 # Log the error and show user-friendly message

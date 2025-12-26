@@ -77,8 +77,9 @@ class PickedPlayerAdmin(admin.ModelAdmin):
 @admin.register(Bet)
 class BetAdmin(admin.ModelAdmin):
     list_display = ['id', 'session', 'better', 'picked_player', 'amount_per_run', 
+                    'insurance_percentage', 'insurance_premium', 'insurance_claimed',
                     'runs_scored', 'total_payout', 'is_settled', 'created_at']
     search_fields = ['better__username', 'picked_player__player__name']
-    list_filter = ['is_settled', 'created_at']
+    list_filter = ['is_settled', 'insurance_claimed', 'created_at']
     raw_id_fields = ['session', 'better', 'picked_player']
     readonly_fields = ['created_at', 'updated_at']

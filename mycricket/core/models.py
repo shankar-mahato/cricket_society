@@ -274,6 +274,18 @@ class Bet(models.Model):
                                          validators=[MinValueValidator(Decimal('0.01'))],
                                          help_text="Amount to bet per run scored")
     
+    # Insurance fields
+    insurance_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.00'),
+                                               validators=[MinValueValidator(Decimal('0.00'))],
+                                               help_text="Insurance percentage (0-20%) of bet amount")
+    insurance_premium = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'),
+                                            help_text="Insurance premium paid (deducted upfront)")
+    insured_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'),
+                                         help_text="Amount insured (insurance_percentage × estimated_payout)")
+    insurance_claimed = models.BooleanField(default=False, help_text="Whether insurance was claimed")
+    insurance_refunded = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'),
+                                             help_text="Amount refunded from insurance")
+    
     # Results
     runs_scored = models.IntegerField(null=True, blank=True, help_text="Actual runs scored")
     total_payout = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True,
@@ -293,3 +305,45 @@ class Bet(models.Model):
             self.save()
             return self.total_payout
         return Decimal('0.00')
+    
+    def calculate_insurance(self, estimated_max_runs=100):
+        """
+        Calculate insurance premium and insured amount
+        Premium rate is 50% of insured amount
+        """
+        if self.insurance_percentage <= 0:
+            return Decimal('0.00'), Decimal('0.00')
+        
+        # Estimated maximum payout (for insurance calculation)
+        estimated_max_payout = self.amount_per_run * Decimal(str(estimated_max_runs))
+        
+        # Insured amount = percentage of estimated max payout
+        insured_amt = (estimated_max_payout * self.insurance_percentage) / Decimal('100.00')
+        
+        # Premium = 50% of insured amount (platform makes profit)
+        premium = insured_amt * Decimal('0.50')
+        
+        return premium, insured_amt
+    
+    def should_claim_insurance(self, threshold_runs=20):
+        """
+        Determine if insurance should be claimed (if payout is less than threshold, representing a loss)
+        
+        Args:
+            threshold_runs: Runs threshold below which insurance is claimed (default 20)
+        
+        Returns:
+            bool: True if insurance should be claimed
+        """
+        if self.insurance_percentage <= 0:
+            return False
+        
+        if not self.total_payout:
+            return False
+        
+        # Insurance is claimed if payout is less than threshold (low performance = loss)
+        threshold_payout = self.amount_per_run * Decimal(str(threshold_runs))
+        
+        if self.total_payout < threshold_payout:
+            return True
+        return False

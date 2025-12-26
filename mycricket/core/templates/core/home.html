@@ -1,176 +1,150 @@
 {% extends 'core/base.html' %}
 
-{% block title %}Home - CricketDuel{% endblock %}
+{% block title %}Home - CricketSociety{% endblock %}
 
 {% block content %}
-<div class="user-info" style="justify-content: flex-end; margin-bottom: 20px;">
-    {% if user.is_authenticated %}
-        <div class="wallet-balance">
-            Wallet: ₹{{ user.wallet.balance|default:"0.00" }}
+<div class="page-header">
+    <h1>Welcome to CricketSociety</h1>
+    <p>Challenge your friends in fantasy cricket betting. Pick players, place bets, and win based on player performance.</p>
+</div>
+
+{% if user.is_authenticated %}
+<div class="card" style="background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); color: white; border: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h3 style="margin: 0 0 8px 0; color: white;">Your Wallet Balance</h3>
+            <p style="margin: 0; font-size: 32px; font-weight: 600;">₹{{ user.wallet.balance|default:"0.00" }}</p>
         </div>
+        <a href="{% url 'core:wallet' %}" class="btn" style="background: white; color: #4299e1;">Add Money</a>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <h2>Live Matches</h2>
+    </div>
+    {% if live_matches %}
+        <div class="grid">
+            {% for match in live_matches %}
+                <div class="card" style="padding: 20px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        {% if match.team_a.logo %}
+                            <img src="{{ match.team_a.logo.url }}" alt="{{ match.team_a.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                        {% elif match.team_a.logo_url %}
+                            <img src="{{ match.team_a.logo_url }}" alt="{{ match.team_a.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                        {% else %}
+                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-weight: 600;">
+                                {{ match.team_a.name|first|upper }}
+                            </div>
+                        {% endif %}
+                        <span style="color: #718096; font-weight: 500;">vs</span>
+                        {% if match.team_b.logo %}
+                            <img src="{{ match.team_b.logo.url }}" alt="{{ match.team_b.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                        {% elif match.team_b.logo_url %}
+                            <img src="{{ match.team_b.logo_url }}" alt="{{ match.team_b.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                        {% else %}
+                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-weight: 600;">
+                                {{ match.team_b.name|first|upper }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">{{ match.team_a.name }} vs {{ match.team_b.name }}</h3>
+                    <p style="margin: 0 0 8px 0; color: #718096; font-size: 13px;">{{ match.match_title }}</p>
+                    <p style="margin: 0 0 12px 0; color: #718096; font-size: 12px;">{{ match.venue }}</p>
+                    <span class="status-badge status-live">Live</span>
+                    <a href="{% url 'core:match_detail' match.id %}" class="btn" style="width: 100%; margin-top: 12px; display: block; text-align: center;">View Match</a>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p style="color: #718096; text-align: center; padding: 40px 0;">No live matches at the moment.</p>
     {% endif %}
 </div>
 
-<h2 style="margin-bottom: 20px;">Live Matches</h2>
-{% if live_matches %}
-    <div class="grid">
-        {% for match in live_matches %}
-            <div class="card">
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                    {% if match.team_a.logo %}
-                        <img src="{{ match.team_a.logo.url }}" alt="{{ match.team_a.name }}" 
-                             style="width: 50px; height: 50px; object-fit: contain;">
-                    {% elif match.team_a.logo_url %}
-                        <img src="{{ match.team_a.logo_url }}" alt="{{ match.team_a.name }}" 
-                             style="width: 50px; height: 50px; object-fit: contain;">
-                    {% else %}
-                        <div style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                    display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px;">
-                            {{ match.team_a.name|first|upper }}
-                        </div>
-                    {% endif %}
-                    <span style="font-weight: bold; font-size: 18px;">vs</span>
-                    {% if match.team_b.logo %}
-                        <img src="{{ match.team_b.logo.url }}" alt="{{ match.team_b.name }}" 
-                             style="width: 50px; height: 50px; object-fit: contain;">
-                    {% elif match.team_b.logo_url %}
-                        <img src="{{ match.team_b.logo_url }}" alt="{{ match.team_b.name }}" 
-                             style="width: 50px; height: 50px; object-fit: contain;">
-                    {% else %}
-                        <div style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                    display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px;">
-                            {{ match.team_b.name|first|upper }}
-                        </div>
-                    {% endif %}
-                    <div style="flex: 1;">
-                        <h3 style="margin: 0;">{{ match.team_a.name }} vs {{ match.team_b.name }}</h3>
-                    </div>
-                </div>
-                <p><strong>{{ match.match_title }}</strong></p>
-                <p>{{ match.venue }}</p>
-                <p>Status: <span style="color: #4caf50; font-weight: bold;">{{ match.get_status_display }}</span></p>
-                <a href="{% url 'core:match_detail' match.id %}" class="btn">View Details</a>
-            </div>
-        {% endfor %}
+<div class="card">
+    <div class="card-header">
+        <h2>Upcoming Matches</h2>
     </div>
-{% else %}
-    <p>No live matches at the moment.</p>
-{% endif %}
-
-<h2 style="margin-top: 40px; margin-bottom: 20px;">Upcoming Matches</h2>
-{% if upcoming_matches %}
-    <div class="grid">
-        {% for match in upcoming_matches %}
-            <div class="card">
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
-                    {% if match.team_a.logo %}
-                        <img src="{{ match.team_a.logo.url }}" alt="{{ match.team_a.name }}" 
-                             style="width: 50px; height: 50px; object-fit: contain;">
-                    {% elif match.team_a.logo_url %}
-                        <img src="{{ match.team_a.logo_url }}" alt="{{ match.team_a.name }}" 
-                             style="width: 50px; height: 50px; object-fit: contain;">
-                    {% else %}
-                        <div style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                    display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px;">
-                            {{ match.team_a.name|first|upper }}
-                        </div>
-                    {% endif %}
-                    <span style="font-weight: bold; font-size: 18px;">vs</span>
-                    {% if match.team_b.logo %}
-                        <img src="{{ match.team_b.logo.url }}" alt="{{ match.team_b.name }}" 
-                             style="width: 50px; height: 50px; object-fit: contain;">
-                    {% elif match.team_b.logo_url %}
-                        <img src="{{ match.team_b.logo_url }}" alt="{{ match.team_b.name }}" 
-                             style="width: 50px; height: 50px; object-fit: contain;">
-                    {% else %}
-                        <div style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                    display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px;">
-                            {{ match.team_b.name|first|upper }}
-                        </div>
-                    {% endif %}
-                    <div style="flex: 1;">
-                        <h3 style="margin: 0;">{{ match.team_a.name }} vs {{ match.team_b.name }}</h3>
+    {% if upcoming_matches %}
+        <div class="grid">
+            {% for match in upcoming_matches %}
+                <div class="card" style="padding: 20px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        {% if match.team_a.logo %}
+                            <img src="{{ match.team_a.logo.url }}" alt="{{ match.team_a.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                        {% elif match.team_a.logo_url %}
+                            <img src="{{ match.team_a.logo_url }}" alt="{{ match.team_a.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                        {% else %}
+                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-weight: 600;">
+                                {{ match.team_a.name|first|upper }}
+                            </div>
+                        {% endif %}
+                        <span style="color: #718096; font-weight: 500;">vs</span>
+                        {% if match.team_b.logo %}
+                            <img src="{{ match.team_b.logo.url }}" alt="{{ match.team_b.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                        {% elif match.team_b.logo_url %}
+                            <img src="{{ match.team_b.logo_url }}" alt="{{ match.team_b.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                        {% else %}
+                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-weight: 600;">
+                                {{ match.team_b.name|first|upper }}
+                            </div>
+                        {% endif %}
                     </div>
+                    <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">{{ match.team_a.name }} vs {{ match.team_b.name }}</h3>
+                    <p style="margin: 0 0 8px 0; color: #718096; font-size: 13px;">{{ match.match_title }}</p>
+                    <p style="margin: 0 0 12px 0; color: #718096; font-size: 12px;">{{ match.venue }} • {{ match.match_date|date:"M d, Y H:i" }}</p>
+                    <span class="status-badge status-upcoming">Upcoming</span>
+                    <a href="{% url 'core:match_detail' match.id %}" class="btn" style="width: 100%; margin-top: 12px; display: block; text-align: center;">View Match</a>
                 </div>
-                <p><strong>{{ match.match_title }}</strong></p>
-                <p>{{ match.venue }}</p>
-                <p>Date: {{ match.match_date|date:"M d, Y H:i" }}</p>
-                <a href="{% url 'core:match_detail' match.id %}" class="btn">View Details</a>
-            </div>
-        {% endfor %}
-    </div>
-{% else %}
-    <p>No upcoming matches.</p>
-{% endif %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <p style="color: #718096; text-align: center; padding: 40px 0;">No upcoming matches.</p>
+    {% endif %}
+</div>
 
 {% if active_sessions %}
-    <h2 style="margin-top: 40px; margin-bottom: 20px;">My Active Sessions</h2>
+<div class="card">
+    <div class="card-header">
+        <h2>My Active Sessions</h2>
+    </div>
     <div class="grid">
         {% for session in active_sessions %}
-            <div class="card">
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+            <div class="card" style="padding: 20px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                     {% if session.better_a == user %}
                         {% with opponent=session.better_b %}
                             {% if opponent.profile.profile_picture %}
-                                <img src="{{ opponent.profile.profile_picture.url }}" alt="{{ opponent.username }}" 
-                                     style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                                <img src="{{ opponent.profile.profile_picture.url }}" alt="{{ opponent.username }}" class="user-avatar">
                             {% else %}
-                                <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
-                                    {{ opponent.username|first|upper }}
-                                </div>
+                                <div class="user-avatar-placeholder">{{ opponent.username|first|upper }}</div>
                             {% endif %}
                         {% endwith %}
                     {% else %}
                         {% with opponent=session.better_a %}
                             {% if opponent.profile.profile_picture %}
-                                <img src="{{ opponent.profile.profile_picture.url }}" alt="{{ opponent.username }}" 
-                                     style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                                <img src="{{ opponent.profile.profile_picture.url }}" alt="{{ opponent.username }}" class="user-avatar">
                             {% else %}
-                                <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
-                                    {{ opponent.username|first|upper }}
-                                </div>
+                                <div class="user-avatar-placeholder">{{ opponent.username|first|upper }}</div>
                             {% endif %}
                         {% endwith %}
                     {% endif %}
                     <div style="flex: 1;">
-                        <h3 style="margin: 0;">Session #{{ session.id }}</h3>
-                        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
-                            {% if session.match.team_a.logo %}
-                                <img src="{{ session.match.team_a.logo.url }}" alt="{{ session.match.team_a.name }}" 
-                                     style="width: 30px; height: 30px; object-fit: contain;">
-                            {% elif session.match.team_a.logo_url %}
-                                <img src="{{ session.match.team_a.logo_url }}" alt="{{ session.match.team_a.name }}" 
-                                     style="width: 30px; height: 30px; object-fit: contain;">
-                            {% else %}
-                                <div style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">
-                                    {{ session.match.team_a.name|first|upper }}
-                                </div>
-                            {% endif %}
-                            <span style="font-weight: bold;">vs</span>
-                            {% if session.match.team_b.logo %}
-                                <img src="{{ session.match.team_b.logo.url }}" alt="{{ session.match.team_b.name }}" 
-                                     style="width: 30px; height: 30px; object-fit: contain;">
-                            {% elif session.match.team_b.logo_url %}
-                                <img src="{{ session.match.team_b.logo_url }}" alt="{{ session.match.team_b.name }}" 
-                                     style="width: 30px; height: 30px; object-fit: contain;">
-                            {% else %}
-                                <div style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                            display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">
-                                    {{ session.match.team_b.name|first|upper }}
-                                </div>
-                            {% endif %}
-                            <strong style="margin-left: 5px;">{{ session.match.team_a.name }} vs {{ session.match.team_b.name }}</strong>
-                        </div>
+                        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Session #{{ session.id }}</h3>
+                        <p style="margin: 4px 0 0 0; color: #718096; font-size: 13px;">
+                            vs <strong>{% if session.better_a == user %}{{ session.better_b.username }}{% else %}{{ session.better_a.username }}{% endif %}</strong>
+                        </p>
                     </div>
                 </div>
-                <p>Status: {{ session.get_status_display }}</p>
-                <p>vs: {% if session.better_a == user %}{{ session.better_b.username }}{% else %}{{ session.better_a.username }}{% endif %}</p>
-                <a href="{% url 'core:session_detail' session.id %}" class="btn">View Session</a>
+                <p style="margin: 0 0 8px 0; color: #718096; font-size: 13px;">{{ session.match.team_a.name }} vs {{ session.match.team_b.name }}</p>
+                <span class="status-badge {% if session.status == 'completed' %}status-completed{% elif session.status == 'betting' %}status-warning{% else %}status-info{% endif %}">
+                    {{ session.get_status_display }}
+                </span>
+                <a href="{% url 'core:session_detail' session.id %}" class="btn" style="width: 100%; margin-top: 12px; display: block; text-align: center;">Continue</a>
             </div>
         {% endfor %}
     </div>
+</div>
 {% endif %}
 {% endblock %}

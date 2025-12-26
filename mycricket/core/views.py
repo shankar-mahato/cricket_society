@@ -334,9 +334,14 @@ def place_bet(request, session_id):
         data = json.loads(request.body)
         picked_player_id = data.get('picked_player_id')
         amount_per_run = Decimal(str(data.get('amount_per_run', 0)))
+        insurance_percentage = Decimal(str(data.get('insurance_percentage', 0)))
         
         if amount_per_run <= 0:
             return JsonResponse({'success': False, 'error': 'Amount must be greater than 0'})
+        
+        # Validate insurance percentage (0-20%)
+        if insurance_percentage < 0 or insurance_percentage > 20:
+            return JsonResponse({'success': False, 'error': 'Insurance percentage must be between 0 and 20'})
         
         picked_player = get_object_or_404(PickedPlayer, id=picked_player_id, session=session, better=request.user)
         
@@ -347,15 +352,46 @@ def place_bet(request, session_id):
         # Get or create wallet
         wallet, _ = Wallet.objects.get_or_create(user=request.user)
         
-        # Note: We're not deducting money here as it's per-run betting
-        # Money will be deducted when match ends based on actual runs
+        # Calculate insurance if requested
+        insurance_premium = Decimal('0.00')
+        insured_amount = Decimal('0.00')
         
-        # Create bet
+        if insurance_percentage > 0:
+            # Create temporary bet object to calculate insurance
+            temp_bet = Bet(
+                amount_per_run=amount_per_run,
+                insurance_percentage=insurance_percentage
+            )
+            premium, insured_amt = temp_bet.calculate_insurance(estimated_max_runs=100)
+            insurance_premium = premium
+            insured_amount = insured_amt
+            
+            # Check if user has enough balance for insurance premium
+            if wallet.balance < insurance_premium:
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'Insufficient balance. Insurance premium: ₹{insurance_premium}, Your balance: ₹{wallet.balance}'
+                })
+            
+            # Deduct insurance premium immediately
+            wallet.withdraw(insurance_premium)
+            Transaction.objects.create(
+                user=request.user,
+                transaction_type='insurance_premium',
+                amount=insurance_premium,
+                balance_after=wallet.balance,
+                description=f'Insurance premium for bet on {picked_player.player.name}'
+            )
+        
+        # Create bet with insurance details
         bet = Bet.objects.create(
             session=session,
             better=request.user,
             picked_player=picked_player,
-            amount_per_run=amount_per_run
+            amount_per_run=amount_per_run,
+            insurance_percentage=insurance_percentage,
+            insurance_premium=insurance_premium,
+            insured_amount=insured_amount
         )
         
         # Check if all bets are placed
@@ -366,10 +402,16 @@ def place_bet(request, session_id):
             session.bets_completed = True
             session.save()
         
+        message = f'Bet placed: ₹{amount_per_run} per run'
+        if insurance_percentage > 0:
+            message += f' (Insurance: {insurance_percentage}%, Premium: ₹{insurance_premium})'
+        
         return JsonResponse({
             'success': True,
-            'message': f'Bet placed: ₹{amount_per_run} per run',
-            'bets_completed': session.bets_completed
+            'message': message,
+            'bets_completed': session.bets_completed,
+            'insurance_premium': float(insurance_premium),
+            'insured_amount': float(insured_amount)
         })
         
     except Exception as e:
@@ -451,6 +493,26 @@ def settle_session(request, session_id):
             # Update bet with runs scored
             bet.runs_scored = runs_scored
             bet.calculate_payout()
+            
+            # Process insurance if applicable
+            insurance_refund = Decimal('0.00')
+            if bet.insurance_percentage > 0 and bet.should_claim_insurance(threshold_runs=20):
+                # User "lost" (low runs), refund insured amount
+                insurance_refund = bet.insured_amount
+                bet.insurance_claimed = True
+                bet.insurance_refunded = insurance_refund
+                
+                # Refund insured amount to user's wallet
+                wallet = Wallet.objects.get(user=bet.better)
+                wallet.deposit(insurance_refund)
+                Transaction.objects.create(
+                    user=bet.better,
+                    transaction_type='insurance_refund',
+                    amount=insurance_refund,
+                    balance_after=wallet.balance,
+                    description=f'Insurance refund for bet on {bet.picked_player.player.name} (scored {runs_scored} runs)'
+                )
+            
             bet.is_settled = True
             bet.save()
             
@@ -461,11 +523,12 @@ def settle_session(request, session_id):
                 defaults={'runs_scored': runs_scored}
             )
             
-            # Add to respective better's total
+            # Add to respective better's total (payout + insurance refund if applicable)
+            total_for_better = bet.total_payout + insurance_refund
             if bet.better == session.better_a:
-                better_a_total += bet.total_payout
+                better_a_total += total_for_better
             else:
-                better_b_total += bet.total_payout
+                better_b_total += total_for_better
         
         # Update session totals
         session.better_a_total_winnings = better_a_total

@@ -158,11 +158,15 @@ if os.environ.get('DEBUG') is not None:
 # EMAIL_USE_TLS = True
 # EMAIL_HOST_USER = 'your-email@gmail.com'
 # EMAIL_HOST_PASSWORD = 'your-app-password'
-# DEFAULT_FROM_EMAIL = 'CricketDuel <noreply@cricketduel.com>'
+# DEFAULT_FROM_EMAIL = 'CricketSociety <noreply@cricketsociety.com>'
 
 # Cricket API settings (optional - for future API integration)
 # CRICKET_API_KEY = 'your_api_key_here'
 # CRICKET_API_URL = 'https://api.example.com/v1'
+
+# The Odds API settings
+ODDS_API_KEY = '5218daaaf239f6111130008841138480'
+ODDS_API_BASE_URL = 'https://api.the-odds-api.com/v4'
 
 # Logging configuration
 LOGGING = {
