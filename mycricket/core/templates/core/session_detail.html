@@ -898,10 +898,12 @@ function updateSessionState(data) {
         removePickedPlayersFromAvailable(data);
     }
     
-    // Show notification for opponent's picks
+    // Show notification for opponent's picks and reload page
+    let opponentPicked = false;
     if (data.recent_picks && data.recent_picks.length > 0) {
         data.recent_picks.forEach(pick => {
             if (pick.is_opponent && pick.picked_at > lastUpdateTime) {
+                opponentPicked = true;
                 const message = `${pick.better_username} picked ${pick.player_name}`;
                 showNotification('Player Picked!', message);
                 showToast(`👤 ${message}`, 'info');
@@ -912,8 +914,9 @@ function updateSessionState(data) {
     // Update last update time
     lastUpdateTime = data.updated_at;
     
-    // If status changed or picks completed, reload page for full update
-    if (data.status !== '{{ session.status }}' || data.picks_completed) {
+    // Reload page if opponent picked a player (to show updated available players list)
+    // or if status changed or picks completed
+    if (opponentPicked || data.status !== '{{ session.status }}' || data.picks_completed) {
         setTimeout(() => {
             location.reload();
         }, 1000);
