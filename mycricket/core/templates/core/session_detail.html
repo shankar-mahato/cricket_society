@@ -99,6 +99,9 @@
 
 <!-- Step 2: Picking Players -->
 {% if session.status == 'picking' %}
+    <!-- Toast notification container -->
+    <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 10000; max-width: 350px;"></div>
+    
     <div class="card" id="turn-indicator" data-is-my-turn="{% if is_my_turn %}true{% else %}false{% endif %}" data-current-turn-user="{{ session.current_turn.username|default:'' }}">
         {% if is_my_turn %}
             <div style="background: #ebf8ff; padding: 16px; border-radius: 6px; border-left: 4px solid #4299e1;">
@@ -109,6 +112,7 @@
             <div style="background: #fffaf0; padding: 16px; border-radius: 6px; border-left: 4px solid #ed8936;">
                 <h3 style="margin: 0 0 8px 0; color: #7c2d12;">Waiting</h3>
                 <p style="margin: 0; color: #7c2d12;">Waiting for <strong>{{ session.current_turn.username }}</strong> to pick a player. This page will update automatically.</p>
+                <p style="margin: 8px 0 0 0; color: #7c2d12; font-size: 12px;">🔔 You'll be notified when it's your turn</p>
             </div>
         {% endif %}
     </div>
@@ -446,12 +450,20 @@ function confirmPick() {
         if (data.success) {
             document.getElementById('modalBody').innerHTML = `
                 <p style="color: #48bb78; font-size: 14px;">Player selected successfully!</p>
+                <p style="color: #718096; font-size: 12px; margin-top: 8px;">${data.picked_player_name} has been picked.</p>
             `;
             confirmBtn.style.display = 'none';
+            
+            // Update last update time
+            if (data.updated_at) {
+                lastUpdateTime = data.updated_at;
+            }
+            
+            // Reload after short delay to show updated state
             setTimeout(() => {
                 closeModal();
                 location.reload();
-            }, 1000);
+            }, 800);
         } else {
             document.getElementById('modalBody').innerHTML = `
                 <p style="color: #f56565;">Error: ${data.error}</p>
@@ -560,27 +572,211 @@ function confirmAction() {
 }
 
 {% if session.status == 'picking' %}
+// Real-time session updates
 let pollingInterval = null;
+let lastUpdateTime = '{{ session.updated_at.isoformat }}';
+let updateCheckInProgress = false;
 const turnIndicator = document.getElementById('turn-indicator');
-if (turnIndicator && turnIndicator.dataset.isMyTurn !== 'true') {
-    pollingInterval = setInterval(() => {
-        if (document.visibilityState !== 'visible') return;
-        fetch(window.location.href, {
-            headers: {'Cache-Control': 'no-cache', 'X-Requested-With': 'XMLHttpRequest'}
-        })
-        .then(response => response.text())
-        .then(html => {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const newIndicator = doc.getElementById('turn-indicator');
-            if (newIndicator && newIndicator.dataset.isMyTurn === 'true') {
-                clearInterval(pollingInterval);
-                location.reload();
-            }
-        })
-        .catch(() => {});
-    }, 5000);
+const currentTurnUserId = {% if session.current_turn %}{{ session.current_turn.id }}{% else %}null{% endif %};
+const currentUserId = {{ user.id }};
+
+// Request notification permission
+if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
 }
+
+function showNotification(title, message) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, {
+            body: message,
+            icon: '/static/favicon.ico',
+            tag: 'session-update',
+            requireInteraction: false
+        });
+    }
+}
+
+function showToast(message, type = 'info') {
+    const toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) return;
+    
+    const toast = document.createElement('div');
+    const bgColor = type === 'success' ? '#48bb78' : type === 'warning' ? '#ed8936' : '#4299e1';
+    toast.style.cssText = `
+        background: ${bgColor};
+        color: white;
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        animation: slideIn 0.3s ease-out;
+        cursor: pointer;
+    `;
+    toast.textContent = message;
+    
+    // Add animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    `;
+    if (!document.getElementById('toast-styles')) {
+        style.id = 'toast-styles';
+        document.head.appendChild(style);
+    }
+    
+    toastContainer.appendChild(toast);
+    
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, 4000);
+    
+    // Click to dismiss
+    toast.addEventListener('click', () => {
+        toast.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    });
+}
+
+function updateSessionState(data) {
+    // Update turn indicator
+    if (turnIndicator) {
+        const isMyTurn = data.is_my_turn;
+        const currentTurnUsername = data.current_turn || 'Waiting...';
+        
+        if (isMyTurn) {
+            turnIndicator.innerHTML = `
+                <div style="background: #ebf8ff; padding: 16px; border-radius: 6px; border-left: 4px solid #4299e1;">
+                    <h3 style="margin: 0 0 8px 0; color: #2c5282;">Your Turn</h3>
+                    <p style="margin: 0; color: #2c5282;">Select a player from either team below. You need to pick {{ session.players_per_side }} players from each team.</p>
+                </div>
+            `;
+            
+            // Show notification if it just became your turn
+            if (turnIndicator.dataset.isMyTurn !== 'true') {
+                showNotification('Your Turn!', 'It\'s your turn to pick a player');
+                showToast('🎯 It\'s your turn to pick a player!', 'success');
+            }
+        } else {
+            turnIndicator.innerHTML = `
+                <div style="background: #fffaf0; padding: 16px; border-radius: 6px; border-left: 4px solid #ed8936;">
+                    <h3 style="margin: 0 0 8px 0; color: #7c2d12;">Waiting</h3>
+                    <p style="margin: 0; color: #7c2d12;">Waiting for <strong>${currentTurnUsername}</strong> to pick a player. This page will update automatically.</p>
+                </div>
+            `;
+        }
+        turnIndicator.dataset.isMyTurn = isMyTurn;
+    }
+    
+    // Show notification for opponent's picks
+    if (data.recent_picks && data.recent_picks.length > 0) {
+        data.recent_picks.forEach(pick => {
+            if (pick.is_opponent && pick.picked_at > lastUpdateTime) {
+                const message = `${pick.better_username} picked ${pick.player_name}`;
+                showNotification('Player Picked!', message);
+                showToast(`👤 ${message}`, 'info');
+            }
+        });
+    }
+    
+    // Update last update time
+    lastUpdateTime = data.updated_at;
+    
+    // If status changed or picks completed, reload page for full update
+    if (data.session_status !== '{{ session.status }}' || data.picks_completed) {
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+    }
+}
+
+function checkForUpdates() {
+    if (updateCheckInProgress || document.visibilityState !== 'visible') {
+        return;
+    }
+    
+    updateCheckInProgress = true;
+    
+    fetch(`{% url 'core:check_session_updates' session.id %}?last_update=${encodeURIComponent(lastUpdateTime)}`, {
+        headers: {
+            'Cache-Control': 'no-cache',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Network response was not ok');
+        return response.json();
+    })
+    .then(data => {
+        updateCheckInProgress = false;
+        
+        if (data.session_updated) {
+            updateSessionState(data);
+            
+            // If it's now my turn, reload to show player selection
+            if (data.is_my_turn && turnIndicator && turnIndicator.dataset.isMyTurn !== 'true') {
+                setTimeout(() => {
+                    location.reload();
+                }, 500);
+            }
+        }
+    })
+    .catch(error => {
+        updateCheckInProgress = false;
+        console.error('Error checking for updates:', error);
+    });
+}
+
+// Start polling when page is visible and it's not user's turn
+if (turnIndicator && turnIndicator.dataset.isMyTurn !== 'true') {
+    // Check immediately
+    checkForUpdates();
+    
+    // Then poll every 2 seconds for faster updates
+    pollingInterval = setInterval(checkForUpdates, 2000);
+    
+    // Also check when page becomes visible
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            checkForUpdates();
+        }
+    });
+}
+
+// Clean up on page unload
+window.addEventListener('beforeunload', () => {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+    }
+});
 {% endif %}
 </script>
 {% endblock %}

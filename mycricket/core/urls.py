@@ -12,6 +12,7 @@ urlpatterns = [
     path('session/<int:session_id>/join/', views.join_betting_session, name='join_betting_session'),
     path('session/<int:session_id>/toss/', views.perform_toss, name='perform_toss'),
     path('session/<int:session_id>/pick-player/', views.pick_player, name='pick_player'),
+    path('session/<int:session_id>/check-updates/', views.check_session_updates, name='check_session_updates'),
     path('session/<int:session_id>/place-bet/', views.place_bet, name='place_bet'),
     path('session/<int:session_id>/settle/', views.settle_session, name='settle_session'),
     path('wallet/', views.wallet_view, name='wallet'),

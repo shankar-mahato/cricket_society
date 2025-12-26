@@ -305,13 +305,22 @@ def pick_player(request, session_id):
         except IntegrityError:
             return JsonResponse({'success': False, 'error': 'This player was already picked. Please select another player.'})
         
+        # Get updated pick counts for both betters
+        better_a_picks = PickedPlayer.objects.filter(session=session, better=session.better_a).count()
+        better_b_picks = PickedPlayer.objects.filter(session=session, better=session.better_b).count()
+        
         return JsonResponse({
             'success': True,
             'message': f'Picked {player.name}',
             'picks_completed': session.picks_completed,
             'current_turn': session.current_turn.username if session.current_turn else None,
+            'current_turn_id': session.current_turn.id if session.current_turn else None,
             'session_status': session.status,
-            'is_my_turn': session.current_turn == request.user if session.current_turn else False
+            'is_my_turn': session.current_turn == request.user if session.current_turn else False,
+            'updated_at': session.updated_at.isoformat(),
+            'better_a_picks_count': better_a_picks,
+            'better_b_picks_count': better_b_picks,
+            'picked_player_name': player.name
         })
         
     except Exception as e:
@@ -564,3 +573,63 @@ def settle_session(request, session_id):
     
     messages.success(request, "Session settled successfully!")
     return redirect('core:session_detail', session_id=session_id)
+
+
+@login_required
+def check_session_updates(request, session_id):
+    """API endpoint to check for session state changes (for real-time updates)"""
+    session = get_object_or_404(BettingSession, id=session_id)
+    
+    # Check if user is part of this session
+    if session.better_a != request.user and session.better_b != request.user:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    # Get last update timestamp from request
+    last_update = request.GET.get('last_update')
+    
+    # Get current session state
+    better_a_picks = PickedPlayer.objects.filter(session=session, better=session.better_a).select_related('player')
+    better_b_picks = PickedPlayer.objects.filter(session=session, better=session.better_b).select_related('player')
+    
+    # Get recently picked players (in last 30 seconds) for notifications
+    from datetime import timedelta
+    recent_picks = PickedPlayer.objects.filter(
+        session=session,
+        picked_at__gte=timezone.now() - timedelta(seconds=30)
+    ).select_related('player', 'better').order_by('-picked_at')
+    
+    # Check if session was updated since last check
+    session_updated = True
+    if last_update:
+        try:
+            from django.utils.dateparse import parse_datetime
+            last_update_dt = parse_datetime(last_update)
+            if last_update_dt and session.updated_at <= last_update_dt:
+                session_updated = False
+        except:
+            pass
+    
+    # Build response
+    response_data = {
+        'session_id': session.id,
+        'status': session.status,
+        'current_turn': session.current_turn.username if session.current_turn else None,
+        'current_turn_id': session.current_turn.id if session.current_turn else None,
+        'is_my_turn': session.current_turn == request.user if session.current_turn else False,
+        'updated_at': session.updated_at.isoformat(),
+        'picks_completed': session.picks_completed,
+        'better_a_picks_count': better_a_picks.count(),
+        'better_b_picks_count': better_b_picks.count(),
+        'session_updated': session_updated,
+        'recent_picks': [
+            {
+                'player_name': pick.player.name,
+                'better_username': pick.better.username,
+                'picked_at': pick.picked_at.isoformat(),
+                'is_opponent': pick.better != request.user
+            }
+            for pick in recent_picks[:5]  # Last 5 picks
+        ]
+    }
+    
+    return JsonResponse(response_data)
