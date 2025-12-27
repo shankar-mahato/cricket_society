@@ -1,0 +1,254 @@
+{% extends 'core/dl/base.html' %}
+
+{% block title %}DL Home{% endblock %}
+
+{% block page_title %}Home{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-section {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 24px;
+    }
+    .filter-section h3 {
+        margin: 0 0 16px 0;
+        color: #2d3748;
+        font-size: 18px;
+        font-weight: 700;
+    }
+    .filter-checkboxes {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
+    .filter-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .filter-checkbox input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+    .filter-checkbox label {
+        font-size: 15px;
+        font-weight: 500;
+        color: #4a5568;
+        cursor: pointer;
+    }
+    .matches-section {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .matches-section h3 {
+        margin: 0 0 20px 0;
+        color: #2d3748;
+        font-size: 20px;
+        font-weight: 700;
+    }
+    .matches-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+    .match-card {
+        background: #f7fafc;
+        border-radius: 8px;
+        padding: 20px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+    .match-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-color: #4299e1;
+    }
+    .match-teams {
+        font-size: 18px;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 8px;
+    }
+    .match-title {
+        font-size: 14px;
+        color: #718096;
+        margin-bottom: 12px;
+    }
+    .match-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 12px;
+    }
+    .match-date {
+        font-size: 13px;
+        color: #718096;
+    }
+    .match-status {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .status-completed {
+        background: #d4edda;
+        color: #155724;
+    }
+    .status-live {
+        background: #fff3cd;
+        color: #856404;
+    }
+    .status-abandoned {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #718096;
+    }
+    .empty-state::before {
+        content: "📭";
+        font-size: 64px;
+        display: block;
+        margin-bottom: 16px;
+    }
+    
+    @media (max-width: 768px) {
+        .filter-section {
+            padding: 20px;
+        }
+        .filter-section h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        .filter-checkboxes {
+            flex-direction: column;
+            gap: 16px;
+        }
+        .filter-checkbox {
+            width: 100%;
+        }
+        .filter-checkbox label {
+            font-size: 14px;
+        }
+        .matches-section {
+            padding: 20px;
+        }
+        .matches-section h3 {
+            font-size: 18px;
+        }
+        .matches-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        .match-card {
+            padding: 16px;
+        }
+        .match-teams {
+            font-size: 16px;
+        }
+        .match-title {
+            font-size: 13px;
+        }
+        .match-info {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .match-date {
+            font-size: 12px;
+        }
+        .match-status {
+            font-size: 11px;
+            padding: 3px 10px;
+        }
+        .empty-state {
+            padding: 40px 20px;
+        }
+        .empty-state::before {
+            font-size: 48px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .filter-section {
+            padding: 16px;
+        }
+        .matches-section {
+            padding: 16px;
+        }
+        .matches-section h3 {
+            font-size: 16px;
+        }
+        .match-card {
+            padding: 12px;
+        }
+        .match-teams {
+            font-size: 15px;
+        }
+        .match-title {
+            font-size: 12px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Filter Section -->
+<div class="filter-section">
+    <h3>Filter Matches</h3>
+    <form method="get" id="filterForm">
+        <div class="filter-checkboxes">
+            <div class="filter-checkbox">
+                <input type="checkbox" id="completed" name="completed" value="true" 
+                       {% if show_completed %}checked{% endif %} onchange="this.form.submit()">
+                <label for="completed">Completed</label>
+            </div>
+            <div class="filter-checkbox">
+                <input type="checkbox" id="ongoing" name="ongoing" value="true" 
+                       {% if show_ongoing %}checked{% endif %} onchange="this.form.submit()">
+                <label for="ongoing">Ongoing</label>
+            </div>
+            <div class="filter-checkbox">
+                <input type="checkbox" id="suspended" name="suspended" value="true" 
+                       {% if show_suspended %}checked{% endif %} onchange="this.form.submit()">
+                <label for="suspended">Suspended</label>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Matches Section -->
+<div class="matches-section">
+    <h3>Matches ({{ matches.count }})</h3>
+    {% if matches %}
+    <div class="matches-grid">
+        {% for match in matches %}
+        <div class="match-card">
+            <div class="match-teams">{{ match.team_a.name }} vs {{ match.team_b.name }}</div>
+            <div class="match-title">{{ match.match_title }}</div>
+            <div class="match-info">
+                <div class="match-date">{{ match.match_date|date:"M d, Y H:i" }}</div>
+                <span class="match-status status-{{ match.status }}">
+                    {{ match.get_status_display }}
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No matches found with selected filters</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

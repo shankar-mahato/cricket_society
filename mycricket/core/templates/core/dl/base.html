@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DL User Panel{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+        }
+        .sidebar {
+            width: 260px;
+            background: #ffffff;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .sidebar-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2d3748;
+        }
+        .sidebar-nav {
+            padding: 20px 0;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 24px;
+            color: #4a5568;
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+        .nav-item:hover {
+            background: #f7fafc;
+            color: #2d3748;
+        }
+        .nav-item.active {
+            background: #ebf4ff;
+            color: #4299e1;
+            border-left-color: #4299e1;
+            font-weight: 600;
+        }
+        .nav-item-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        .main-content {
+            flex: 1;
+            margin-left: 260px;
+            min-height: 100vh;
+        }
+        .top-header {
+            background: #ffffff;
+            padding: 20px 32px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2d3748;
+        }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 16px;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .user-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        .user-role {
+            font-size: 12px;
+            color: #718096;
+        }
+        .logout-btn {
+            padding: 8px 16px;
+            background: #f56565;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .logout-btn:hover {
+            background: #e53e3e;
+        }
+        .content-area {
+            padding: 32px;
+        }
+        .page-header {
+            margin-bottom: 32px;
+        }
+        .page-header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+        .page-header p {
+            font-size: 16px;
+            color: #718096;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+        }
+        .messages {
+            margin-bottom: 24px;
+        }
+        .alert {
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 15px;
+            font-weight: 500;
+        }
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-error, .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .alert-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .sidebar-header {
+                padding: 16px;
+            }
+            .sidebar-nav {
+                display: flex;
+                padding: 0;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .nav-item {
+                padding: 12px 20px;
+                white-space: nowrap;
+                border-left: none;
+                border-bottom: 3px solid transparent;
+            }
+            .nav-item.active {
+                border-left: none;
+                border-bottom-color: #4299e1;
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .top-header {
+                padding: 16px;
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+            .header-title {
+                font-size: 20px;
+            }
+            .header-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .user-profile {
+                padding: 6px 12px;
+            }
+            .user-name {
+                font-size: 13px;
+            }
+            .user-role {
+                font-size: 11px;
+            }
+            .logout-btn {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+            .content-area {
+                padding: 16px;
+            }
+            .page-header h1 {
+                font-size: 24px;
+            }
+            .page-header p {
+                font-size: 14px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .sidebar-header {
+                padding: 12px;
+            }
+            .sidebar-logo {
+                width: 32px;
+                height: 32px;
+                font-size: 16px;
+            }
+            .sidebar-title {
+                font-size: 16px;
+            }
+            .nav-item {
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+            .nav-item-icon {
+                width: 20px;
+                height: 20px;
+                font-size: 16px;
+                margin-right: 8px;
+            }
+            .top-header {
+                padding: 12px;
+            }
+            .header-title {
+                font-size: 18px;
+            }
+            .header-actions {
+                flex-direction: column;
+                align-items: flex-start;
+                width: 100%;
+            }
+            .user-profile {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .user-avatar {
+                width: 32px;
+                height: 32px;
+                font-size: 14px;
+            }
+            .logout-btn {
+                width: 100%;
+                margin-top: 10px;
+            }
+            .content-area {
+                padding: 12px;
+            }
+            .page-header h1 {
+                font-size: 20px;
+            }
+            .page-header p {
+                font-size: 13px;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">DL</div>
+            <div class="sidebar-title">DL Panel</div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{% url 'core:dl_home' %}" class="nav-item {% if request.resolver_match.url_name == 'dl_home' %}active{% endif %}">
+                <span class="nav-item-icon">🏠</span>
+                Home
+            </a>
+            <a href="{% url 'core:dl_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dl_dashboard' or request.resolver_match.url_name == 'dl_add_user' %}active{% endif %}">
+                <span class="nav-item-icon">👥</span>
+                Client List
+            </a>
+            <a href="{% url 'core:dl_match_book' %}" class="nav-item {% if request.resolver_match.url_name == 'dl_match_book' %}active{% endif %}">
+                <span class="nav-item-icon">📖</span>
+                Match Book
+            </a>
+            <a href="{% url 'core:dl_reports' %}" class="nav-item {% if request.resolver_match.url_name == 'dl_reports' %}active{% endif %}">
+                <span class="nav-item-icon">📊</span>
+                Reports
+            </a>
+        </nav>
+    </div>
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-title">{% block page_title %}DL User Panel{% endblock %}</div>
+            <div class="header-actions">
+                <div class="user-profile">
+                    <div class="user-avatar">{{ user.username|first|upper }}</div>
+                    <div class="user-info">
+                        <span class="user-name">{{ user.username }}</span>
+                        <span class="user-role">DL User</span>
+                    </div>
+                </div>
+                <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-btn">Logout</button>
+                </form>
+            </div>
+        </header>
+        <div class="content-area">
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+

@@ -31,6 +31,17 @@ class UserProfile(models.Model):
                                help_text="Unique code for DL user")
     is_active = models.BooleanField(default=True)
     
+    # Client-specific fields (for end users)
+    max_win_limit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True,
+                                        default=Decimal('0.00'),
+                                        help_text="Maximum win limit for this client")
+    match_commission = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
+                                          default=Decimal('0.00'),
+                                          help_text="Commission percentage for matches")
+    session_commission = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True,
+                                            default=Decimal('0.00'),
+                                            help_text="Commission percentage for sessions")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

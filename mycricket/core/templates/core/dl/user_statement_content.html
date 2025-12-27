@@ -1,0 +1,395 @@
+<!-- Summary Cards -->
+<div class="summary-cards-grid">
+    <div class="summary-card card-cash-entry">
+        <div class="card-icon">💰</div>
+        <div class="card-label">Cash Entry</div>
+        <div class="card-value">₹{{ cash_net|floatformat:2 }}</div>
+        <div class="card-detail">Credit: ₹{{ cash_credit|floatformat:2 }} | Debit: ₹{{ cash_debit|floatformat:2 }}</div>
+    </div>
+    <div class="summary-card card-market-pl">
+        <div class="card-icon">📊</div>
+        <div class="card-label">Market Profit/Loss</div>
+        <div class="card-value {% if market_profit_loss >= 0 %}positive{% else %}negative{% endif %}">
+            {% if market_profit_loss >= 0 %}+{% endif %}₹{{ market_profit_loss|floatformat:2 }}
+        </div>
+    </div>
+    <div class="summary-card card-session-pl">
+        <div class="card-icon">🎯</div>
+        <div class="card-label">Session Profit/Loss</div>
+        <div class="card-value {% if session_profit_loss >= 0 %}positive{% else %}negative{% endif %}">
+            {% if session_profit_loss >= 0 %}+{% endif %}₹{{ session_profit_loss|floatformat:2 }}
+        </div>
+    </div>
+    <div class="summary-card card-market-commission">
+        <div class="card-icon">💵</div>
+        <div class="card-label">Market Commission</div>
+        <div class="card-value">₹{{ market_commission|floatformat:2 }}</div>
+    </div>
+    <div class="summary-card card-session-commission">
+        <div class="card-icon">💵</div>
+        <div class="card-label">Session Commission</div>
+        <div class="card-value">₹{{ session_commission|floatformat:2 }}</div>
+    </div>
+    <div class="summary-card card-total-pl">
+        <div class="card-icon">📈</div>
+        <div class="card-label">Total Profit/Loss</div>
+        <div class="card-value {% if total_profit_loss >= 0 %}positive{% else %}negative{% endif %}">
+            {% if total_profit_loss >= 0 %}+{% endif %}₹{{ total_profit_loss|floatformat:2 }}
+        </div>
+    </div>
+    <div class="summary-card card-balance">
+        <div class="card-icon">💳</div>
+        <div class="card-label">Current Balance</div>
+        <div class="card-value">₹{{ current_balance|floatformat:2 }}</div>
+    </div>
+    <div class="summary-card card-bets">
+        <div class="card-icon">🎲</div>
+        <div class="card-label">Total Bets</div>
+        <div class="card-value">₹{{ total_bets|floatformat:2 }}</div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="filter-section">
+    <div class="filter-label">Filter:</div>
+    <div class="filter-buttons">
+        <button class="filter-btn {% if filter_type == 'all' %}active{% endif %}" 
+                onclick="filterStatement('all')">All</button>
+        <button class="filter-btn {% if filter_type == 'cash_and_market' %}active{% endif %}" 
+                onclick="filterStatement('cash_and_market')">Cash Entry & Market P/L</button>
+        <button class="filter-btn {% if filter_type == 'cash_only' %}active{% endif %}" 
+                onclick="filterStatement('cash_only')">Cash Entry</button>
+        <button class="filter-btn {% if filter_type == 'market_commission' %}active{% endif %}" 
+                onclick="filterStatement('market_commission')">Market Commission</button>
+        <button class="filter-btn {% if filter_type == 'session_pl' %}active{% endif %}" 
+                onclick="filterStatement('session_pl')">Session P/L</button>
+        <button class="filter-btn {% if filter_type == 'total_pl' %}active{% endif %}" 
+                onclick="filterStatement('total_pl')">Total P/L</button>
+        <button class="filter-btn {% if filter_type == 'market_pl' %}active{% endif %}" 
+                onclick="filterStatement('market_pl')">Market P/L</button>
+    </div>
+</div>
+
+<!-- Statement Table -->
+<div class="table-container">
+    <div class="table-header">
+        <h2>Statement Details</h2>
+    </div>
+    {% if statement_entries %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>Credit</th>
+                    <th>Debit</th>
+                    <th>Balance</th>
+                    <th>Bets</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in statement_entries %}
+                <tr class="entry-{{ entry.entry_type }}">
+                    <td>{{ entry.date|date:"M d, Y H:i" }}</td>
+                    <td>
+                        <span class="type-badge type-{{ entry.entry_type }}">
+                            {{ entry.type }}
+                        </span>
+                    </td>
+                    <td>{{ entry.description }}</td>
+                    <td class="amount credit">
+                        {% if entry.credit > 0 %}₹{{ entry.credit|floatformat:2 }}{% else %}-{% endif %}
+                    </td>
+                    <td class="amount debit">
+                        {% if entry.debit > 0 %}₹{{ entry.debit|floatformat:2 }}{% else %}-{% endif %}
+                    </td>
+                    <td class="amount balance">₹{{ entry.balance|floatformat:2 }}</td>
+                    <td class="amount bets">
+                        {% if entry.bets > 0 %}₹{{ entry.bets|floatformat:2 }}{% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="padding: 60px; text-align: center; color: #718096;">
+        <p>No entries found for selected filter</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .summary-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .summary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    .card-icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+    }
+    .card-label {
+        font-size: 13px;
+        color: #718096;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    .card-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 4px;
+    }
+    .card-value.positive {
+        color: #48bb78;
+    }
+    .card-value.negative {
+        color: #f56565;
+    }
+    .card-detail {
+        font-size: 11px;
+        color: #a0aec0;
+        margin-top: 4px;
+    }
+    .card-cash-entry {
+        border-left: 4px solid #4299e1;
+    }
+    .card-market-pl {
+        border-left: 4px solid #667eea;
+    }
+    .card-session-pl {
+        border-left: 4px solid #9f7aea;
+    }
+    .card-market-commission {
+        border-left: 4px solid #ed8936;
+    }
+    .card-session-commission {
+        border-left: 4px solid #f56565;
+    }
+    .card-total-pl {
+        border-left: 4px solid #48bb78;
+    }
+    .card-balance {
+        border-left: 4px solid #38b2ac;
+    }
+    .card-bets {
+        border-left: 4px solid #805ad5;
+    }
+    
+    .filter-section {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+    }
+    .filter-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 12px;
+    }
+    .filter-buttons {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .filter-btn {
+        padding: 8px 16px;
+        border: 1px solid #cbd5e0;
+        background: white;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #4a5568;
+    }
+    .filter-btn:hover {
+        background: #f7fafc;
+        border-color: #4299e1;
+    }
+    .filter-btn.active {
+        background: #4299e1;
+        color: white;
+        border-color: #4299e1;
+    }
+    
+    .table-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+    }
+    .table-header {
+        padding: 20px 24px;
+        border-bottom: 2px solid #e2e8f0;
+        background: #f7fafc;
+    }
+    .table-header h2 {
+        margin: 0;
+        color: #2d3748;
+        font-size: 18px;
+        font-weight: 700;
+    }
+    .table-wrapper {
+        overflow-x: auto;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    thead {
+        background: #f7fafc;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    th {
+        padding: 12px 16px;
+        text-align: left;
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #e2e8f0;
+        white-space: nowrap;
+    }
+    td {
+        padding: 12px 16px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #4a5568;
+        font-size: 13px;
+    }
+    tr:hover {
+        background: #f7fafc;
+    }
+    .type-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .type-cash {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+    .type-session {
+        background: #f3e8ff;
+        color: #6b21a8;
+    }
+    .amount {
+        font-weight: 600;
+        text-align: right;
+    }
+    .amount.credit {
+        color: #48bb78;
+    }
+    .amount.debit {
+        color: #f56565;
+    }
+    .amount.balance {
+        color: #2d3748;
+    }
+    .amount.bets {
+        color: #667eea;
+    }
+    
+    @media (max-width: 768px) {
+        .summary-cards-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .filter-buttons {
+            flex-direction: column;
+        }
+        .filter-btn {
+            width: 100%;
+        }
+        .table-wrapper {
+            max-height: 400px;
+        }
+        th, td {
+            padding: 10px 12px;
+            font-size: 12px;
+        }
+    }
+</style>
+
+<script>
+// Store user ID globally for filter function
+window.currentStatementUserId = {{ end_user.id }};
+
+// Define filter function
+window.filterStatement = function(filterType) {
+    const container = document.getElementById('statementContent');
+    const userId = window.currentStatementUserId;
+    
+    if (!userId) {
+        console.error('Could not determine user ID');
+        return;
+    }
+    
+    // Show loading
+    if (container) {
+        container.innerHTML = '<p style="text-align: center; padding: 40px;">Loading...</p>';
+    }
+    
+    // Construct URL properly
+    const baseUrl = window.location.origin + '/dl/user/' + userId + '/statement/';
+    const url = baseUrl + '?filter=' + filterType;
+    
+    fetch(url, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.text();
+    })
+    .then(html => {
+        if (container) {
+            container.innerHTML = html;
+            // Re-execute any scripts in the loaded content
+            const scripts = container.querySelectorAll('script');
+            scripts.forEach(oldScript => {
+                const newScript = document.createElement('script');
+                newScript.textContent = oldScript.textContent;
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        if (container) {
+            container.innerHTML = '<p style="color: red; text-align: center; padding: 40px;">Error loading filtered data. Please try again.</p>';
+        }
+    });
+};
+</script>

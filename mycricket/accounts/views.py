@@ -73,8 +73,8 @@ class CustomLoginView(LoginView):
         if hasattr(user, 'profile'):
             profile = user.profile
             if profile.user_type == 'dl':
-                # DL User - redirect to DL dashboard
-                return reverse_lazy('core:dl_dashboard')
+                # DL User - redirect to DL home
+                return reverse_lazy('core:dl_home')
             # End users go to home page
         
         # Default redirect to home page

@@ -1,0 +1,121 @@
+{% extends 'core/dl/base.html' %}
+
+{% block title %}Add Client{% endblock %}
+
+{% block page_title %}Add Client{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Create New Client</h1>
+    <p>Create a new client account and assign to your DL</p>
+</div>
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 16px;">
+            <label for="username" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Username *</label>
+            <input type="text" id="username" name="username" required 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="Enter username">
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+            <label for="password" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Password *</label>
+            <input type="password" id="password" name="password" required 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="Enter password">
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 14px;">Password should be at least 8 characters long</p>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+            <label for="initial_balance" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Initial Points (Optional)</label>
+            <input type="number" id="initial_balance" name="initial_balance" step="0.01" min="0" 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="0.00">
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 14px;">Initial amount to credit to user wallet (leave 0 if not needed)</p>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+            <label for="max_win_limit" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Max Win Limit (Optional)</label>
+            <input type="number" id="max_win_limit" name="max_win_limit" step="0.01" min="0" 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="0.00">
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 14px;">Maximum amount this client can win (leave 0 for unlimited)</p>
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+            <label for="match_commission" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Match Commission % (Optional)</label>
+            <input type="number" id="match_commission" name="match_commission" step="0.01" min="0" max="100" 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="0.00">
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 14px;">Commission percentage for matches (0-100)</p>
+        </div>
+        
+        <div style="margin-bottom: 24px;">
+            <label for="session_commission" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Session Commission % (Optional)</label>
+            <input type="number" id="session_commission" name="session_commission" step="0.01" min="0" max="100" 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="0.00">
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 14px;">Commission percentage for sessions (0-100)</p>
+        </div>
+        
+        <div style="display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap;">
+            <button type="submit" style="flex: 1; min-width: 120px; padding: 12px 20px; background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(66, 153, 225, 0.3); min-height: 44px;">
+                <span>➕ Create Client</span>
+            </button>
+            <a href="{% url 'core:dl_dashboard' %}" style="flex: 1; min-width: 120px; padding: 12px 20px; background: #e2e8f0; color: #2d3748; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; text-align: center; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; min-height: 44px;">
+                Cancel
+            </a>
+        </div>
+        <style>
+            button[type="submit"]:hover {
+                background: linear-gradient(135deg, #3182ce 0%, #2c5aa0 100%) !important;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(66, 153, 225, 0.4) !important;
+            }
+            button[type="submit"]:active {
+                transform: translateY(0);
+            }
+            a[href*="dl_dashboard"]:hover {
+                background: #cbd5e0 !important;
+                transform: translateY(-2px);
+            }
+            @media (max-width: 768px) {
+                .card {
+                    padding: 20px;
+                }
+                .page-header h1 {
+                    font-size: 24px;
+                }
+                .page-header p {
+                    font-size: 14px;
+                }
+                div[style*="display: flex"][style*="margin-top: 24px"] {
+                    flex-direction: column;
+                }
+                button[type="submit"],
+                a[href*="dl_dashboard"] {
+                    width: 100% !important;
+                    min-width: 100% !important;
+                }
+            }
+            @media (max-width: 480px) {
+                .card {
+                    padding: 16px;
+                }
+                .page-header h1 {
+                    font-size: 20px;
+                }
+                input[type="text"],
+                input[type="password"],
+                input[type="number"] {
+                    font-size: 16px !important; /* Prevents zoom on iOS */
+                }
+            }
+        </style>
+    </form>
+</div>
+{% endblock %}
+

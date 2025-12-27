@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
@@ -35,8 +35,8 @@ def home(request):
     if hasattr(request.user, 'profile'):
         profile = request.user.profile
         if profile.user_type == 'dl':
-            # DL User - redirect to DL dashboard
-            return redirect('core:dl_dashboard')
+            # DL User - redirect to DL home
+            return redirect('core:dl_home')
         # End users continue to home page
     
     # Get matches from database (synced from API)
@@ -1557,8 +1557,9 @@ def reset_dl_password(request, dl_user_id):
 
 @login_required
 def dl_dashboard(request):
-    """DL user dashboard"""
+    """DL user dashboard with client list and statistics"""
     from accounts.models import UserProfile
+    from django.db.models import Q, Sum, F
     
     # Check if user is DL
     if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
@@ -1568,8 +1569,75 @@ def dl_dashboard(request):
     # Get DL wallet
     dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=request.user)
     
-    # Get end users assigned to this DL
-    end_users = User.objects.filter(profile__dl_user=request.user)
+    # Get search and filter parameters
+    search_query = request.GET.get('search', '').strip()
+    active_filter = request.GET.get('active', '')
+    
+    # Base queryset for end users
+    end_users_qs = User.objects.filter(profile__dl_user=request.user).select_related('profile', 'wallet')
+    
+    # Apply search filter
+    if search_query:
+        end_users_qs = end_users_qs.filter(
+            Q(username__icontains=search_query) |
+            Q(email__icontains=search_query)
+        )
+    
+    # Apply active filter
+    if active_filter == 'active':
+        end_users_qs = end_users_qs.filter(profile__is_active=True)
+    elif active_filter == 'inactive':
+        end_users_qs = end_users_qs.filter(profile__is_active=False)
+    
+    # Ensure all end users have wallets
+    for end_user in end_users_qs:
+        if not hasattr(end_user, 'wallet'):
+            Wallet.objects.get_or_create(user=end_user)
+    
+    # Refresh the queryset
+    end_users = User.objects.filter(id__in=end_users_qs.values_list('id', flat=True)).select_related('profile', 'wallet')
+    
+    # Calculate statistics for each client
+    client_stats = []
+    for end_user in end_users:
+        # Get all betting sessions involving this client
+        sessions = BettingSession.objects.filter(
+            Q(better_a=end_user) | Q(better_b=end_user)
+        ).exclude(status='cancelled')
+        
+        # Calculate Profit/Loss
+        profit_loss = Decimal('0.00')
+        for session in sessions:
+            if session.status == 'completed':
+                if session.better_a == end_user:
+                    profit_loss += (session.better_a_total_winnings - session.fixed_bet_amount)
+                elif session.better_b == end_user:
+                    profit_loss += (session.better_b_total_winnings - session.fixed_bet_amount)
+            elif session.status in ['picking', 'betting', 'live']:
+                # For ongoing sessions, subtract the bet amount as potential loss
+                profit_loss -= session.fixed_bet_amount
+        
+        # Calculate Liability (sum of fixed_bet_amount for ongoing sessions)
+        liability = sessions.filter(status__in=['picking', 'betting', 'live']).aggregate(
+            total=Sum('fixed_bet_amount')
+        )['total'] or Decimal('0.00')
+        
+        # Get client profile data
+        profile = end_user.profile if hasattr(end_user, 'profile') else None
+        wallet = end_user.wallet if hasattr(end_user, 'wallet') else None
+        
+        client_stats.append({
+            'user': end_user,
+            'profile': profile,
+            'wallet': wallet,
+            'profit_loss': profit_loss,
+            'liability': liability,
+            'balance': wallet.balance if wallet else Decimal('0.00'),
+            'max_win_limit': profile.max_win_limit if profile and profile.max_win_limit else Decimal('0.00'),
+            'match_commission': profile.match_commission if profile and profile.match_commission else Decimal('0.00'),
+            'session_commission': profile.session_commission if profile and profile.session_commission else Decimal('0.00'),
+            'is_active': profile.is_active if profile else True,
+        })
     
     # Get pending deposit requests
     pending_requests = DepositRequest.objects.filter(
@@ -1578,15 +1646,17 @@ def dl_dashboard(request):
     ).order_by('-requested_at')
     
     # Statistics
-    total_end_users = end_users.count()
+    total_end_users = User.objects.filter(profile__dl_user=request.user).count()
     total_distributed = dl_wallet.total_distributed
     
     context = {
         'dl_wallet': dl_wallet,
-        'end_users': end_users,
+        'client_stats': client_stats,
         'pending_requests': pending_requests,
         'total_end_users': total_end_users,
         'total_distributed': total_distributed,
+        'search_query': search_query,
+        'active_filter': active_filter,
     }
     return render(request, 'core/dl/dashboard.html', context)
 
@@ -1750,6 +1820,230 @@ def dl_credit_end_user(request, end_user_id):
     return render(request, 'core/dl/credit_end_user.html', context)
 
 @login_required
+def dl_withdraw_end_user(request, end_user_id):
+    """DL user withdraws points from end user"""
+    from accounts.models import UserProfile
+    
+    # Check if user is DL
+    if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
+        messages.error(request, "Access denied. You are not a DL user.")
+        return redirect('core:home')
+    
+    end_user = get_object_or_404(User, id=end_user_id)
+    
+    # Check if end user is assigned to this DL
+    if not hasattr(end_user, 'profile') or end_user.profile.dl_user != request.user:
+        messages.error(request, "This user is not assigned to you.")
+        return redirect('core:dl_dashboard')
+    
+    if request.method == 'POST':
+        amount = Decimal(request.POST.get('amount'))
+        description = request.POST.get('description', '')
+        
+        if amount <= 0:
+            messages.error(request, "Amount must be greater than 0")
+            return redirect('core:dl_dashboard')
+        
+        # Get end user wallet
+        end_user_wallet, _ = Wallet.objects.get_or_create(user=end_user)
+        
+        # Check end user wallet balance
+        if end_user_wallet.balance < amount:
+            messages.error(request, f"Insufficient balance. User balance: ₹{end_user_wallet.balance}")
+            return redirect('core:dl_dashboard')
+        
+        # Withdraw from end user wallet
+        end_user_wallet.withdraw(amount)
+        
+        # Credit to DL wallet
+        dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=request.user)
+        dl_wallet.credit(amount, f'Withdrawal from {end_user.username}')
+        
+        # Create transaction record
+        Transaction.objects.create(
+            user=end_user,
+            transaction_type='withdrawal',
+            amount=amount,
+            balance_after=end_user_wallet.balance,
+            description=description or f'Withdrawn by DL: {request.user.username}'
+        )
+        
+        messages.success(request, f'₹{amount} withdrawn from {end_user.username} successfully')
+        return redirect('core:dl_dashboard')
+    
+    # For GET requests, redirect to dashboard
+    return redirect('core:dl_dashboard')
+
+@login_required
+def dl_user_statement(request, end_user_id):
+    """DL user views statement for an end user with enhanced filters and calculations"""
+    from accounts.models import UserProfile
+    
+    # Check if user is DL
+    if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
+        messages.error(request, "Access denied. You are not a DL user.")
+        return redirect('core:home')
+    
+    end_user = get_object_or_404(User, id=end_user_id)
+    
+    # Check if end user is assigned to this DL
+    if not hasattr(end_user, 'profile') or end_user.profile.dl_user != request.user:
+        messages.error(request, "This user is not assigned to you.")
+        return redirect('core:dl_dashboard')
+    
+    # Get filter parameter
+    filter_type = request.GET.get('filter', 'all')
+    
+    # Get user profile for commission rates
+    profile = end_user.profile if hasattr(end_user, 'profile') else None
+    match_commission = profile.match_commission if profile and profile.match_commission else Decimal('0.00')
+    session_commission = profile.session_commission if profile and profile.session_commission else Decimal('0.00')
+    
+    # Get all transactions
+    all_transactions = Transaction.objects.filter(user=end_user).order_by('-created_at')
+    
+    # Get all betting sessions for this user
+    sessions = BettingSession.objects.filter(
+        Q(better_a=end_user) | Q(better_b=end_user)
+    ).exclude(status='cancelled').select_related('match', 'match__team_a', 'match__team_b').order_by('-created_at')
+    
+    # Build statement entries combining transactions and session results
+    statement_entries = []
+    
+    # Add transaction entries
+    for trans in all_transactions:
+        entry_type = 'cash'
+        if trans.transaction_type in ['deposit', 'withdrawal']:
+            entry_type = 'cash'
+        elif trans.transaction_type in ['bet_placed', 'bet_won', 'bet_lost']:
+            entry_type = 'session'
+        
+        statement_entries.append({
+            'date': trans.created_at,
+            'type': 'Cash Entry' if entry_type == 'cash' else 'Session',
+            'description': trans.description or trans.get_transaction_type_display(),
+            'credit': trans.amount if trans.transaction_type in ['deposit', 'bet_won', 'refund'] else Decimal('0.00'),
+            'debit': trans.amount if trans.transaction_type in ['withdrawal', 'bet_placed', 'bet_lost'] else Decimal('0.00'),
+            'balance': trans.balance_after,
+            'bets': trans.amount if trans.transaction_type == 'bet_placed' else Decimal('0.00'),
+            'entry_type': entry_type,
+            'transaction_type': trans.transaction_type,
+            'session_id': None,
+            'match_name': None,
+        })
+    
+    # Add session entries (profit/loss calculations)
+    for session in sessions:
+        is_better_a = session.better_a == end_user
+        is_better_b = session.better_b == end_user
+        
+        if session.status == 'completed':
+            # Calculate profit/loss for this session
+            if is_better_a:
+                winnings = session.better_a_total_winnings
+                bet_amount = session.fixed_bet_amount
+            else:
+                winnings = session.better_b_total_winnings
+                bet_amount = session.fixed_bet_amount
+            
+            profit_loss = winnings - bet_amount
+            
+            # Only add entry if there's actual profit/loss (winnings > 0 or loss)
+            if winnings > 0 or profit_loss != Decimal('0.00'):
+                match_name = f"{session.match.team_a.name} vs {session.match.team_b.name}"
+                
+                statement_entries.append({
+                    'date': session.updated_at,  # Use settlement date
+                    'type': 'Session',
+                    'description': f'Session #{session.id} - {match_name}',
+                    'credit': winnings if winnings > 0 else Decimal('0.00'),
+                    'debit': Decimal('0.00'),
+                    'balance': None,  # Will be calculated
+                    'bets': bet_amount,
+                    'entry_type': 'session',
+                    'transaction_type': 'session_result',
+                    'session_id': session.id,
+                    'match_name': match_name,
+                    'profit_loss': profit_loss,
+                })
+    
+    # Sort by date descending
+    statement_entries.sort(key=lambda x: x['date'], reverse=True)
+    
+    # Calculate running balance
+    current_balance = Decimal('0.00')
+    wallet, _ = Wallet.objects.get_or_create(user=end_user)
+    current_balance = wallet.balance
+    
+    # Calculate balances backwards from current
+    for entry in reversed(statement_entries):
+        if entry['balance'] is None:
+            entry['balance'] = current_balance
+        current_balance = entry['balance'] - entry['credit'] + entry['debit']
+    
+    # Calculate statistics
+    cash_entries = [e for e in statement_entries if e['entry_type'] == 'cash']
+    session_entries = [e for e in statement_entries if e['entry_type'] == 'session']
+    
+    # Cash entry totals
+    cash_credit = sum(e['credit'] for e in cash_entries)
+    cash_debit = sum(e['debit'] for e in cash_entries)
+    cash_net = cash_credit - cash_debit
+    
+    # Session profit/loss
+    session_profit_loss = sum(e.get('profit_loss', e['credit'] - e['bets']) for e in session_entries if e.get('profit_loss') is not None or e['credit'] > 0)
+    
+    # Market profit/loss (same as session for now, as all are session-based)
+    market_profit_loss = session_profit_loss
+    
+    # Calculate commissions
+    total_bets = sum(e['bets'] for e in session_entries)
+    market_commission = (total_bets * match_commission / 100) if match_commission > 0 else Decimal('0.00')
+    session_commission_amount = (total_bets * session_commission / 100) if session_commission > 0 else Decimal('0.00')
+    
+    # Total profit/loss
+    total_profit_loss = cash_net + session_profit_loss - market_commission - session_commission_amount
+    
+    # Apply filters
+    if filter_type == 'cash_and_market':
+        statement_entries = [e for e in statement_entries if e['entry_type'] == 'cash' or (e['entry_type'] == 'session' and e.get('profit_loss', 0) != 0)]
+    elif filter_type == 'cash_only':
+        statement_entries = [e for e in statement_entries if e['entry_type'] == 'cash']
+    elif filter_type == 'market_commission':
+        # Show only commission entries (we'll add these)
+        statement_entries = []
+    elif filter_type == 'session_pl':
+        statement_entries = [e for e in statement_entries if e['entry_type'] == 'session']
+    elif filter_type == 'total_pl':
+        # Show all entries
+        pass
+    elif filter_type == 'market_pl':
+        statement_entries = [e for e in statement_entries if e['entry_type'] == 'session']
+    # 'all' shows everything
+    
+    context = {
+        'end_user': end_user,
+        'statement_entries': statement_entries,
+        'current_balance': wallet.balance,
+        'cash_credit': cash_credit,
+        'cash_debit': cash_debit,
+        'cash_net': cash_net,
+        'session_profit_loss': session_profit_loss,
+        'market_profit_loss': market_profit_loss,
+        'market_commission': market_commission,
+        'session_commission': session_commission_amount,
+        'total_profit_loss': total_profit_loss,
+        'total_bets': total_bets,
+        'filter_type': filter_type,
+    }
+    
+    # If AJAX request, return only the content area
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return render(request, 'core/dl/user_statement_content.html', context)
+    
+    return render(request, 'core/dl/user_statement.html', context)
+
+@login_required
 def dl_assign_end_user(request):
     """DL user assigns an end user to themselves"""
     from accounts.models import UserProfile
@@ -1788,3 +2082,370 @@ def dl_assign_end_user(request):
             return redirect('core:dl_assign_end_user')
     
     return render(request, 'core/dl/assign_end_user.html')
+
+@login_required
+def dl_home(request):
+    """DL user home page with match filtering"""
+    from accounts.models import UserProfile
+    
+    # Check if user is DL
+    if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
+        messages.error(request, "Access denied. You are not a DL user.")
+        return redirect('core:home')
+    
+    # Get filter preferences from request (default to all checked)
+    show_completed = request.GET.get('completed', 'true') == 'true'
+    show_ongoing = request.GET.get('ongoing', 'true') == 'true'
+    show_suspended = request.GET.get('suspended', 'false') == 'true'
+    
+    # Build match query based on filters using Q objects
+    from django.db.models import Q
+    status_filters = Q()
+    
+    if show_completed:
+        status_filters |= Q(status='completed')
+    if show_ongoing:
+        status_filters |= Q(status='live')
+    if show_suspended:
+        status_filters |= Q(status='abandoned')
+    
+    # If no filters selected, show all matches
+    if not show_completed and not show_ongoing and not show_suspended:
+        matches = Match.objects.all().order_by('-match_date')
+    else:
+        matches = Match.objects.filter(status_filters).order_by('-match_date')
+    
+    context = {
+        'matches': matches,
+        'show_completed': show_completed,
+        'show_ongoing': show_ongoing,
+        'show_suspended': show_suspended,
+    }
+    return render(request, 'core/dl/home.html', context)
+
+@login_required
+def dl_add_user(request):
+    """DL user creates a new end user"""
+    from accounts.models import UserProfile
+    
+    # Check if user is DL
+    if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
+        messages.error(request, "Access denied. You are not a DL user.")
+        return redirect('core:home')
+    
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        initial_balance = Decimal(request.POST.get('initial_balance', '0'))
+        max_win_limit = Decimal(request.POST.get('max_win_limit', '0') or '0')
+        match_commission = Decimal(request.POST.get('match_commission', '0') or '0')
+        session_commission = Decimal(request.POST.get('session_commission', '0') or '0')
+        
+        # Validate input
+        if not username or not password:
+            messages.error(request, "Username and password are required")
+            return render(request, 'core/dl/add_user.html')
+        
+        # Validate commission percentages
+        if match_commission < 0 or match_commission > 100:
+            messages.error(request, "Match commission must be between 0 and 100")
+            return render(request, 'core/dl/add_user.html')
+        
+        if session_commission < 0 or session_commission > 100:
+            messages.error(request, "Session commission must be between 0 and 100")
+            return render(request, 'core/dl/add_user.html')
+        
+        try:
+            with db_transaction.atomic():
+                # Create user
+                user = User.objects.create_user(
+                    username=username,
+                    password=password
+                )
+                
+                # Get or create profile
+                profile, created = UserProfile.objects.get_or_create(user=user)
+                
+                # Assign to this DL and set client-specific fields
+                profile.user_type = 'end_user'
+                profile.dl_user = request.user
+                if max_win_limit > 0:
+                    profile.max_win_limit = max_win_limit
+                if match_commission > 0:
+                    profile.match_commission = match_commission
+                if session_commission > 0:
+                    profile.session_commission = session_commission
+                profile.save()
+                
+                # Create wallet
+                wallet, _ = Wallet.objects.get_or_create(user=user)
+                
+                # Credit initial balance if provided
+                if initial_balance > 0:
+                    wallet.deposit(initial_balance)
+                    Transaction.objects.create(
+                        user=user,
+                        transaction_type='deposit',
+                        amount=initial_balance,
+                        balance_after=wallet.balance,
+                        description=f'Initial credit from DL {request.user.username}'
+                    )
+                    
+                    # Deduct from DL wallet
+                    dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=request.user)
+                    if dl_wallet.balance >= initial_balance:
+                        dl_wallet.debit(initial_balance, f'Initial credit for {username}')
+                    else:
+                        messages.warning(request, f'User created but insufficient DL balance to credit initial amount')
+                
+                messages.success(request, f'Client {username} created successfully')
+                return redirect('core:dl_dashboard')
+                
+        except IntegrityError as e:
+            if 'username' in str(e).lower():
+                messages.error(request, f"Username '{username}' already exists")
+            else:
+                messages.error(request, f"Error creating user: {str(e)}")
+        except Exception as e:
+            messages.error(request, f"Error creating client: {str(e)}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error creating client: {str(e)}", exc_info=True)
+    
+    return render(request, 'core/dl/add_user.html')
+
+@login_required
+def dl_edit_user(request, end_user_id):
+    """DL user edits an end user"""
+    from accounts.models import UserProfile
+    
+    # Check if user is DL
+    if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
+        messages.error(request, "Access denied. You are not a DL user.")
+        return redirect('core:home')
+    
+    end_user = get_object_or_404(User, id=end_user_id)
+    
+    # Check if end user is assigned to this DL
+    if not hasattr(end_user, 'profile') or end_user.profile.dl_user != request.user:
+        messages.error(request, "This user is not assigned to you.")
+        return redirect('core:dl_dashboard')
+    
+    profile = end_user.profile if hasattr(end_user, 'profile') else None
+    
+    if request.method == 'POST':
+        password = request.POST.get('password')
+        max_win_limit = Decimal(request.POST.get('max_win_limit', '0') or '0')
+        match_commission = Decimal(request.POST.get('match_commission', '0') or '0')
+        session_commission = Decimal(request.POST.get('session_commission', '0') or '0')
+        is_active = request.POST.get('is_active') == 'on'
+        
+        # Validate commission percentages
+        if match_commission < 0 or match_commission > 100:
+            messages.error(request, "Match commission must be between 0 and 100")
+            return render(request, 'core/dl/edit_user.html', {'end_user': end_user, 'profile': profile})
+        
+        if session_commission < 0 or session_commission > 100:
+            messages.error(request, "Session commission must be between 0 and 100")
+            return render(request, 'core/dl/edit_user.html', {'end_user': end_user, 'profile': profile})
+        
+        try:
+            # Get or create profile
+            if not profile:
+                profile, _ = UserProfile.objects.get_or_create(user=end_user)
+                profile.user_type = 'end_user'
+                profile.dl_user = request.user
+            
+            # Update password if provided
+            if password:
+                end_user.set_password(password)
+                end_user.save()
+            
+            # Update profile fields
+            profile.max_win_limit = max_win_limit if max_win_limit > 0 else None
+            profile.match_commission = match_commission if match_commission > 0 else None
+            profile.session_commission = session_commission if session_commission > 0 else None
+            profile.is_active = is_active
+            profile.save()
+            
+            messages.success(request, f'Client {end_user.username} updated successfully')
+            return redirect('core:dl_dashboard')
+            
+        except Exception as e:
+            messages.error(request, f"Error updating client: {str(e)}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error updating client: {str(e)}", exc_info=True)
+    
+    context = {
+        'end_user': end_user,
+        'profile': profile,
+    }
+    return render(request, 'core/dl/edit_user.html', context)
+
+@login_required
+def dl_reports(request):
+    """DL user reports - all transactions for their clients"""
+    from accounts.models import UserProfile
+    
+    # Check if user is DL
+    if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
+        messages.error(request, "Access denied. You are not a DL user.")
+        return redirect('core:home')
+    
+    # Get all end users assigned to this DL
+    end_users = User.objects.filter(profile__dl_user=request.user)
+    
+    # Get all transactions for these end users
+    transactions = Transaction.objects.filter(
+        user__in=end_users
+    ).select_related('user').order_by('-created_at')
+    
+    # Filter by transaction type if provided
+    transaction_type_filter = request.GET.get('type', '')
+    if transaction_type_filter:
+        if transaction_type_filter == 'credit':
+            transactions = transactions.filter(transaction_type__in=['deposit', 'bet_won', 'refund'])
+        elif transaction_type_filter == 'withdraw':
+            transactions = transactions.filter(transaction_type__in=['withdrawal', 'bet_placed', 'bet_lost'])
+    
+    # Filter by date range if provided
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    if date_from:
+        from django.utils.dateparse import parse_date
+        try:
+            date_from_obj = parse_date(date_from)
+            transactions = transactions.filter(created_at__gte=date_from_obj)
+        except:
+            pass
+    if date_to:
+        from django.utils.dateparse import parse_date
+        try:
+            date_to_obj = parse_date(date_to)
+            transactions = transactions.filter(created_at__lte=date_to_obj)
+        except:
+            pass
+    
+    context = {
+        'transactions': transactions,
+        'transaction_type_filter': transaction_type_filter,
+        'date_from': date_from,
+        'date_to': date_to,
+    }
+    return render(request, 'core/dl/reports.html', context)
+
+@login_required
+def dl_match_book(request):
+    """DL user match book with betting statistics"""
+    from accounts.models import UserProfile
+    from django.db.models import Q, Sum, Count, Case, When, DecimalField
+    
+    # Check if user is DL
+    if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
+        messages.error(request, "Access denied. You are not a DL user.")
+        return redirect('core:home')
+    
+    # Get filter preferences from request (default to all checked)
+    show_running = request.GET.get('running', 'true') == 'true'
+    show_suspended = request.GET.get('suspended', 'false') == 'true'
+    show_completed = request.GET.get('completed', 'true') == 'true'
+    
+    # Get end users managed by this DL
+    end_users = User.objects.filter(profile__dl_user=request.user)
+    end_user_ids = list(end_users.values_list('id', flat=True))
+    
+    # Build match query based on filters
+    from django.db.models import Q
+    status_filters = Q()
+    
+    if show_running:
+        status_filters |= Q(status='live')
+    if show_suspended:
+        status_filters |= Q(status='abandoned')
+    if show_completed:
+        status_filters |= Q(status='completed')
+    
+    # If no filters selected, show all matches
+    if not show_running and not show_suspended and not show_completed:
+        matches = Match.objects.none()
+    else:
+        matches = Match.objects.filter(status_filters).order_by('-match_date')
+    
+    # Calculate statistics for each match
+    match_data = []
+    for match in matches:
+        # Get all betting sessions for this match involving DL's end users
+        sessions = BettingSession.objects.filter(
+            match=match
+        ).filter(
+            Q(better_a_id__in=end_user_ids) | Q(better_b_id__in=end_user_ids)
+        ).exclude(status='pending').exclude(status='cancelled')
+        
+        # Match Book: Total bet amount from all sessions
+        match_book = sessions.aggregate(
+            total=Sum('fixed_bet_amount')
+        )['total'] or Decimal('0.00')
+        
+        # Toss Book: Same as match book (toss is part of the session)
+        toss_book = match_book
+        
+        # Total Book: Match Book + Toss Book (or just match book * 2 if we count separately)
+        total_book = match_book * 2  # Since both players bet
+        
+        # Calculate Client Profit and Loss
+        # For each session, calculate net profit/loss for end users
+        client_profit_loss = Decimal('0.00')
+        for session in sessions:
+            # Check if end users are involved
+            if session.better_a_id in end_user_ids:
+                # End user is better_a
+                if session.status == 'completed':
+                    # Calculate profit/loss: winnings - bet amount
+                    profit = session.better_a_total_winnings - session.fixed_bet_amount
+                    client_profit_loss += profit
+                else:
+                    # For ongoing matches, profit/loss is negative of bet amount (potential loss)
+                    client_profit_loss -= session.fixed_bet_amount
+            
+            if session.better_b_id in end_user_ids:
+                # End user is better_b
+                if session.status == 'completed':
+                    # Calculate profit/loss: winnings - bet amount
+                    profit = session.better_b_total_winnings - session.fixed_bet_amount
+                    client_profit_loss += profit
+                else:
+                    # For ongoing matches, profit/loss is negative of bet amount (potential loss)
+                    client_profit_loss -= session.fixed_bet_amount
+        
+        # Open Rate: Average fixed bet amount for sessions on this match
+        if sessions.exists():
+            avg_bet = sum(s.fixed_bet_amount for s in sessions) / sessions.count()
+        else:
+            avg_bet = Decimal('0.00')
+        
+        # Result: Match status or session results
+        result = match.get_status_display()
+        if match.status == 'completed' and sessions.filter(status='completed').exists():
+            completed_sessions = sessions.filter(status='completed')
+            if completed_sessions.exists():
+                result = f"{completed_sessions.count()} session(s) completed"
+        
+        match_data.append({
+            'match': match,
+            'open_rate': avg_bet,
+            'result': result,
+            'match_book': match_book,
+            'toss_book': toss_book,
+            'total_book': total_book,
+            'client_profit_loss': client_profit_loss,
+            'session_count': sessions.count(),
+        })
+    
+    context = {
+        'match_data': match_data,
+        'show_running': show_running,
+        'show_suspended': show_suspended,
+        'show_completed': show_completed,
+    }
+    return render(request, 'core/dl/match_book.html', context)
