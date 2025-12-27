@@ -175,9 +175,33 @@ def session_detail(request, session_id):
     if session.better_b != session.better_a:
         UserProfile.objects.get_or_create(user=session.better_b)
     
-    # Get picked players
+    # Get picked players with their match stats
     better_a_picks_qs = PickedPlayer.objects.filter(session=session, better=session.better_a).select_related('player', 'player__team')
     better_b_picks_qs = PickedPlayer.objects.filter(session=session, better=session.better_b).select_related('player', 'player__team')
+    
+    # Add match stats to picks for completed sessions
+    if session.status == 'completed':
+        for pick in better_a_picks_qs:
+            try:
+                stats = PlayerMatchStats.objects.get(player=pick.player, match=session.match)
+                pick.runs_scored = stats.runs_scored
+                pick.balls_faced = stats.balls_faced
+                pick.player_value = Decimal(str(stats.runs_scored)) * session.fixed_bet_amount
+            except PlayerMatchStats.DoesNotExist:
+                pick.runs_scored = 0
+                pick.balls_faced = 0
+                pick.player_value = Decimal('0.00')
+        
+        for pick in better_b_picks_qs:
+            try:
+                stats = PlayerMatchStats.objects.get(player=pick.player, match=session.match)
+                pick.runs_scored = stats.runs_scored
+                pick.balls_faced = stats.balls_faced
+                pick.player_value = Decimal(str(stats.runs_scored)) * session.fixed_bet_amount
+            except PlayerMatchStats.DoesNotExist:
+                pick.runs_scored = 0
+                pick.balls_faced = 0
+                pick.player_value = Decimal('0.00')
     
     # Count picks per team for each better (before converting to list)
     better_a_team_a_count = better_a_picks_qs.filter(player__team=session.match.team_a).count()
@@ -211,10 +235,13 @@ def session_detail(request, session_id):
     team_a_available = available_players.filter(team=session.match.team_a)
     team_b_available = available_players.filter(team=session.match.team_b)
     
-    # Calculate total runs for each better (for completed sessions)
+    # Calculate total runs and values for each better (for completed sessions)
     better_a_total_runs = 0
     better_b_total_runs = 0
+    better_a_total_value = Decimal('0.00')
+    better_b_total_value = Decimal('0.00')
     winner = None
+    difference = Decimal('0.00')
     
     if session.status == 'completed':
         better_a_bets_list = list(better_a_bets)
@@ -228,10 +255,18 @@ def session_detail(request, session_id):
             if bet.runs_scored is not None:
                 better_b_total_runs += bet.runs_scored
         
+        # Calculate total values (runs × bet_amount) - only if fixed_bet_amount exists
+        if session.fixed_bet_amount:
+            better_a_total_value = Decimal(str(better_a_total_runs)) * session.fixed_bet_amount
+            better_b_total_value = Decimal(str(better_b_total_runs)) * session.fixed_bet_amount
+            
+            # Calculate difference
+            difference = abs(better_a_total_value - better_b_total_value)
+        
         # Determine winner
-        if better_a_total_runs > better_b_total_runs:
+        if better_a_total_value > better_b_total_value:
             winner = session.better_a
-        elif better_b_total_runs > better_a_total_runs:
+        elif better_b_total_value > better_a_total_value:
             winner = session.better_b
         # else: tie (winner is None)
     
@@ -253,6 +288,9 @@ def session_detail(request, session_id):
         'can_perform_toss': session.status == 'pending' and session.better_b != session.better_a,
         'better_a_total_runs': better_a_total_runs,
         'better_b_total_runs': better_b_total_runs,
+        'better_a_total_value': better_a_total_value,
+        'better_b_total_value': better_b_total_value,
+        'difference': difference,
         'winner': winner,
     }
     return render(request, 'core/session_detail.html', context)
@@ -266,21 +304,47 @@ def perform_toss(request, session_id):
     
     # Check if user is part of this session
     if session.better_a != request.user and session.better_b != request.user:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
         messages.error(request, "You are not authorized to perform toss for this session")
         return redirect('core:session_detail', session_id=session_id)
     
     # Check if both players have joined
     if session.better_b == session.better_a:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Waiting for another player to join'})
         messages.error(request, "Waiting for another player to join")
         return redirect('core:session_detail', session_id=session_id)
     
     # Check if toss already completed
     if session.toss_completed:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'already_completed': True,
+                'toss_winner': session.toss_winner.username if session.toss_winner else None,
+                'current_turn': session.current_turn.username if session.current_turn else None,
+                'status': session.status
+            })
         messages.info(request, "Toss already completed")
         return redirect('core:session_detail', session_id=session_id)
     
     # Perform toss
     toss_winner = session.perform_toss()
+    session.refresh_from_db()
+    
+    # Return JSON response for AJAX requests
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'toss_winner': toss_winner.username,
+            'toss_winner_id': toss_winner.id,
+            'current_turn': session.current_turn.username if session.current_turn else None,
+            'current_turn_id': session.current_turn.id if session.current_turn else None,
+            'is_my_turn': session.current_turn == request.user if session.current_turn else False,
+            'status': session.status,
+            'updated_at': session.updated_at.isoformat()
+        })
     
     messages.success(request, f"Toss completed! {toss_winner.username} won the toss and will pick first!")
     return redirect('core:session_detail', session_id=session_id)
@@ -504,6 +568,7 @@ def settle_session(request, session_id):
             player_api_id = bet.picked_player.player.api_id
             player_stat = player_stats.get(player_api_id, {})
             runs_scored = player_stat.get('runs', 0)
+            balls_faced = player_stat.get('balls', 0)
             
             # Update bet with runs scored
             bet.runs_scored = runs_scored
@@ -515,7 +580,10 @@ def settle_session(request, session_id):
             PlayerMatchStats.objects.update_or_create(
                 player=bet.picked_player.player,
                 match=session.match,
-                defaults={'runs_scored': runs_scored}
+                defaults={
+                    'runs_scored': runs_scored,
+                    'balls_faced': balls_faced
+                }
             )
             
             # Add runs to respective better's total
@@ -524,25 +592,32 @@ def settle_session(request, session_id):
             else:
                 better_b_total_runs += runs_scored
         
-        # Determine winner (player with higher total runs)
+        # Calculate total value: (total_runs × bet_amount) for each better
+        better_a_total_value = Decimal(str(better_a_total_runs)) * session.fixed_bet_amount
+        better_b_total_value = Decimal(str(better_b_total_runs)) * session.fixed_bet_amount
+        
+        # Calculate difference
+        difference = abs(better_a_total_value - better_b_total_value)
+        
+        # Determine winner (player with higher total value)
         winner = None
         winner_winnings = Decimal('0.00')
         
-        if better_a_total_runs > better_b_total_runs:
+        if better_a_total_value > better_b_total_value:
             winner = session.better_a
-            winner_winnings = session.fixed_bet_amount * 2  # Winner gets both bet amounts
-            session.better_a_total_winnings = winner_winnings
+            winner_winnings = difference
+            session.better_a_total_winnings = difference
             session.better_b_total_winnings = Decimal('0.00')
-        elif better_b_total_runs > better_a_total_runs:
+        elif better_b_total_value > better_a_total_value:
             winner = session.better_b
-            winner_winnings = session.fixed_bet_amount * 2  # Winner gets both bet amounts
+            winner_winnings = difference
             session.better_a_total_winnings = Decimal('0.00')
-            session.better_b_total_winnings = winner_winnings
+            session.better_b_total_winnings = difference
         else:
-            # Tie - refund both players
+            # Tie - no winner, no winnings
             winner = None
-            session.better_a_total_winnings = session.fixed_bet_amount
-            session.better_b_total_winnings = session.fixed_bet_amount
+            session.better_a_total_winnings = Decimal('0.00')
+            session.better_b_total_winnings = Decimal('0.00')
         
         # Store winner and totals
         session.status = 'completed'
@@ -566,15 +641,26 @@ def add_winnings_to_wallet(request, session_id):
         messages.error(request, "Session is not completed yet")
         return redirect('core:session_detail', session_id=session_id)
     
-    # Get user's winnings
-    if request.user == session.better_a:
-        winnings = session.better_a_total_winnings
-    else:
-        winnings = session.better_b_total_winnings
+    # Calculate user's winnings (difference amount if winner)
+    better_a_total_runs = sum(bet.runs_scored for bet in Bet.objects.filter(session=session, better=session.better_a) if bet.runs_scored is not None)
+    better_b_total_runs = sum(bet.runs_scored for bet in Bet.objects.filter(session=session, better=session.better_b) if bet.runs_scored is not None)
     
-    if winnings <= 0:
+    better_a_total_value = Decimal(str(better_a_total_runs)) * session.fixed_bet_amount
+    better_b_total_value = Decimal(str(better_b_total_runs)) * session.fixed_bet_amount
+    difference = abs(better_a_total_value - better_b_total_value)
+    
+    # Determine if user is winner
+    is_winner = False
+    if request.user == session.better_a and better_a_total_value > better_b_total_value:
+        is_winner = True
+    elif request.user == session.better_b and better_b_total_value > better_a_total_value:
+        is_winner = True
+    
+    if not is_winner or difference <= 0:
         messages.error(request, "You have no winnings to add to wallet")
         return redirect('core:session_detail', session_id=session_id)
+    
+    winnings = difference
     
     try:
         wallet, _ = Wallet.objects.get_or_create(user=request.user)
@@ -610,15 +696,26 @@ def withdraw_winnings(request, session_id):
         messages.error(request, "Session is not completed yet")
         return redirect('core:session_detail', session_id=session_id)
     
-    # Get user's winnings
-    if request.user == session.better_a:
-        winnings = session.better_a_total_winnings
-    else:
-        winnings = session.better_b_total_winnings
+    # Calculate user's winnings (difference amount if winner)
+    better_a_total_runs = sum(bet.runs_scored for bet in Bet.objects.filter(session=session, better=session.better_a) if bet.runs_scored is not None)
+    better_b_total_runs = sum(bet.runs_scored for bet in Bet.objects.filter(session=session, better=session.better_b) if bet.runs_scored is not None)
     
-    if winnings <= 0:
+    better_a_total_value = Decimal(str(better_a_total_runs)) * session.fixed_bet_amount
+    better_b_total_value = Decimal(str(better_b_total_runs)) * session.fixed_bet_amount
+    difference = abs(better_a_total_value - better_b_total_value)
+    
+    # Determine if user is winner
+    is_winner = False
+    if request.user == session.better_a and better_a_total_value > better_b_total_value:
+        is_winner = True
+    elif request.user == session.better_b and better_b_total_value > better_a_total_value:
+        is_winner = True
+    
+    if not is_winner or difference <= 0:
         messages.error(request, "You have no winnings to withdraw")
         return redirect('core:session_detail', session_id=session_id)
+    
+    winnings = difference
     
     # For now, just show a message (withdrawal functionality would need payment gateway integration)
     messages.info(request, f'Withdrawal request for ₹{winnings} has been submitted. This feature requires payment gateway integration.')

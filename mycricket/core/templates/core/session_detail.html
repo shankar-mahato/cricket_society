@@ -78,19 +78,22 @@
             <p style="margin: 0 0 16px 0; color: #2c5282;">Share this session with a friend to start playing. Session ID: <strong>#{{ session.id }}</strong></p>
         </div>
     {% elif can_perform_toss and not toss_completed %}
-        <div class="card" style="background: #fffaf0; border-color: #ed8936;">
+        <div class="card" id="toss-card" style="background: #fffaf0; border-color: #ed8936;">
             <h3 style="margin: 0 0 12px 0;">Toss Required</h3>
             <p style="margin: 0 0 16px 0; color: #7c2d12;">Both players have joined. Perform the toss to determine who picks first.</p>
-            <form method="post" action="{% url 'core:perform_toss' session.id %}" style="margin-top: 16px;">
-                {% csrf_token %}
-                <button type="submit" class="btn">Perform Toss</button>
-            </form>
+            <button onclick="performToss()" class="btn" id="toss-btn">Perform Toss</button>
         </div>
     {% endif %}
 {% endif %}
 
-{% if toss_completed %}
-    <div class="card" style="background: #f0fff4; border-color: #48bb78;">
+<div id="toss-result-card" style="display: none;" class="card" style="background: #f0fff4; border-color: #48bb78;">
+    <p style="margin: 0; color: #22543d;">
+        <strong>Toss Winner:</strong> <strong id="toss-winner-name"></strong> will pick first.
+    </p>
+</div>
+
+{% if toss_completed and better_a_picks|length == 0 and better_b_picks|length == 0 %}
+    <div class="card" id="toss-winner-banner" style="background: #f0fff4; border-color: #48bb78;">
         <p style="margin: 0; color: #22543d;">
             <strong>Toss Winner:</strong> <strong>{{ toss_winner.username }}</strong> will pick first.
         </p>
@@ -139,11 +142,11 @@
         <div style="text-align: center; padding: 12px; background: #ebf8ff; border-radius: 6px; color: #2c5282;">
             <strong>Total Picked:</strong> 
             <span id="total-picked">
-                {% if session.better_a == user %}
-                    {{ better_a_picks|length }}
-                {% else %}
-                    {{ better_b_picks|length }}
-                {% endif %}
+            {% if session.better_a == user %}
+                {{ better_a_picks|length }}
+            {% else %}
+                {{ better_b_picks|length }}
+            {% endif %}
             </span>
             /{{ session.players_per_side|add:session.players_per_side }}
         </div>
@@ -250,27 +253,55 @@
         <p style="margin: 8px 0 0 0; color: #7c2d12; font-size: 13px;">Winner gets both bet amounts (₹{{ session.fixed_bet_amount|add:session.fixed_bet_amount }}). Winner is determined by total runs scored by all selected players.</p>
     </div>
 
+    <!-- Selected Players Display - Side by Side -->
     <div class="card">
         <div class="card-header">
-            <h3>Your Selected Players</h3>
+            <h3>Selected Players</h3>
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;">Both players' selections</p>
         </div>
-        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
-            {% if session.better_a == user %}
-                {% for pick in better_a_picks %}
-                    <div style="padding: 12px; background: #f7fafc; border-radius: 6px; border: 1px solid #e2e8f0; min-width: 150px;">
-                        <strong style="display: block; margin-bottom: 4px;">{{ pick.player.name }}</strong>
-                        <span style="color: #718096; font-size: 12px;">{{ pick.player.team.name }}</span>
-                    </div>
-                {% endfor %}
-            {% else %}
-                {% for pick in better_b_picks %}
-                    <div style="padding: 12px; background: #f7fafc; border-radius: 6px; border: 1px solid #e2e8f0; min-width: 150px;">
-                        <strong style="display: block; margin-bottom: 4px;">{{ pick.player.name }}</strong>
-                        <span style="color: #718096; font-size: 12px;">{{ pick.player.team.name }}</span>
-                    </div>
-                {% endfor %}
-            {% endif %}
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <div>
+                <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #4a5568; display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #4299e1;"></span>
+                    {{ session.better_a.username }}
+                </h4>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    {% for pick in better_a_picks %}
+                        <div class="player-badge" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #ebf8ff; border-radius: 6px; border: 1px solid #4299e1;">
+                            {% if pick.player.picture %}
+                                <img src="{{ pick.player.picture.url }}" alt="{{ pick.player.name }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                            {% else %}
+                                <div style="width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-size: 14px;">👤</div>
+                            {% endif %}
+                            <span style="font-weight: 500; color: #2c5282;">{{ pick.player.name }}</span>
+                        </div>
+                    {% empty %}
+                        <p style="color: #718096; font-size: 13px; margin: 0;">No players selected</p>
+                    {% endfor %}
+                </div>
+            </div>
+            <div>
+                <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #4a5568; display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #ed8936;"></span>
+                    {{ session.better_b.username }}
+                </h4>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    {% for pick in better_b_picks %}
+                        <div class="player-badge" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fff5e6; border-radius: 6px; border: 1px solid #ed8936;">
+                            {% if pick.player.picture %}
+                                <img src="{{ pick.player.picture.url }}" alt="{{ pick.player.name }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
+                            {% else %}
+                                <div style="width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-size: 14px;">👤</div>
+                            {% endif %}
+                            <span style="font-weight: 500; color: #7c2d12;">{{ pick.player.name }}</span>
+                        </div>
+                    {% empty %}
+                        <p style="color: #718096; font-size: 13px; margin: 0;">No players selected</p>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
+    </div>
         
         {% if session.better_a == user %}
             {% if better_a_bets.exists %}
@@ -278,22 +309,22 @@
                     <div style="font-size: 18px; color: #48bb78; font-weight: 600; margin-bottom: 8px;">✓ Bet Placed</div>
                     <div style="color: #22543d; font-size: 14px;">You have placed ₹{{ session.fixed_bet_amount }} for this session</div>
                 </div>
-            {% else %}
+        {% else %}
                 <div style="text-align: center; padding: 20px;">
                     <div style="margin-bottom: 16px;">
                         <div style="font-size: 24px; font-weight: 600; color: #4a5568; margin-bottom: 8px;">₹{{ session.fixed_bet_amount }}</div>
                         <div style="color: #718096; font-size: 14px;">Fixed Bet Amount</div>
-                    </div>
+                        </div>
                     <button onclick="placeFixedBet()" class="btn" style="width: 100%; max-width: 300px;">Place Bet</button>
-                </div>
+                            </div>
             {% endif %}
-        {% else %}
+                        {% else %}
             {% if better_b_bets.exists %}
                 <div style="padding: 16px; background: #f0fff4; border-radius: 6px; border: 1px solid #48bb78; text-align: center;">
                     <div style="font-size: 18px; color: #48bb78; font-weight: 600; margin-bottom: 8px;">✓ Bet Placed</div>
                     <div style="color: #22543d; font-size: 14px;">You have placed ₹{{ session.fixed_bet_amount }} for this session</div>
-                </div>
-            {% else %}
+                            </div>
+                        {% else %}
                 <div style="text-align: center; padding: 20px;">
                     <div style="margin-bottom: 16px;">
                         <div style="font-size: 24px; font-weight: 600; color: #4a5568; margin-bottom: 8px;">₹{{ session.fixed_bet_amount }}</div>
@@ -311,20 +342,20 @@
             <h3>Opponent's Status</h3>
         </div>
         <div style="text-align: center; padding: 20px;">
-            {% if session.better_a == user %}
+        {% if session.better_a == user %}
                 {% if better_b_bets.exists %}
                     <div style="color: #48bb78; font-weight: 600;">✓ {{ session.better_b.username }} has placed their bet</div>
-                {% else %}
+                    {% else %}
                     <div style="color: #718096;">Waiting for {{ session.better_b.username }} to place bet...</div>
-                {% endif %}
-            {% else %}
+                    {% endif %}
+        {% else %}
                 {% if better_a_bets.exists %}
                     <div style="color: #48bb78; font-weight: 600;">✓ {{ session.better_a.username }} has placed their bet</div>
-                {% else %}
+                    {% else %}
                     <div style="color: #718096;">Waiting for {{ session.better_a.username }} to place bet...</div>
-                {% endif %}
-            {% endif %}
-        </div>
+                    {% endif %}
+        {% endif %}
+                </div>
     </div>
 {% endif %}
 
@@ -335,63 +366,173 @@
         <p style="margin: 0; color: #22543d;">Here are your final results.</p>
     </div>
 
+    <!-- Calculation Summary -->
+    <div class="card" style="background: #f7fafc;">
+        <div class="card-header">
+            <h3>Calculation Summary</h3>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+            <div style="padding: 20px; background: white; border-radius: 6px; border: 2px solid #4299e1;">
+                <div style="font-size: 12px; color: #718096; margin-bottom: 8px;">{{ session.better_a.username }}</div>
+                <div style="font-size: 24px; font-weight: 600; color: #2c5282; margin-bottom: 4px;">
+                    {{ better_a_total_runs }} runs
+                </div>
+                <div style="font-size: 14px; color: #4a5568;">
+                    × ₹{{ session.fixed_bet_amount }} = 
+                    <strong style="color: #4299e1;">₹{{ better_a_total_value|floatformat:2 }}</strong>
+                </div>
+            </div>
+            <div style="padding: 20px; background: white; border-radius: 6px; border: 2px solid #ed8936;">
+                <div style="font-size: 12px; color: #718096; margin-bottom: 8px;">{{ session.better_b.username }}</div>
+                <div style="font-size: 24px; font-weight: 600; color: #7c2d12; margin-bottom: 4px;">
+                    {{ better_b_total_runs }} runs
+                </div>
+                <div style="font-size: 14px; color: #4a5568;">
+                    × ₹{{ session.fixed_bet_amount }} = 
+                    <strong style="color: #ed8936;">₹{{ better_b_total_value|floatformat:2 }}</strong>
+                </div>
+            </div>
+        </div>
+        <div style="padding: 16px; background: #ebf8ff; border-radius: 6px; text-align: center;">
+            <div style="font-size: 14px; color: #2c5282; margin-bottom: 8px;">Difference</div>
+            <div style="font-size: 28px; font-weight: 700; color: #4299e1;">
+                ₹{{ difference|floatformat:2 }}
+            </div>
+        </div>
+    </div>
+
     <!-- Winner Declaration -->
     <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
         <div style="text-align: center; padding: 32px;">
             {% if winner %}
                 <div style="font-size: 48px; margin-bottom: 16px;">🏆</div>
                 <h2 style="margin: 0 0 8px 0; font-size: 28px;">Winner: {{ winner.username }}</h2>
-                <div style="font-size: 36px; font-weight: 700; margin: 16px 0;">₹{{ session.fixed_bet_amount|add:session.fixed_bet_amount }}</div>
-                <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">Total Runs: 
-                    {% if winner == session.better_a %}
-                        {{ better_a_total_runs }}
-                    {% else %}
-                        {{ better_b_total_runs }}
-                    {% endif %}
+                <div style="font-size: 36px; font-weight: 700; margin: 16px 0;">₹{{ difference|floatformat:2 }}</div>
+                <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">
+                    Total: {{ better_a_total_value|floatformat:2 }} vs {{ better_b_total_value|floatformat:2 }}
                 </p>
             {% else %}
                 <div style="font-size: 48px; margin-bottom: 16px;">🤝</div>
                 <h2 style="margin: 0 0 8px 0; font-size: 28px;">It's a Tie!</h2>
-                <div style="font-size: 20px; margin: 16px 0; opacity: 0.9;">Both players scored {{ better_a_total_runs }} runs</div>
-                <div style="font-size: 24px; font-weight: 600; margin-top: 16px;">Refund: ₹{{ session.fixed_bet_amount }} each</div>
+                <div style="font-size: 20px; margin: 16px 0; opacity: 0.9;">Both players have the same total value</div>
+                <div style="font-size: 24px; font-weight: 600; margin-top: 16px;">No winner - No winnings</div>
             {% endif %}
         </div>
     </div>
 
     <!-- Winnings Display with Action Buttons -->
-    {% if winner == user or not winner %}
-        <div class="card">
-            <div class="card-header">
-                <h3>Your Winnings</h3>
+    {% if winner == user %}
+    <div class="card">
+        <div class="card-header">
+            <h3>Your Winnings</h3>
+        </div>
+        <div style="text-align: center; padding: 32px;">
+            <div style="font-size: 48px; font-weight: 700; color: #48bb78; margin-bottom: 16px;">
+                ₹{{ difference|floatformat:2 }}
             </div>
-            <div style="text-align: center; padding: 32px;">
-                <div style="font-size: 48px; font-weight: 700; color: #48bb78; margin-bottom: 16px;">
-                    ₹{% if winner == user %}{{ session.fixed_bet_amount|add:session.fixed_bet_amount }}{% else %}{{ session.fixed_bet_amount }}{% endif %}
+            <p style="color: #718096; margin-bottom: 24px;">
+                Congratulations! You won the match by ₹{{ difference|floatformat:2 }}.
+            </p>
+            <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                <form method="post" action="{% url 'core:add_winnings_to_wallet' session.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn" style="background: #48bb78; min-width: 150px;">
+                        💰 Add to Wallet
+                    </button>
+                </form>
+                <form method="post" action="{% url 'core:withdraw_winnings' session.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn" style="background: #4299e1; min-width: 150px;">
+                        💸 Withdraw
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% elif not winner %}
+    <div class="card">
+        <div class="card-header">
+            <h3>Result</h3>
+        </div>
+        <div style="text-align: center; padding: 32px;">
+            <div style="font-size: 24px; color: #718096; margin-bottom: 16px;">
+                Match ended in a tie. No winnings.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Selected Players Display - Side by Side with Stats -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Selected Players with Performance</h3>
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;">Both players' selections with runs and balls</p>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <div>
+                <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #4a5568; display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #4299e1;"></span>
+                    {{ session.better_a.username }}
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    {% for pick in better_a_picks %}
+                        <div class="player-badge" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #ebf8ff; border-radius: 6px; border: 1px solid #4299e1;">
+                            {% if pick.player.picture %}
+                                <img src="{{ pick.player.picture.url }}" alt="{{ pick.player.name }}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                            {% else %}
+                                <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-size: 16px;">👤</div>
+                            {% endif %}
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: #2c5282; margin-bottom: 4px;">{{ pick.player.name }}</div>
+                                {% if pick.runs_scored is not None %}
+                                    <div style="display: flex; gap: 16px; font-size: 13px; color: #4a5568;">
+                                        <span>🏏 <strong>{{ pick.runs_scored|default:0 }}</strong> runs</span>
+                                        <span>⚾ <strong>{{ pick.balls_faced|default:0 }}</strong> balls</span>
+                                        <span style="color: #48bb78;">₹{{ pick.player_value|floatformat:2 }}</span>
+                                    </div>
+                                {% else %}
+                                    <div style="font-size: 12px; color: #718096;">Waiting for match results...</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p style="color: #718096; font-size: 13px; margin: 0;">No players selected</p>
+                    {% endfor %}
                 </div>
-                <p style="color: #718096; margin-bottom: 24px;">
-                    {% if winner == user %}
-                        Congratulations! You won the match.
-                    {% else %}
-                        Match ended in a tie. Your bet amount has been refunded.
-                    {% endif %}
-                </p>
-                <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-                    <form method="post" action="{% url 'core:add_winnings_to_wallet' session.id %}" style="display: inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn" style="background: #48bb78; min-width: 150px;">
-                            💰 Add to Wallet
-                        </button>
-                    </form>
-                    <form method="post" action="{% url 'core:withdraw_winnings' session.id %}" style="display: inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn" style="background: #4299e1; min-width: 150px;">
-                            💸 Withdraw
-                        </button>
-                    </form>
+            </div>
+            <div>
+                <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #4a5568; display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #ed8936;"></span>
+                    {{ session.better_b.username }}
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    {% for pick in better_b_picks %}
+                        <div class="player-badge" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #fff5e6; border-radius: 6px; border: 1px solid #ed8936;">
+                            {% if pick.player.picture %}
+                                <img src="{{ pick.player.picture.url }}" alt="{{ pick.player.name }}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                            {% else %}
+                                <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-size: 16px;">👤</div>
+                            {% endif %}
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: #7c2d12; margin-bottom: 4px;">{{ pick.player.name }}</div>
+                                {% if pick.runs_scored is not None %}
+                                    <div style="display: flex; gap: 16px; font-size: 13px; color: #4a5568;">
+                                        <span>🏏 <strong>{{ pick.runs_scored|default:0 }}</strong> runs</span>
+                                        <span>⚾ <strong>{{ pick.balls_faced|default:0 }}</strong> balls</span>
+                                        <span style="color: #48bb78;">₹{{ pick.player_value|floatformat:2 }}</span>
+                                    </div>
+                                {% else %}
+                                    <div style="font-size: 12px; color: #718096;">Waiting for match results...</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p style="color: #718096; font-size: 13px; margin: 0;">No players selected</p>
+                    {% endfor %}
                 </div>
             </div>
         </div>
-    {% endif %}
+    </div>
 
     <!-- Total Runs Comparison -->
     <div class="card">
@@ -526,6 +667,24 @@ function confirmPick() {
             `;
             confirmBtn.style.display = 'none';
             
+            // Hide toss winner banner if it exists (first pick)
+            const tossWinnerBanner = document.getElementById('toss-winner-banner');
+            if (tossWinnerBanner) {
+                tossWinnerBanner.style.animation = 'fadeOut 0.3s ease-out';
+                setTimeout(() => {
+                    tossWinnerBanner.style.display = 'none';
+                }, 300);
+            }
+            
+            // Also hide the dynamic toss result card
+            const tossResultCard = document.getElementById('toss-result-card');
+            if (tossResultCard) {
+                tossResultCard.style.animation = 'fadeOut 0.3s ease-out';
+                setTimeout(() => {
+                    tossResultCard.style.display = 'none';
+                }, 300);
+            }
+            
             // Update last update time
             if (data.updated_at) {
                 lastUpdateTime = data.updated_at;
@@ -637,6 +796,85 @@ function confirmAction() {
     if (pendingAction === 'pick') confirmPick();
     else if (pendingAction === 'bet') confirmBet();
 }
+
+{% if session.status == 'pending' or session.status == 'picking' %}
+// Toss functionality
+function performToss() {
+    const tossBtn = document.getElementById('toss-btn');
+    if (!tossBtn) return;
+    
+    tossBtn.disabled = true;
+    tossBtn.textContent = 'Performing Toss...';
+    
+    fetch(`{% url 'core:perform_toss' session.id %}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Hide toss card
+            const tossCard = document.getElementById('toss-card');
+            if (tossCard) {
+                tossCard.style.display = 'none';
+            }
+            
+            // Show toss result
+            const tossResultCard = document.getElementById('toss-result-card');
+            const tossWinnerName = document.getElementById('toss-winner-name');
+            if (tossResultCard && tossWinnerName) {
+                tossWinnerName.textContent = data.toss_winner;
+                tossResultCard.style.display = 'block';
+            }
+            
+            // Show notification
+            if (data.is_my_turn) {
+                if (typeof showNotification !== 'undefined') {
+                    showNotification('You Won the Toss!', 'It\'s your turn to pick players first');
+                }
+                if (typeof showToast !== 'undefined') {
+                    showToast('🎯 You won the toss! It\'s your turn to pick players.', 'success');
+                }
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                if (typeof showNotification !== 'undefined') {
+                    showNotification('Toss Completed', `${data.toss_winner} won the toss and will pick first`);
+                }
+                if (typeof showToast !== 'undefined') {
+                    showToast(`🎲 ${data.toss_winner} won the toss. Waiting for them to pick...`, 'info');
+                }
+            }
+            
+            // Update last update time for polling
+            if (data.updated_at && typeof lastUpdateTime !== 'undefined') {
+                lastUpdateTime = data.updated_at;
+            }
+            
+            // If it's my turn, reload to show player selection
+            if (data.is_my_turn) {
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            }
+        } else {
+            alert('Error: ' + (data.error || 'Failed to perform toss'));
+            tossBtn.disabled = false;
+            tossBtn.textContent = 'Perform Toss';
+        }
+    })
+    .catch(error => {
+        console.error('Error performing toss:', error);
+        alert('Something went wrong. Please try again.');
+        tossBtn.disabled = false;
+        tossBtn.textContent = 'Perform Toss';
+    });
+}
+{% endif %}
 
 {% if session.status == 'picking' %}
 // Real-time session updates
@@ -774,16 +1012,28 @@ function updateSelectedPlayers(data) {
         }
     });
     
-    // Add new players
+    // Add new players for better A
     newBetterAPicks.forEach(playerId => {
         if (!currentBetterAPicks.includes(playerId)) {
             const pick = data.better_a_picks.find(p => p.player_id === playerId);
             if (pick) {
-                const badge = document.createElement('span');
-                badge.className = 'badge badge-info';
+                const badge = document.createElement('div');
+                badge.className = 'player-badge';
                 badge.dataset.playerId = playerId;
-                badge.textContent = pick.player_name;
-                badge.style.cssText = 'margin: 4px 4px 4px 0; display: inline-block; animation: fadeIn 0.3s ease-in;';
+                badge.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #ebf8ff; border-radius: 6px; border: 1px solid #4299e1; animation: fadeIn 0.3s ease-in;';
+                
+                // Add player avatar
+                const avatar = document.createElement('div');
+                avatar.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-size: 14px;';
+                avatar.textContent = '👤';
+                badge.appendChild(avatar);
+                
+                // Add player name
+                const name = document.createElement('span');
+                name.style.cssText = 'font-weight: 500; color: #2c5282;';
+                name.textContent = pick.player_name;
+                badge.appendChild(name);
+                
                 betterAPicksList.appendChild(badge);
                 
                 // If list was empty, remove the empty message
@@ -808,16 +1058,28 @@ function updateSelectedPlayers(data) {
         }
     });
     
-    // Add new players
+    // Add new players for better B
     newBetterBPicks.forEach(playerId => {
         if (!currentBetterBPicks.includes(playerId)) {
             const pick = data.better_b_picks.find(p => p.player_id === playerId);
             if (pick) {
-                const badge = document.createElement('span');
-                badge.className = 'badge badge-info';
+                const badge = document.createElement('div');
+                badge.className = 'player-badge';
                 badge.dataset.playerId = playerId;
-                badge.textContent = pick.player_name;
-                badge.style.cssText = 'margin: 4px 4px 4px 0; display: inline-block; animation: fadeIn 0.3s ease-in;';
+                badge.style.cssText = 'display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fff5e6; border-radius: 6px; border: 1px solid #ed8936; animation: fadeIn 0.3s ease-in;';
+                
+                // Add player avatar
+                const avatar = document.createElement('div');
+                avatar.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-size: 14px;';
+                avatar.textContent = '👤';
+                badge.appendChild(avatar);
+                
+                // Add player name
+                const name = document.createElement('span');
+                name.style.cssText = 'font-weight: 500; color: #7c2d12;';
+                name.textContent = pick.player_name;
+                badge.appendChild(name);
+                
                 betterBPicksList.appendChild(badge);
                 
                 // If list was empty, remove the empty message
@@ -828,13 +1090,13 @@ function updateSelectedPlayers(data) {
     });
     
     // If both lists are empty, add empty messages
-    if (betterAPicksList.children.length === 0) {
+    if (betterAPicksList.querySelectorAll('[data-player-id]').length === 0 && !betterAPicksList.querySelector('p')) {
         const emptyMsg = document.createElement('p');
         emptyMsg.style.cssText = 'color: #718096; font-size: 13px;';
         emptyMsg.textContent = 'No players selected yet';
         betterAPicksList.appendChild(emptyMsg);
     }
-    if (betterBPicksList.children.length === 0) {
+    if (betterBPicksList.querySelectorAll('[data-player-id]').length === 0 && !betterBPicksList.querySelector('p')) {
         const emptyMsg = document.createElement('p');
         emptyMsg.style.cssText = 'color: #718096; font-size: 13px;';
         emptyMsg.textContent = 'No players selected yet';
@@ -923,6 +1185,26 @@ function removePickedPlayersFromAvailable(data) {
 }
 
 function updateSessionState(data) {
+    // Hide toss winner banner if first player has been picked
+    if (data.better_a_picks_count > 0 || data.better_b_picks_count > 0) {
+        const tossWinnerBanner = document.getElementById('toss-winner-banner');
+        if (tossWinnerBanner && tossWinnerBanner.style.display !== 'none') {
+            tossWinnerBanner.style.animation = 'fadeOut 0.3s ease-out';
+            setTimeout(() => {
+                tossWinnerBanner.style.display = 'none';
+            }, 300);
+        }
+        
+        // Also hide the dynamic toss result card
+        const tossResultCard = document.getElementById('toss-result-card');
+        if (tossResultCard && tossResultCard.style.display !== 'none') {
+            tossResultCard.style.animation = 'fadeOut 0.3s ease-out';
+            setTimeout(() => {
+                tossResultCard.style.display = 'none';
+            }, 300);
+        }
+    }
+    
     // Update turn indicator
     if (turnIndicator) {
         const isMyTurn = data.is_my_turn;
@@ -952,14 +1234,18 @@ function updateSessionState(data) {
         turnIndicator.dataset.isMyTurn = isMyTurn;
     }
     
-    // Update selected players list smoothly
-    updateSelectedPlayers(data);
+    // Update selected players list smoothly (always update, not just when it's your turn)
+    if (typeof updateSelectedPlayers !== 'undefined') {
+        updateSelectedPlayers(data);
+    }
     
     // Update progress counters
-    updateProgress(data);
+    if (typeof updateProgress !== 'undefined') {
+        updateProgress(data);
+    }
     
     // Remove picked players from available list (if it's your turn)
-    if (data.is_my_turn) {
+    if (data.is_my_turn && typeof removePickedPlayersFromAvailable !== 'undefined') {
         removePickedPlayersFromAvailable(data);
     }
     
@@ -1009,7 +1295,47 @@ function checkForUpdates() {
         updateCheckInProgress = false;
         
         if (data.session_updated) {
-            updateSessionState(data);
+            // Check if toss was just completed
+            if (data.toss_completed && data.status === 'picking') {
+                // Hide toss card if visible
+                const tossCard = document.getElementById('toss-card');
+                if (tossCard) {
+                    tossCard.style.display = 'none';
+                }
+                
+                // Show toss result
+                const tossResultCard = document.getElementById('toss-result-card');
+                const tossWinnerName = document.getElementById('toss-winner-name');
+                if (tossResultCard && tossWinnerName && data.toss_winner) {
+                    tossWinnerName.textContent = data.toss_winner;
+                    tossResultCard.style.display = 'block';
+                }
+                
+                // Show notification
+                if (data.is_my_turn) {
+                    if (typeof showNotification !== 'undefined') {
+                        showNotification('Toss Completed!', 'You won the toss! It\'s your turn to pick players.');
+                    }
+                    if (typeof showToast !== 'undefined') {
+                        showToast('🎯 You won the toss! It\'s your turn to pick players.', 'success');
+                    }
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                    return;
+                } else {
+                    if (typeof showNotification !== 'undefined') {
+                        showNotification('Toss Completed', `${data.toss_winner} won the toss and will pick first`);
+                    }
+                    if (typeof showToast !== 'undefined') {
+                        showToast(`🎲 ${data.toss_winner} won the toss. Waiting for them to pick...`, 'info');
+                    }
+                }
+            }
+            
+            if (typeof updateSessionState !== 'undefined') {
+                updateSessionState(data);
+            }
             
             // If it's now my turn, reload to show player selection
             if (data.is_my_turn && turnIndicator && turnIndicator.dataset.isMyTurn !== 'true') {
@@ -1026,22 +1352,90 @@ function checkForUpdates() {
     });
 }
 
-// Start polling when page is visible
-// Poll more frequently when it's not your turn to catch opponent's picks quickly
-if (turnIndicator) {
+// Start polling when page is visible (for pending and picking status)
+if (turnIndicator || document.getElementById('toss-card')) {
     // Check immediately
-    checkForUpdates();
+    if (typeof checkForUpdates !== 'undefined') {
+        checkForUpdates();
+    }
     
     // Poll every 1.5 seconds for very responsive updates
-    pollingInterval = setInterval(checkForUpdates, 1500);
+    pollingInterval = setInterval(() => {
+        if (typeof checkForUpdates !== 'undefined') {
+            checkForUpdates();
+        }
+    }, 1500);
     
     // Also check when page becomes visible
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
+        if (document.visibilityState === 'visible' && typeof checkForUpdates !== 'undefined') {
             checkForUpdates();
         }
     });
 }
+
+// Poll for toss completion when status is pending
+{% if session.status == 'pending' %}
+const tossCard = document.getElementById('toss-card');
+if (tossCard && (tossCard.style.display !== 'none')) {
+    // Initialize lastUpdateTime if not already set
+    if (typeof lastUpdateTime === 'undefined') {
+        lastUpdateTime = '{{ session.updated_at.isoformat }}';
+    }
+    
+    // Toss not completed yet, poll for updates
+    let tossPollingInterval = setInterval(() => {
+        if (document.visibilityState !== 'visible') return;
+        
+        fetch(`{% url 'core:check_session_updates' session.id %}?last_update=${encodeURIComponent(lastUpdateTime || '')}`, {
+            headers: {
+                'Cache-Control': 'no-cache',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.toss_completed && data.status === 'picking') {
+                clearInterval(tossPollingInterval);
+                
+                // Hide toss card
+                if (tossCard) {
+                    tossCard.style.display = 'none';
+                }
+                
+                // Show toss result
+                const tossResultCard = document.getElementById('toss-result-card');
+                const tossWinnerName = document.getElementById('toss-winner-name');
+                if (tossResultCard && tossWinnerName) {
+                    tossWinnerName.textContent = data.toss_winner;
+                    tossResultCard.style.display = 'block';
+                }
+                
+                // Show notification
+                if (data.is_my_turn) {
+                    if (typeof showNotification !== 'undefined') {
+                        showNotification('Toss Completed!', 'You won the toss! It\'s your turn to pick players.');
+                    }
+                    if (typeof showToast !== 'undefined') {
+                        showToast('🎯 You won the toss! It\'s your turn to pick players.', 'success');
+                    }
+                    setTimeout(() => {
+                location.reload();
+                    }, 1500);
+                } else {
+                    if (typeof showNotification !== 'undefined') {
+                        showNotification('Toss Completed', `${data.toss_winner} won the toss and will pick first`);
+                    }
+                    if (typeof showToast !== 'undefined') {
+                        showToast(`🎲 ${data.toss_winner} won the toss. Waiting for them to pick...`, 'info');
+                    }
+                }
+            }
+        })
+        .catch(() => {});
+    }, 2000);
+}
+{% endif %}
 
 // Clean up on page unload
 window.addEventListener('beforeunload', () => {
