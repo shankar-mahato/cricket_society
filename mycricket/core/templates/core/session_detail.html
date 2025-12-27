@@ -910,6 +910,9 @@ function performToss() {
 // Real-time session updates
 let pollingInterval = null;
 let lastUpdateTime = '{{ session.updated_at.isoformat }}';
+// Track initial better_b to detect when invite is accepted
+let initialBetterBUsername = '{{ session.better_b.username }}';
+let initialBetterAUsername = '{{ session.better_a.username }}';
 let updateCheckInProgress = false;
 const turnIndicator = document.getElementById('turn-indicator');
 const currentTurnUserId = {% if session.current_turn %}{{ session.current_turn.id }}{% else %}null{% endif %};
@@ -1215,6 +1218,24 @@ function removePickedPlayersFromAvailable(data) {
 }
 
 function updateSessionState(data) {
+    // Detect when invite is accepted (better_b changes from better_a to a different user)
+    if (initialBetterBUsername === initialBetterAUsername && 
+        data.better_b_username && 
+        data.better_b_username !== initialBetterAUsername) {
+        // Invite was just accepted!
+        showNotification('Player Joined!', `${data.better_b_username} has joined the session!`);
+        showToast(`🎉 ${data.better_b_username} has joined the session!`, 'success');
+        
+        // Update initial state
+        initialBetterBUsername = data.better_b_username;
+        
+        // Reload page to show player list and allow picking
+        setTimeout(() => {
+            location.reload();
+        }, 1500);
+        return; // Don't process other updates, we're reloading
+    }
+    
     // Hide toss winner banner if first player has been picked
     if (data.better_a_picks_count > 0 || data.better_b_picks_count > 0) {
         const tossWinnerBanner = document.getElementById('toss-winner-banner');

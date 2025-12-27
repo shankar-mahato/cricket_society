@@ -365,6 +365,7 @@ function validateUsernameForm(event) {
 
 // Prevent form submission if username is not selected
 document.addEventListener('DOMContentLoaded', function() {
+    // Handle username form submission
     const usernameForm = document.querySelector('#invite-username form');
     if (usernameForm) {
         usernameForm.addEventListener('submit', function(e) {
@@ -375,9 +376,87 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('username-search').focus();
                 return false;
             }
+            
+            // Show notification before redirect
+            const selectedUsername = usernameInput.value.trim();
+            showToast(`📤 Invite sent to ${selectedUsername}!`, 'success');
+        });
+    }
+    
+    // Handle link form submission
+    const linkForm = document.querySelector('#invite-link form');
+    if (linkForm) {
+        linkForm.addEventListener('submit', function(e) {
+            // Show notification before redirect
+            showToast('🔗 Generating invite link...', 'info');
         });
     }
 });
+
+// Toast notification function
+function showToast(message, type = 'info') {
+    // Remove existing toasts
+    const existingToasts = document.querySelectorAll('.invite-toast');
+    existingToasts.forEach(toast => toast.remove());
+    
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = 'invite-toast';
+    const bgColor = type === 'success' ? '#48bb78' : type === 'error' ? '#f56565' : '#4299e1';
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${bgColor};
+        color: white;
+        padding: 16px 24px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        font-size: 16px;
+        font-weight: 500;
+        animation: slideInRight 0.3s ease-out;
+        max-width: 400px;
+    `;
+    toast.textContent = message;
+    
+    // Add animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    `;
+    if (!document.querySelector('style[data-invite-toast]')) {
+        style.setAttribute('data-invite-toast', 'true');
+        document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(toast);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        toast.style.animation = 'slideOutRight 0.3s ease-out';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
 </script>
 
 <style>
