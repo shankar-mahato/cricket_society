@@ -266,7 +266,7 @@
                     {{ session.better_a.username }}
                 </h4>
                 <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                    {% for pick in better_a_picks %}
+            {% for pick in better_a_picks %}
                         <div class="player-badge" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #ebf8ff; border-radius: 6px; border: 1px solid #4299e1;">
                             {% if pick.player.picture %}
                                 <img src="{{ pick.player.picture.url }}" alt="{{ pick.player.name }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">
@@ -280,7 +280,7 @@
                     {% endfor %}
                 </div>
             </div>
-            <div>
+                        <div>
                 <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #4a5568; display: flex; align-items: center; gap: 8px;">
                     <span style="width: 8px; height: 8px; border-radius: 50%; background: #ed8936;"></span>
                     {{ session.better_b.username }}
@@ -305,26 +305,68 @@
         
         {% if session.better_a == user %}
             {% if better_a_bets.exists %}
-                <div style="padding: 16px; background: #f0fff4; border-radius: 6px; border: 1px solid #48bb78; text-align: center;">
-                    <div style="font-size: 18px; color: #48bb78; font-weight: 600; margin-bottom: 8px;">✓ Bet Placed</div>
-                    <div style="color: #22543d; font-size: 14px;">You have placed ₹{{ session.fixed_bet_amount }} for this session</div>
-                </div>
-        {% else %}
+                <!-- Match Status Based Actions -->
+                {% if session.match.status == 'upcoming' %}
+                    <div style="padding: 20px; background: #f7fafc; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center;">
+                        <div style="font-size: 16px; color: #718096; margin-bottom: 8px;">⏰ Match is yet to start</div>
+                        <div style="color: #4a5568; font-size: 14px;">The match has not begun yet. Check back later!</div>
+                    </div>
+                {% elif session.match.status == 'live' %}
+                    <div style="padding: 20px; background: #fffaf0; border-radius: 6px; border: 1px solid #ed8936; text-align: center;">
+                        <div style="font-size: 16px; color: #7c2d12; font-weight: 600; margin-bottom: 12px;">⚡ Match in Progress</div>
+                        <button onclick="openStandingsModal()" class="btn" style="background: #ed8936; color: white; padding: 12px 24px; border-radius: 6px; font-weight: 600; border: none; cursor: pointer;">View Current Standings</button>
+                    </div>
+                {% elif session.match.status == 'completed' and session.status != 'completed' %}
+                    <div style="padding: 20px; background: #fffaf0; border-radius: 6px; border: 1px solid #ed8936; text-align: center;">
+                        <div style="font-size: 16px; color: #7c2d12; font-weight: 600; margin-bottom: 12px;">🏁 Match Finished</div>
+                        <form method="post" action="{% url 'core:settle_session' session.id %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn" style="background: #4299e1; color: white; padding: 12px 24px; border-radius: 6px; font-weight: 600; border: none; cursor: pointer;">Calculate Results</button>
+                        </form>
+                            </div>
+                        {% else %}
+                    <div style="padding: 16px; background: #f0fff4; border-radius: 6px; border: 1px solid #48bb78; text-align: center;">
+                        <div style="font-size: 18px; color: #48bb78; font-weight: 600; margin-bottom: 8px;">✓ Bet Placed</div>
+                        <div style="color: #22543d; font-size: 14px;">You have placed ₹{{ session.fixed_bet_amount }} for this session</div>
+                            </div>
+                        {% endif %}
+            {% else %}
                 <div style="text-align: center; padding: 20px;">
                     <div style="margin-bottom: 16px;">
                         <div style="font-size: 24px; font-weight: 600; color: #4a5568; margin-bottom: 8px;">₹{{ session.fixed_bet_amount }}</div>
                         <div style="color: #718096; font-size: 14px;">Fixed Bet Amount</div>
-                        </div>
+                    </div>
                     <button onclick="placeFixedBet()" class="btn" style="width: 100%; max-width: 300px;">Place Bet</button>
-                            </div>
+                </div>
             {% endif %}
-                        {% else %}
+        {% else %}
             {% if better_b_bets.exists %}
-                <div style="padding: 16px; background: #f0fff4; border-radius: 6px; border: 1px solid #48bb78; text-align: center;">
-                    <div style="font-size: 18px; color: #48bb78; font-weight: 600; margin-bottom: 8px;">✓ Bet Placed</div>
-                    <div style="color: #22543d; font-size: 14px;">You have placed ₹{{ session.fixed_bet_amount }} for this session</div>
+                <!-- Match Status Based Actions -->
+                {% if session.match.status == 'upcoming' %}
+                    <div style="padding: 20px; background: #f7fafc; border-radius: 6px; border: 1px solid #e2e8f0; text-align: center;">
+                        <div style="font-size: 16px; color: #718096; margin-bottom: 8px;">⏰ Match is yet to start</div>
+                        <div style="color: #4a5568; font-size: 14px;">The match has not begun yet. Check back later!</div>
+                        </div>
+                {% elif session.match.status == 'live' %}
+                    <div style="padding: 20px; background: #fffaf0; border-radius: 6px; border: 1px solid #ed8936; text-align: center;">
+                        <div style="font-size: 16px; color: #7c2d12; font-weight: 600; margin-bottom: 12px;">⚡ Match in Progress</div>
+                        <button onclick="openStandingsModal()" class="btn" style="background: #ed8936; color: white; padding: 12px 24px; border-radius: 6px; font-weight: 600; border: none; cursor: pointer;">View Current Standings</button>
+                    </div>
+                {% elif session.match.status == 'completed' and session.status != 'completed' %}
+                    <div style="padding: 20px; background: #fffaf0; border-radius: 6px; border: 1px solid #ed8936; text-align: center;">
+                        <div style="font-size: 16px; color: #7c2d12; font-weight: 600; margin-bottom: 12px;">🏁 Match Finished</div>
+                        <form method="post" action="{% url 'core:settle_session' session.id %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn" style="background: #4299e1; color: white; padding: 12px 24px; border-radius: 6px; font-weight: 600; border: none; cursor: pointer;">Calculate Results</button>
+                        </form>
                             </div>
                         {% else %}
+                    <div style="padding: 16px; background: #f0fff4; border-radius: 6px; border: 1px solid #48bb78; text-align: center;">
+                        <div style="font-size: 18px; color: #48bb78; font-weight: 600; margin-bottom: 8px;">✓ Bet Placed</div>
+                        <div style="color: #22543d; font-size: 14px;">You have placed ₹{{ session.fixed_bet_amount }} for this session</div>
+                            </div>
+                        {% endif %}
+            {% else %}
                 <div style="text-align: center; padding: 20px;">
                     <div style="margin-bottom: 16px;">
                         <div style="font-size: 24px; font-weight: 600; color: #4a5568; margin-bottom: 8px;">₹{{ session.fixed_bet_amount }}</div>
@@ -336,36 +378,10 @@
         {% endif %}
     </div>
 
-    <!-- Opponent's Status -->
-    <div class="card">
-        <div class="card-header">
-            <h3>Opponent's Status</h3>
-        </div>
-        <div style="text-align: center; padding: 20px;">
-        {% if session.better_a == user %}
-                {% if better_b_bets.exists %}
-                    <div style="color: #48bb78; font-weight: 600;">✓ {{ session.better_b.username }} has placed their bet</div>
-                    {% else %}
-                    <div style="color: #718096;">Waiting for {{ session.better_b.username }} to place bet...</div>
-                    {% endif %}
-        {% else %}
-                {% if better_a_bets.exists %}
-                    <div style="color: #48bb78; font-weight: 600;">✓ {{ session.better_a.username }} has placed their bet</div>
-                    {% else %}
-                    <div style="color: #718096;">Waiting for {{ session.better_a.username }} to place bet...</div>
-                    {% endif %}
-        {% endif %}
-                </div>
-    </div>
 {% endif %}
 
 <!-- Step 4: Results -->
 {% if session.status == 'completed' %}
-    <div class="card" style="background: #f0fff4; border-color: #48bb78;">
-        <h3 style="margin: 0 0 12px 0;">Match Complete</h3>
-        <p style="margin: 0; color: #22543d;">Here are your final results.</p>
-    </div>
-
     <!-- Calculation Summary -->
     <div class="card" style="background: #f7fafc;">
         <div class="card-header">
@@ -469,7 +485,7 @@
             <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;">Both players' selections with runs and balls</p>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-            <div>
+                    <div>
                 <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #4a5568; display: flex; align-items: center; gap: 8px;">
                     <span style="width: 8px; height: 8px; border-radius: 50%; background: #4299e1;"></span>
                     {{ session.better_a.username }}
@@ -489,18 +505,18 @@
                                         <span>🏏 <strong>{{ pick.runs_scored|default:0 }}</strong> runs</span>
                                         <span>⚾ <strong>{{ pick.balls_faced|default:0 }}</strong> balls</span>
                                         <span style="color: #48bb78;">₹{{ pick.player_value|floatformat:2 }}</span>
-                                    </div>
-                                {% else %}
+                    </div>
+                    {% else %}
                                     <div style="font-size: 12px; color: #718096;">Waiting for match results...</div>
-                                {% endif %}
-                            </div>
+                    {% endif %}
+                </div>
                         </div>
                     {% empty %}
                         <p style="color: #718096; font-size: 13px; margin: 0;">No players selected</p>
-                    {% endfor %}
+            {% endfor %}
                 </div>
             </div>
-            <div>
+                    <div>
                 <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #4a5568; display: flex; align-items: center; gap: 8px;">
                     <span style="width: 8px; height: 8px; border-radius: 50%; background: #ed8936;"></span>
                     {{ session.better_b.username }}
@@ -520,16 +536,16 @@
                                         <span>🏏 <strong>{{ pick.runs_scored|default:0 }}</strong> runs</span>
                                         <span>⚾ <strong>{{ pick.balls_faced|default:0 }}</strong> balls</span>
                                         <span style="color: #48bb78;">₹{{ pick.player_value|floatformat:2 }}</span>
-                                    </div>
-                                {% else %}
+                    </div>
+                    {% else %}
                                     <div style="font-size: 12px; color: #718096;">Waiting for match results...</div>
-                                {% endif %}
-                            </div>
+                    {% endif %}
+                </div>
                         </div>
                     {% empty %}
                         <p style="color: #718096; font-size: 13px; margin: 0;">No players selected</p>
-                    {% endfor %}
-                </div>
+            {% endfor %}
+    </div>
             </div>
         </div>
     </div>
@@ -560,6 +576,7 @@
     <div class="card">
         <div class="card-header">
             <h3>Detailed Results</h3>
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;">Individual player performance breakdown</p>
         </div>
         <div class="table-wrapper">
         <table>
@@ -567,42 +584,41 @@
                 <tr>
                     <th>Player</th>
                     <th>Runs</th>
-                    <th>Bet Amount</th>
-                    <th>Winnings</th>
+                    <th>Balls</th>
+                    <th>Value (Runs × ₹{{ session.fixed_bet_amount }})</th>
                 </tr>
             </thead>
             <tbody>
                 {% if session.better_a == user %}
-                    {% for bet in better_a_bets %}
+                    {% for pick in better_a_picks %}
                         <tr>
-                            <td><strong>{{ bet.picked_player.player.name }}</strong></td>
-                            <td>{{ bet.runs_scored|default:"-" }}</td>
-                            <td>₹{{ bet.amount_per_run }}/run</td>
-                            <td style="color: #48bb78; font-weight: 600;">₹{{ bet.total_payout|default:"-" }}</td>
+                            <td><strong>{{ pick.player.name }}</strong></td>
+                            <td>{{ pick.runs_scored|default:0 }}</td>
+                            <td>{{ pick.balls_faced|default:0 }}</td>
+                            <td style="color: #48bb78; font-weight: 600;">₹{{ pick.player_value|floatformat:2 }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #718096; padding: 20px;">No players selected</td>
                         </tr>
                     {% endfor %}
                 {% else %}
-                    {% for bet in better_b_bets %}
+                    {% for pick in better_b_picks %}
                         <tr>
-                            <td><strong>{{ bet.picked_player.player.name }}</strong></td>
-                            <td>{{ bet.runs_scored|default:"-" }}</td>
-                            <td>₹{{ bet.amount_per_run }}/run</td>
-                            <td style="color: #48bb78; font-weight: 600;">₹{{ bet.total_payout|default:"-" }}</td>
+                            <td><strong>{{ pick.player.name }}</strong></td>
+                            <td>{{ pick.runs_scored|default:0 }}</td>
+                            <td>{{ pick.balls_faced|default:0 }}</td>
+                            <td style="color: #48bb78; font-weight: 600;">₹{{ pick.player_value|floatformat:2 }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #718096; padding: 20px;">No players selected</td>
                         </tr>
                     {% endfor %}
                 {% endif %}
             </tbody>
         </table>
         </div>
-    </div>
-{% elif session.match.status == 'completed' and session.status == 'betting' %}
-    <div class="card" style="background: #fffaf0; border-color: #ed8936;">
-        <h3 style="margin: 0 0 12px 0;">Match Finished</h3>
-        <p style="margin: 0 0 16px 0; color: #7c2d12;">The match is over. Click below to calculate your winnings.</p>
-        <form method="post" action="{% url 'core:settle_session' session.id %}">
-            {% csrf_token %}
-            <button type="submit" class="btn">Calculate Results</button>
-        </form>
     </div>
 {% endif %}
 
@@ -1444,5 +1460,445 @@ window.addEventListener('beforeunload', () => {
     }
 });
 {% endif %}
+
+// Modal functions for Current Standings
+function openStandingsModal() {
+    document.getElementById('standingsModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeStandingsModal() {
+    document.getElementById('standingsModal').style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('standingsModal');
+    if (event.target == modal) {
+        closeStandingsModal();
+    }
+}
 </script>
+
+<!-- Current Standings Modal -->
+{% if session.match.status == 'live' %}
+<div id="standingsModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; animation: fadeIn 0.3s ease-in; padding: 10px; box-sizing: border-box;">
+    <div style="background: white; border-radius: 12px; padding: 0; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideUp 0.3s ease-out; position: relative; -webkit-overflow-scrolling: touch; box-sizing: border-box;">
+        <!-- Modal Header -->
+        <div style="background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); color: white; padding: 24px; border-radius: 12px 12px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h2 style="margin: 0; font-size: 24px; font-weight: 700;">⚡ Current Standings</h2>
+                <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">Live match progress</p>
+            </div>
+            <button onclick="closeStandingsModal()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">&times;</button>
+        </div>
+        
+        <!-- Modal Content -->
+        <div style="padding: 32px;">
+            {% if better_a_bets.exists and better_b_bets.exists %}
+            <!-- Summary Cards -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px;">
+                <!-- Better A Summary -->
+                <div style="padding: 24px; background: {% if current_leader == session.better_a %}#f0fff4{% else %}#f7fafc{% endif %}; border-radius: 8px; border: 2px solid {% if current_leader == session.better_a %}#48bb78{% else %}#4299e1{% endif %}; transition: all 0.3s;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; background: #4299e1; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px;">A</div>
+                        <div>
+                            <div style="font-size: 14px; color: #718096; margin-bottom: 4px;">Player</div>
+                            <div style="font-size: 18px; font-weight: 600; color: #2c5282;">{{ session.better_a.username }}</div>
+                        </div>
+                    </div>
+                    <div style="text-align: center; padding: 16px; background: white; border-radius: 6px; margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #718096; margin-bottom: 4px;">Total Runs</div>
+                        <div style="font-size: 32px; font-weight: 700; color: #2c5282;">{{ better_a_total_runs }}</div>
+                    </div>
+                    {% if session.fixed_bet_amount %}
+                    <div style="text-align: center; padding: 12px; background: white; border-radius: 6px;">
+                        <div style="font-size: 12px; color: #718096; margin-bottom: 4px;">Current Value</div>
+                        <div style="font-size: 20px; font-weight: 600; color: #4299e1;">₹{{ better_a_total_value|floatformat:2 }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Better B Summary -->
+                <div style="padding: 24px; background: {% if current_leader == session.better_b %}#f0fff4{% else %}#fffaf0{% endif %}; border-radius: 8px; border: 2px solid {% if current_leader == session.better_b %}#48bb78{% else %}#ed8936{% endif %}; transition: all 0.3s;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; background: #ed8936; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px;">B</div>
+                        <div>
+                            <div style="font-size: 14px; color: #718096; margin-bottom: 4px;">Player</div>
+                            <div style="font-size: 18px; font-weight: 600; color: #7c2d12;">{{ session.better_b.username }}</div>
+                        </div>
+                    </div>
+                    <div style="text-align: center; padding: 16px; background: white; border-radius: 6px; margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: #718096; margin-bottom: 4px;">Total Runs</div>
+                        <div style="font-size: 32px; font-weight: 700; color: #7c2d12;">{{ better_b_total_runs }}</div>
+                    </div>
+                    {% if session.fixed_bet_amount %}
+                    <div style="text-align: center; padding: 12px; background: white; border-radius: 6px;">
+                        <div style="font-size: 12px; color: #718096; margin-bottom: 4px;">Current Value</div>
+                        <div style="font-size: 20px; font-weight: 600; color: #ed8936;">₹{{ better_b_total_value|floatformat:2 }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Player Breakdown -->
+            <div style="margin-bottom: 24px;">
+                <h3 style="font-size: 18px; font-weight: 600; color: #2d3748; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #e2e8f0;">📊 Player Performance Breakdown</h3>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <!-- Better A Players -->
+                    <div>
+                        <div style="font-size: 14px; font-weight: 600; color: #4299e1; margin-bottom: 12px; padding: 8px; background: #ebf8ff; border-radius: 6px;">
+                            {{ session.better_a.username }}'s Players
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            {% for pick in better_a_picks %}
+                            <div style="padding: 12px; background: {% if pick.is_active %}#e6fffa{% elif pick.has_batted %}#f7fafc{% else %}#fef5e7{% endif %}; border-radius: 6px; border-left: 3px solid {% if pick.is_active %}#48bb78{% elif pick.has_batted %}#4299e1{% else %}#ed8936{% endif %};">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <div style="font-size: 13px; font-weight: 600; color: #2c5282;">{{ pick.player.name }}</div>
+                                    {% if pick.is_active %}
+                                    <span style="padding: 2px 6px; background: #48bb78; color: white; border-radius: 4px; font-size: 10px; font-weight: 600;">⚡ Playing</span>
+                                    {% endif %}
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #4a5568;">
+                                    {% if pick.has_batted %}
+                                        <span>🏏 <strong>{{ pick.runs_scored|default:0 }}</strong> runs</span>
+                                        <span>⚾ <strong>{{ pick.balls_faced|default:0 }}</strong> balls</span>
+                                        {% if session.fixed_bet_amount %}
+                                        <span style="color: #4299e1; font-weight: 600;">₹{{ pick.player_value|floatformat:2 }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span style="color: #ed8936; font-weight: 600; font-style: italic;">⏳ Yet to Bat</span>
+                                        {% if session.fixed_bet_amount %}
+                                        <span style="color: #718096;">₹0.00</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div style="padding: 12px; text-align: center; color: #718096; font-size: 13px;">No players selected</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Better B Players -->
+                    <div>
+                        <div style="font-size: 14px; font-weight: 600; color: #ed8936; margin-bottom: 12px; padding: 8px; background: #fff5e6; border-radius: 6px;">
+                            {{ session.better_b.username }}'s Players
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            {% for pick in better_b_picks %}
+                            <div style="padding: 12px; background: {% if pick.is_active %}#e6fffa{% elif pick.has_batted %}#fffaf0{% else %}#fef5e7{% endif %}; border-radius: 6px; border-left: 3px solid {% if pick.is_active %}#48bb78{% elif pick.has_batted %}#ed8936{% else %}#ed8936{% endif %};">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <div style="font-size: 13px; font-weight: 600; color: #7c2d12;">{{ pick.player.name }}</div>
+                                    {% if pick.is_active %}
+                                    <span style="padding: 2px 6px; background: #48bb78; color: white; border-radius: 4px; font-size: 10px; font-weight: 600;">⚡ Playing</span>
+                                    {% endif %}
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #4a5568;">
+                                    {% if pick.has_batted %}
+                                        <span>🏏 <strong>{{ pick.runs_scored|default:0 }}</strong> runs</span>
+                                        <span>⚾ <strong>{{ pick.balls_faced|default:0 }}</strong> balls</span>
+                                        {% if session.fixed_bet_amount %}
+                                        <span style="color: #ed8936; font-weight: 600;">₹{{ pick.player_value|floatformat:2 }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span style="color: #ed8936; font-weight: 600; font-style: italic;">⏳ Yet to Bat</span>
+                                        {% if session.fixed_bet_amount %}
+                                        <span style="color: #718096;">₹0.00</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div style="padding: 12px; text-align: center; color: #718096; font-size: 13px;">No players selected</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Calculation Breakdown -->
+            {% if session.fixed_bet_amount %}
+            <div style="padding: 20px; background: #f7fafc; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 24px;">
+                <h3 style="font-size: 16px; font-weight: 600; color: #2d3748; margin-bottom: 16px;">🧮 How Current Standings is Calculated</h3>
+                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 14px; color: #4a5568;">
+                    <div style="padding: 12px; background: white; border-radius: 6px;">
+                        <div style="font-weight: 600; color: #2c5282; margin-bottom: 8px;">{{ session.better_a.username }}:</div>
+                        <div style="padding-left: 12px;">
+                            <div>Total Runs: <strong>{{ better_a_total_runs }}</strong></div>
+                            <div>Calculation: <strong>{{ better_a_total_runs }}</strong> runs × ₹{{ session.fixed_bet_amount }} = <strong style="color: #4299e1;">₹{{ better_a_total_value|floatformat:2 }}</strong></div>
+                        </div>
+                    </div>
+                    <div style="padding: 12px; background: white; border-radius: 6px;">
+                        <div style="font-weight: 600; color: #7c2d12; margin-bottom: 8px;">{{ session.better_b.username }}:</div>
+                        <div style="padding-left: 12px;">
+                            <div>Total Runs: <strong>{{ better_b_total_runs }}</strong></div>
+                            <div>Calculation: <strong>{{ better_b_total_runs }}</strong> runs × ₹{{ session.fixed_bet_amount }} = <strong style="color: #ed8936;">₹{{ better_b_total_value|floatformat:2 }}</strong></div>
+                        </div>
+                    </div>
+                    {% if difference > 0 %}
+                    <div style="padding: 12px; background: #ebf8ff; border-radius: 6px; border-left: 4px solid #4299e1;">
+                        <div style="font-weight: 600; color: #2c5282; margin-bottom: 4px;">Current Difference:</div>
+                        <div>|₹{{ better_a_total_value|floatformat:2 }} - ₹{{ better_b_total_value|floatformat:2 }}| = <strong style="color: #4299e1; font-size: 16px;">₹{{ difference|floatformat:2 }}</strong></div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Detailed Difference Breakdown -->
+            {% if difference > 0 %}
+            <div style="padding: 24px; background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%); border-radius: 12px; border: 2px solid #4299e1; margin-top: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 16px; color: #2c5282; margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Current Lead</div>
+                    <div style="font-size: 42px; font-weight: 700; color: #4299e1; text-shadow: 0 2px 4px rgba(66, 153, 225, 0.2);">
+                        ₹{{ difference|floatformat:2 }}
+                    </div>
+                    <div style="font-size: 14px; color: #4a5568; margin-top: 8px;">
+                        {% if current_leader == session.better_a %}
+                            {{ session.better_a.username }} is ahead by ₹{{ difference|floatformat:2 }}
+                        {% else %}
+                            {{ session.better_b.username }} is ahead by ₹{{ difference|floatformat:2 }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding-top: 20px; border-top: 2px solid rgba(66, 153, 225, 0.3);">
+                    <div style="text-align: center; padding: 16px; background: white; border-radius: 8px; border: 2px solid {% if current_leader == session.better_a %}#48bb78{% else %}#4299e1{% endif %};">
+                        <div style="font-size: 12px; color: #718096; margin-bottom: 6px; font-weight: 600;">{{ session.better_a.username }}</div>
+                        <div style="font-size: 24px; font-weight: 700; color: {% if current_leader == session.better_a %}#48bb78{% else %}#4299e1{% endif %};">
+                            ₹{{ better_a_total_value|floatformat:2 }}
+                        </div>
+                        <div style="font-size: 11px; color: #4a5568; margin-top: 4px;">{{ better_a_total_runs }} runs</div>
+                    </div>
+                    <div style="text-align: center; padding: 16px; background: white; border-radius: 8px; border: 2px solid {% if current_leader == session.better_b %}#48bb78{% else %}#ed8936{% endif %};">
+                        <div style="font-size: 12px; color: #718096; margin-bottom: 6px; font-weight: 600;">{{ session.better_b.username }}</div>
+                        <div style="font-size: 24px; font-weight: 700; color: {% if current_leader == session.better_b %}#48bb78{% else %}#ed8936{% endif %};">
+                            ₹{{ better_b_total_value|floatformat:2 }}
+                        </div>
+                        <div style="font-size: 11px; color: #4a5568; margin-top: 4px;">{{ better_b_total_runs }} runs</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% else %}
+            <div style="text-align: center; padding: 40px; color: #718096;">
+                <div style="font-size: 48px; margin-bottom: 16px;">⏳</div>
+                <p style="font-size: 16px; margin: 0;">Waiting for both players to place their bets to view standings.</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Modal Footer -->
+        <div style="padding: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
+            <button onclick="closeStandingsModal()" style="background: #4299e1; color: white; border: none; padding: 12px 32px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 16px; transition: background 0.2s;" onmouseover="this.style.background='#3182ce'" onmouseout="this.style.background='#4299e1'">Close</button>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { 
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to { 
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Responsive styles for session detail page */
+@media (max-width: 768px) {
+    /* Modal responsive */
+    #standingsModal > div {
+        width: 95% !important;
+        max-width: 95% !important;
+        margin: 10px !important;
+        max-height: 95vh !important;
+    }
+    
+    #standingsModal .card-header h2 {
+        font-size: 20px !important;
+    }
+    
+    #standingsModal .card-header p {
+        font-size: 12px !important;
+    }
+    
+    /* Grid layouts - stack on mobile */
+    div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    
+    /* Player selection grid */
+    #better-a-picks-list,
+    #better-b-picks-list {
+        flex-direction: column !important;
+    }
+    
+    /* Selected players side by side - stack on mobile */
+    div[style*="display: grid"][style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Card padding reduction */
+    .card {
+        padding: 16px !important;
+    }
+    
+    /* Button sizes for touch */
+    .btn {
+        padding: 12px 20px !important;
+        font-size: 16px !important;
+        min-height: 44px !important;
+    }
+    
+    /* Modal content padding */
+    #standingsModal > div > div[style*="padding: 32px"] {
+        padding: 20px !important;
+    }
+    
+    /* Player cards in modal */
+    #standingsModal div[style*="padding: 24px"] {
+        padding: 16px !important;
+    }
+    
+    /* Font sizes in modal */
+    #standingsModal div[style*="font-size: 32px"] {
+        font-size: 24px !important;
+    }
+    
+    #standingsModal div[style*="font-size: 36px"] {
+        font-size: 28px !important;
+    }
+    
+    #standingsModal div[style*="font-size: 20px"] {
+        font-size: 16px !important;
+    }
+    
+    /* Player breakdown grid - stack on mobile */
+    #standingsModal div[style*="grid-template-columns: 1fr 1fr"][style*="gap: 20px"] {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+    
+    /* Player performance breakdown */
+    #standingsModal h3 {
+        font-size: 16px !important;
+    }
+    
+    /* Player breakdown cards */
+    #standingsModal div[style*="padding: 12px"][style*="background: #f7fafc"] {
+        padding: 10px !important;
+        font-size: 12px !important;
+    }
+    
+    /* Calculation breakdown */
+    #standingsModal div[style*="padding: 20px"][style*="background: #f7fafc"] {
+        padding: 16px !important;
+    }
+    
+    /* Close button in modal header */
+    #standingsModal button[onclick="closeStandingsModal()"] {
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 20px !important;
+    }
+    
+    /* Toast notifications */
+    #toast-container {
+        right: 10px !important;
+        left: 10px !important;
+        max-width: calc(100% - 20px) !important;
+    }
+    
+    /* Page header */
+    .page-header h1 {
+        font-size: 24px !important;
+    }
+    
+    /* Match info card */
+    .card > div[style*="display: flex"] {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+    
+    /* Progress counters */
+    div[style*="display: flex"][style*="gap: 16px"] {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+    
+    /* Form inputs */
+    .form-control {
+        font-size: 16px !important; /* Prevents zoom on iOS */
+    }
+    
+    /* Table wrapper */
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Player badges */
+    .player-badge {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Extra small screens */
+    #standingsModal > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        max-height: 100vh !important;
+        height: 100vh !important;
+    }
+    
+    #standingsModal > div > div[style*="border-radius: 12px 12px 0 0"] {
+        border-radius: 0 !important;
+    }
+    
+    .container {
+        padding: 12px !important;
+    }
+    
+    .card {
+        padding: 12px !important;
+        margin-bottom: 16px !important;
+    }
+    
+    /* Modal header on very small screens */
+    #standingsModal > div > div[style*="padding: 24px"] {
+        padding: 16px !important;
+    }
+    
+    #standingsModal .card-header h2 {
+        font-size: 18px !important;
+    }
+}
+
+/* Landscape orientation adjustments */
+@media (max-width: 768px) and (orientation: landscape) {
+    #standingsModal > div {
+        max-height: 90vh !important;
+    }
+    
+    #standingsModal > div > div[style*="padding: 32px"] {
+        padding: 16px !important;
+    }
+}
+</style>
+{% endif %}
 {% endblock %}

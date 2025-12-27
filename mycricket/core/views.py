@@ -175,33 +175,9 @@ def session_detail(request, session_id):
     if session.better_b != session.better_a:
         UserProfile.objects.get_or_create(user=session.better_b)
     
-    # Get picked players with their match stats
+    # Get picked players
     better_a_picks_qs = PickedPlayer.objects.filter(session=session, better=session.better_a).select_related('player', 'player__team')
     better_b_picks_qs = PickedPlayer.objects.filter(session=session, better=session.better_b).select_related('player', 'player__team')
-    
-    # Add match stats to picks for completed sessions
-    if session.status == 'completed':
-        for pick in better_a_picks_qs:
-            try:
-                stats = PlayerMatchStats.objects.get(player=pick.player, match=session.match)
-                pick.runs_scored = stats.runs_scored
-                pick.balls_faced = stats.balls_faced
-                pick.player_value = Decimal(str(stats.runs_scored)) * session.fixed_bet_amount
-            except PlayerMatchStats.DoesNotExist:
-                pick.runs_scored = 0
-                pick.balls_faced = 0
-                pick.player_value = Decimal('0.00')
-        
-        for pick in better_b_picks_qs:
-            try:
-                stats = PlayerMatchStats.objects.get(player=pick.player, match=session.match)
-                pick.runs_scored = stats.runs_scored
-                pick.balls_faced = stats.balls_faced
-                pick.player_value = Decimal(str(stats.runs_scored)) * session.fixed_bet_amount
-            except PlayerMatchStats.DoesNotExist:
-                pick.runs_scored = 0
-                pick.balls_faced = 0
-                pick.player_value = Decimal('0.00')
     
     # Count picks per team for each better (before converting to list)
     better_a_team_a_count = better_a_picks_qs.filter(player__team=session.match.team_a).count()
@@ -217,13 +193,66 @@ def session_detail(request, session_id):
     better_a_bets_dict = {bet.picked_player_id: bet for bet in better_a_bets}
     better_b_bets_dict = {bet.picked_player_id: bet for bet in better_b_bets}
     
-    # Convert to list and add bet info to picks for template
+    # Convert to list first
     better_a_picks = list(better_a_picks_qs)
     better_b_picks = list(better_b_picks_qs)
+    
+    # Add bet info to picks for template
     for pick in better_a_picks:
         pick.bet = better_a_bets_dict.get(pick.id)
     for pick in better_b_picks:
         pick.bet = better_b_bets_dict.get(pick.id)
+    
+    # Add match stats to picks for completed sessions (after converting to list)
+    if session.status == 'completed':
+        # Pre-fetch all PlayerMatchStats for this match to avoid N+1 queries
+        player_stats_dict = {}
+        for stats in PlayerMatchStats.objects.filter(match=session.match):
+            player_stats_dict[stats.player_id] = stats
+        
+        for pick in better_a_picks:
+            # First try to get runs from Bet model (which should have runs_scored after settlement)
+            runs_scored = 0
+            if pick.bet and pick.bet.runs_scored is not None:
+                runs_scored = pick.bet.runs_scored
+            
+            # Get balls_faced from PlayerMatchStats
+            balls_faced = 0
+            if pick.player_id in player_stats_dict:
+                stats = player_stats_dict[pick.player_id]
+                balls_faced = stats.balls_faced
+                # If runs not in Bet, use PlayerMatchStats
+                if runs_scored == 0:
+                    runs_scored = stats.runs_scored
+            
+            pick.runs_scored = runs_scored
+            pick.balls_faced = balls_faced
+            pick.player_value = Decimal(str(runs_scored)) * session.fixed_bet_amount if session.fixed_bet_amount else Decimal('0.00')
+        
+        # Sort picks by runs_scored (highest first) for completed sessions
+        better_a_picks.sort(key=lambda x: getattr(x, 'runs_scored', 0) or 0, reverse=True)
+        
+        for pick in better_b_picks:
+            # First try to get runs from Bet model (which should have runs_scored after settlement)
+            runs_scored = 0
+            if pick.bet and pick.bet.runs_scored is not None:
+                runs_scored = pick.bet.runs_scored
+            
+            # Get balls_faced from PlayerMatchStats
+            balls_faced = 0
+            if pick.player_id in player_stats_dict:
+                stats = player_stats_dict[pick.player_id]
+                balls_faced = stats.balls_faced
+                # If runs not in Bet, use PlayerMatchStats
+                if runs_scored == 0:
+                    runs_scored = stats.runs_scored
+            
+            pick.runs_scored = runs_scored
+            pick.balls_faced = balls_faced
+            pick.player_value = Decimal(str(runs_scored)) * session.fixed_bet_amount if session.fixed_bet_amount else Decimal('0.00')
+        
+        # Sort picks by runs_scored (highest first) for completed sessions
+        better_b_picks.sort(key=lambda x: getattr(x, 'runs_scored', 0) or 0, reverse=True)
     
     # Get available players (not yet picked)
     picked_player_ids = PickedPlayer.objects.filter(session=session).values_list('player_id', flat=True)
@@ -235,15 +264,19 @@ def session_detail(request, session_id):
     team_a_available = available_players.filter(team=session.match.team_a)
     team_b_available = available_players.filter(team=session.match.team_b)
     
-    # Calculate total runs and values for each better (for completed sessions)
+    # Calculate total runs and values for each better
+    # For completed sessions: use Bet model
+    # For live matches: fetch from API or PlayerMatchStats
     better_a_total_runs = 0
     better_b_total_runs = 0
     better_a_total_value = Decimal('0.00')
     better_b_total_value = Decimal('0.00')
     winner = None
     difference = Decimal('0.00')
+    current_leader = None
     
     if session.status == 'completed':
+        # For completed sessions, use Bet model
         better_a_bets_list = list(better_a_bets)
         better_b_bets_list = list(better_b_bets)
         
@@ -269,6 +302,134 @@ def session_detail(request, session_id):
         elif better_b_total_value > better_a_total_value:
             winner = session.better_b
         # else: tie (winner is None)
+    elif session.match.status == 'live':
+        # For live matches, fetch current stats from API first, then PlayerMatchStats
+        api_player_stats = {}
+        try:
+            score_data = cricket_api.get_match_score(session.match.api_id)
+            if score_data:
+                api_player_stats = score_data.get('player_stats', {})
+        except Exception:
+            # If API fails, continue with PlayerMatchStats
+            pass
+        
+        # Pre-fetch all PlayerMatchStats for this match as fallback
+        player_stats_dict = {}
+        for stats in PlayerMatchStats.objects.filter(match=session.match):
+            player_stats_dict[stats.player_id] = stats
+        
+        # Calculate current totals from API or PlayerMatchStats and add stats to picks
+        for pick in better_a_picks:
+            runs = 0
+            balls = 0
+            # First try API (check multiple key formats)
+            if pick.player.api_id:
+                api_id_str = str(pick.player.api_id)
+                # Try exact string match
+                if api_id_str in api_player_stats:
+                    player_stat = api_player_stats[api_id_str]
+                    if isinstance(player_stat, dict):
+                        runs = player_stat.get('runs', 0)
+                        balls = player_stat.get('balls', 0)
+                else:
+                    # Try integer key only if api_id is numeric
+                    try:
+                        api_id_int = int(pick.player.api_id)
+                        if api_id_int in api_player_stats:
+                            player_stat = api_player_stats[api_id_int]
+                            if isinstance(player_stat, dict):
+                                runs = player_stat.get('runs', 0)
+                                balls = player_stat.get('balls', 0)
+                    except (ValueError, TypeError):
+                        # api_id is not numeric, try partial matching
+                        for key, value in api_player_stats.items():
+                            key_str = str(key)
+                            if key_str == api_id_str or key_str.endswith(api_id_str) or api_id_str in key_str:
+                                player_stat = value
+                                if isinstance(player_stat, dict):
+                                    runs = player_stat.get('runs', 0)
+                                    balls = player_stat.get('balls', 0)
+                                break
+            
+            # Fallback to PlayerMatchStats
+            if runs == 0 and pick.player_id in player_stats_dict:
+                stats = player_stats_dict[pick.player_id]
+                runs = stats.runs_scored
+                balls = stats.balls_faced
+            
+            # Add stats to pick object for template
+            pick.runs_scored = runs
+            pick.balls_faced = balls
+            pick.player_value = Decimal(str(runs)) * session.fixed_bet_amount if session.fixed_bet_amount else Decimal('0.00')
+            pick.has_batted = runs > 0 or balls > 0
+            pick.is_active = balls > 0  # Currently playing if they have faced balls
+            
+            better_a_total_runs += runs
+        
+        for pick in better_b_picks:
+            runs = 0
+            balls = 0
+            # First try API (check multiple key formats)
+            if pick.player.api_id:
+                api_id_str = str(pick.player.api_id)
+                # Try exact string match
+                if api_id_str in api_player_stats:
+                    player_stat = api_player_stats[api_id_str]
+                    if isinstance(player_stat, dict):
+                        runs = player_stat.get('runs', 0)
+                        balls = player_stat.get('balls', 0)
+                else:
+                    # Try integer key only if api_id is numeric
+                    try:
+                        api_id_int = int(pick.player.api_id)
+                        if api_id_int in api_player_stats:
+                            player_stat = api_player_stats[api_id_int]
+                            if isinstance(player_stat, dict):
+                                runs = player_stat.get('runs', 0)
+                                balls = player_stat.get('balls', 0)
+                    except (ValueError, TypeError):
+                        # api_id is not numeric, try partial matching
+                        for key, value in api_player_stats.items():
+                            key_str = str(key)
+                            if key_str == api_id_str or key_str.endswith(api_id_str) or api_id_str in key_str:
+                                player_stat = value
+                                if isinstance(player_stat, dict):
+                                    runs = player_stat.get('runs', 0)
+                                    balls = player_stat.get('balls', 0)
+                                break
+            
+            # Fallback to PlayerMatchStats
+            if runs == 0 and pick.player_id in player_stats_dict:
+                stats = player_stats_dict[pick.player_id]
+                runs = stats.runs_scored
+                balls = stats.balls_faced
+            
+            # Add stats to pick object for template
+            pick.runs_scored = runs
+            pick.balls_faced = balls
+            pick.player_value = Decimal(str(runs)) * session.fixed_bet_amount if session.fixed_bet_amount else Decimal('0.00')
+            pick.has_batted = runs > 0 or balls > 0
+            pick.is_active = balls > 0  # Currently playing if they have faced balls
+            
+            better_b_total_runs += runs
+        
+        # Calculate current values
+        if session.fixed_bet_amount:
+            better_a_total_value = Decimal(str(better_a_total_runs)) * session.fixed_bet_amount
+            better_b_total_value = Decimal(str(better_b_total_runs)) * session.fixed_bet_amount
+            difference = abs(better_a_total_value - better_b_total_value)
+        
+        # Determine current leader
+        if better_a_total_value > better_b_total_value:
+            current_leader = session.better_a
+        elif better_b_total_value > better_a_total_value:
+            current_leader = session.better_b
+        # else: tie (current_leader is None)
+        
+        # Sort picks: active players first, then batted players, then yet to bat
+        # Sort by: is_active (desc), has_batted (desc), runs_scored (desc)
+        better_a_picks.sort(key=lambda x: (getattr(x, 'is_active', False), getattr(x, 'has_batted', False), getattr(x, 'runs_scored', 0)), reverse=True)
+        better_b_picks.sort(key=lambda x: (getattr(x, 'is_active', False), getattr(x, 'has_batted', False), getattr(x, 'runs_scored', 0)), reverse=True)
     
     context = {
         'session': session,
@@ -292,6 +453,7 @@ def session_detail(request, session_id):
         'better_b_total_value': better_b_total_value,
         'difference': difference,
         'winner': winner,
+        'current_leader': current_leader,
     }
     return render(request, 'core/session_detail.html', context)
 
