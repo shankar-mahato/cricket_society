@@ -24,7 +24,7 @@ class CricketAPIService:
     def __init__(self):
         # You can configure API key in settings.py
         # For demo purposes, we'll use a mock service
-        self.api_key = getattr(settings, 'CRICKET_API_KEY', None)
+        self.api_key = getattr(settings, 'CRICKET_API_KEY', '29703eb7-9d28-44e5-a732-33527c70afbf')
         self.base_url = getattr(settings, 'CRICKET_API_URL', 'https://api.cricapi.com/v1')
     
     def get_live_matches(self):
@@ -45,16 +45,26 @@ class CricketAPIService:
             # Try to fetch from real API if configured
             if self.api_key and requests:
                 try:
-                    # Example: CricAPI endpoint
-                    # response = requests.get(
-                    #     f"{self.base_url}/matches",
-                    #     params={'apikey': self.api_key, 'offset': 0}
-                    # )
-                    # if response.status_code == 200:
-                    #     data = response.json()
-                    #     if data.get('status') == 'success':
-                    #         return self._format_api_matches(data.get('data', []))
-                    pass
+                    # Fetch current matches from CricAPI
+                    response = requests.get(
+                        f"{self.base_url}/currentMatches",
+                        params={'apikey': self.api_key, 'offset': 0},
+                        timeout=10
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get('status') == 'success':
+                            matches = data.get('data', [])
+                            # Filter for live matches: matchStarted=true and matchEnded=false
+                            live_matches = [
+                                m for m in matches 
+                                if m.get('matchStarted', False) and not m.get('matchEnded', False)
+                            ]
+                            formatted = self._format_api_matches(live_matches)
+                            logger.info(f"Fetched {len(formatted)} live matches from CricAPI")
+                            return formatted
+                    else:
+                        logger.warning(f"CricAPI returned status {response.status_code}: {response.text}")
                 except Exception as api_error:
                     logger.warning(f"API call failed, using mock data: {str(api_error)}")
             
@@ -68,18 +78,51 @@ class CricketAPIService:
         """Format API response data to standard format"""
         formatted = []
         for match in api_data:
+            # Extract team names from teams array
+            teams = match.get('teams', [])
+            team_info = match.get('teamInfo', [])
+            
+            # Get team names
+            team_a_name = teams[0] if len(teams) > 0 else 'Team A'
+            team_b_name = teams[1] if len(teams) > 1 else 'Team B'
+            
+            # Try to get team IDs from teamInfo
+            team_a_id = None
+            team_b_id = None
+            for info in team_info:
+                if info.get('name') == team_a_name:
+                    team_a_id = f"cricapi_team_{team_a_name.lower().replace(' ', '_').replace('-', '_')}"
+                elif info.get('name') == team_b_name:
+                    team_b_id = f"cricapi_team_{team_b_name.lower().replace(' ', '_').replace('-', '_')}"
+            
+            # Fallback to generated IDs if not found
+            if not team_a_id:
+                team_a_id = f"cricapi_team_{team_a_name.lower().replace(' ', '_').replace('-', '_')}"
+            if not team_b_id:
+                team_b_id = f"cricapi_team_{team_b_name.lower().replace(' ', '_').replace('-', '_')}"
+            
+            # Determine status
+            if match.get('matchStarted', False) and not match.get('matchEnded', False):
+                status = 'live'
+            elif match.get('matchEnded', False):
+                status = 'completed'
+            else:
+                status = 'upcoming'
+            
             formatted.append({
-                'id': match.get('unique_id', match.get('id')),
-                'name': match.get('name', match.get('title', '')),
+                'id': match.get('id', ''),
+                'name': match.get('name', f"{team_a_name} vs {team_b_name}"),
                 'team_a': {
-                    'id': match.get('team-1', {}).get('id') or match.get('team-1', ''),
-                    'name': match.get('team-1', {}).get('name') if isinstance(match.get('team-1'), dict) else match.get('team-1', 'Team A')
+                    'id': team_a_id,
+                    'name': team_a_name,
+                    'short_name': next((info.get('shortname', '') for info in team_info if info.get('name') == team_a_name), team_a_name[:3].upper())
                 },
                 'team_b': {
-                    'id': match.get('team-2', {}).get('id') or match.get('team-2', ''),
-                    'name': match.get('team-2', {}).get('name') if isinstance(match.get('team-2'), dict) else match.get('team-2', 'Team B')
+                    'id': team_b_id,
+                    'name': team_b_name,
+                    'short_name': next((info.get('shortname', '') for info in team_info if info.get('name') == team_b_name), team_b_name[:3].upper())
                 },
-                'status': match.get('matchStarted', False) and 'live' or 'upcoming',
+                'status': status,
                 'date': match.get('dateTimeGMT', match.get('date', '')),
                 'venue': match.get('venue', 'TBA')
             })
@@ -88,7 +131,33 @@ class CricketAPIService:
     def get_upcoming_matches(self):
         """Fetch upcoming cricket matches"""
         try:
-            # Mock data for demonstration
+            # Try to fetch from real API if configured
+            if self.api_key and requests:
+                try:
+                    # Fetch current matches from CricAPI
+                    response = requests.get(
+                        f"{self.base_url}/currentMatches",
+                        params={'apikey': self.api_key, 'offset': 0},
+                        timeout=10
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get('status') == 'success':
+                            matches = data.get('data', [])
+                            # Filter for upcoming matches: matchStarted=false
+                            upcoming_matches = [
+                                m for m in matches 
+                                if not m.get('matchStarted', False)
+                            ]
+                            formatted = self._format_api_matches(upcoming_matches)
+                            logger.info(f"Fetched {len(formatted)} upcoming matches from CricAPI")
+                            return formatted
+                    else:
+                        logger.warning(f"CricAPI returned status {response.status_code}: {response.text}")
+                except Exception as api_error:
+                    logger.warning(f"API call failed, using mock data: {str(api_error)}")
+            
+            # Fallback to mock data
             return self._get_mock_upcoming_matches()
         except Exception as e:
             logger.error(f"Error fetching upcoming matches: {str(e)}")
@@ -530,6 +599,471 @@ class OddsAPIService:
         return {'team_a_players': [], 'team_b_players': []}
 
 
+class EntitySportAPIService:
+    """
+    Production-ready service to fetch cricket data from EntitySport API
+    Documentation: https://www.entitysport.com/api-doc/
+    Uses token-based authentication with automatic token refresh
+    """
+    
+    def __init__(self):
+        # Production-ready: Use environment variables with fallback to defaults
+        self.secret = getattr(settings, 'ENTITYSPORT_API_SECRET', '9bb7fd05727b4215593b85d2ff1afc9a')
+        self.access = getattr(settings, 'ENTITYSPORT_API_ACCESS', 'edbf6c0ed9a9960a3fb8dab71fc9af54')
+        self.base_url = getattr(settings, 'ENTITYSPORT_API_BASE_URL', 'https://restapi.entitysport.com/v2')
+        self.timeout = 30  # Production timeout
+        self.max_retries = 3
+        self.retry_delay = 2  # seconds
+        
+        # Token management
+        self._token = None
+        self._token_expires_at = None
+        
+        if not self.secret or not self.access:
+            logger.warning("EntitySport API keys not configured. Set ENTITYSPORT_API_SECRET and ENTITYSPORT_API_ACCESS in settings or environment.")
+    
+    def _get_auth_token(self, force_refresh=False):
+        """
+        Get authentication token from EntitySport API
+        Automatically refreshes if expired or unavailable
+        Returns token string or None if failed
+        """
+        # Check if we have a valid token
+        if not force_refresh and self._token and self._token_expires_at:
+            # Check if token is still valid (with 5 minute buffer)
+            buffer_time = timedelta(minutes=5)
+            if timezone.now() < (self._token_expires_at - buffer_time):
+                return self._token
+        
+        # Need to get a new token
+        if not requests:
+            logger.error("requests library not available")
+            return None
+        
+        if not self.secret or not self.access:
+            logger.error("EntitySport API keys not configured")
+            return None
+        
+        try:
+            url = f"{self.base_url}/auth/"
+            response = requests.post(
+                url,
+                data={
+                    'access_key': self.access,
+                    'secret_key': self.secret,
+                    'extend': '1'  # Token expires on subscription end date
+                },
+                timeout=self.timeout,
+                headers={
+                    'User-Agent': 'CricketDuel/1.0',
+                    'Accept': 'application/json'
+                }
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"EntitySport Auth API error: {response.status_code} - {response.text[:200]}")
+                return None
+            
+            data = response.json()
+            
+            if data.get('status') != 'ok':
+                logger.error(f"EntitySport Auth API returned error: {data.get('status', 'unknown')}")
+                return None
+            
+            response_data = data.get('response', {})
+            token = response_data.get('token')
+            expires = response_data.get('expires', '')
+            
+            if not token:
+                logger.error("No token received from EntitySport Auth API")
+                return None
+            
+            # Parse expiration date
+            if expires:
+                try:
+                    # Handle different expiration formats
+                    if isinstance(expires, int):
+                        # Unix timestamp (seconds since epoch)
+                        from datetime import datetime as dt
+                        self._token_expires_at = timezone.make_aware(dt.fromtimestamp(expires))
+                    elif isinstance(expires, str):
+                        # String format: "2025-12-31 23:59:59" or ISO format
+                        if 'T' in expires:
+                            self._token_expires_at = datetime.fromisoformat(expires.replace('Z', '+00:00'))
+                        else:
+                            self._token_expires_at = datetime.strptime(expires, '%Y-%m-%d %H:%M:%S')
+                        
+                        if timezone.is_naive(self._token_expires_at):
+                            self._token_expires_at = timezone.make_aware(self._token_expires_at)
+                    else:
+                        # Unknown format, use default
+                        raise ValueError(f"Unknown expiration format: {type(expires)}")
+                except (ValueError, AttributeError, TypeError, OSError) as e:
+                    logger.warning(f"Could not parse token expiration date: {expires} (type: {type(expires)}), using 24 hours default. Error: {str(e)}")
+                    self._token_expires_at = timezone.now() + timedelta(hours=24)
+            else:
+                # Default to 24 hours if no expiration provided
+                self._token_expires_at = timezone.now() + timedelta(hours=24)
+            
+            self._token = token
+            logger.info(f"Successfully obtained EntitySport API token (expires: {self._token_expires_at})")
+            return token
+            
+        except requests.exceptions.Timeout:
+            logger.error("Request timeout while getting auth token")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error while getting auth token: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error getting auth token: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return None
+    
+    @property
+    def token(self):
+        """
+        Get current valid token, refreshing if necessary
+        """
+        return self._get_auth_token()
+    
+    def _make_request(self, endpoint, params=None, retry_count=0):
+        """
+        Make HTTP request with retry logic and proper error handling
+        """
+        if not requests:
+            logger.error("requests library not available")
+            return None
+        
+        if not self.token:
+            logger.error("EntitySport API token not configured")
+            return None
+        
+        try:
+            # Get valid token (will refresh if needed)
+            current_token = self.token
+            if not current_token:
+                logger.error("Could not obtain valid token for EntitySport API")
+                return None
+            
+            url = f"{self.base_url}/{endpoint}"
+            request_params = {'token': current_token}
+            if params:
+                request_params.update(params)
+            
+            response = requests.get(
+                url,
+                params=request_params,
+                timeout=self.timeout,
+                headers={
+                    'User-Agent': 'CricketDuel/1.0',
+                    'Accept': 'application/json'
+                }
+            )
+            
+            # Handle rate limiting
+            if response.status_code == 429:
+                if retry_count < self.max_retries:
+                    logger.warning(f"Rate limited. Retrying in {self.retry_delay} seconds...")
+                    import time
+                    time.sleep(self.retry_delay)
+                    return self._make_request(endpoint, params, retry_count + 1)
+                else:
+                    logger.error("Max retries reached for rate limit")
+                    return None
+            
+            # Handle other HTTP errors
+            if response.status_code != 200:
+                logger.error(f"EntitySport API error: {response.status_code} - {response.text[:200]}")
+                # If unauthorized, try refreshing token once
+                if response.status_code == 401 and retry_count == 0:
+                    logger.warning("Token may be expired, attempting to refresh...")
+                    self._get_auth_token(force_refresh=True)
+                    return self._make_request(endpoint, params, retry_count + 1)
+                return None
+            
+            data = response.json()
+            
+            # Check API response status
+            if data.get('status') != 'ok':
+                error_msg = data.get('status', 'unknown')
+                logger.error(f"EntitySport API returned error: {error_msg}")
+                # If token error, try refreshing token once
+                if 'token' in error_msg.lower() or 'auth' in error_msg.lower():
+                    if retry_count == 0:
+                        logger.warning("Token may be invalid, attempting to refresh...")
+                        self._get_auth_token(force_refresh=True)
+                        return self._make_request(endpoint, params, retry_count + 1)
+                return None
+            
+            return data.get('response', {})
+            
+        except requests.exceptions.Timeout:
+            logger.error(f"Request timeout for {endpoint}")
+            if retry_count < self.max_retries:
+                import time
+                time.sleep(self.retry_delay)
+                return self._make_request(endpoint, params, retry_count + 1)
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error for {endpoint}: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error fetching from EntitySport API: {str(e)}")
+            return None
+    
+    def get_live_matches(self):
+        """
+        Fetch all live cricket matches from EntitySport API
+        Uses endpoint: /matches/?status=1&token={token}
+        Status: 1 = Live matches
+        Returns list of formatted match dictionaries
+        """
+        try:
+            # Fetch all live matches (status=1 means live)
+            response_data = self._make_request('matches', params={'status': 1})
+            if not response_data:
+                logger.warning("No response data from EntitySport API for live matches")
+                return []
+            
+            matches = response_data.get('items', [])
+            if not matches:
+                logger.info("No live matches found in API response")
+                return []
+            
+            formatted = self._format_api_matches(matches)
+            logger.info(f"Fetched {len(formatted)} live matches from EntitySport API")
+            return formatted
+            
+        except Exception as e:
+            logger.error(f"Error fetching live matches from EntitySport API: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return []
+    
+    def get_upcoming_matches(self):
+        """
+        Fetch upcoming cricket matches from EntitySport API
+        Status: 0 = Upcoming/Scheduled
+        Returns list of formatted match dictionaries
+        """
+        try:
+            response_data = self._make_request('matches', params={'status': 0})
+            if not response_data:
+                return []
+            
+            matches = response_data.get('items', [])
+            formatted = self._format_api_matches(matches)
+            logger.info(f"Fetched {len(formatted)} upcoming matches from EntitySport API")
+            return formatted
+            
+        except Exception as e:
+            logger.error(f"Error fetching upcoming matches from EntitySport API: {str(e)}")
+            return []
+    
+    def _format_api_matches(self, api_data):
+        """
+        Format EntitySport API response to standard format
+        """
+        formatted = []
+        for match in api_data:
+            try:
+                # Extract team information
+                teama = match.get('teama', {})
+                teamb = match.get('teamb', {})
+                
+                team_a_name = teama.get('name', 'Team A')
+                team_b_name = teamb.get('name', 'Team B')
+                
+                # Determine match status
+                status_code = match.get('status', 0)
+                if status_code == 1:
+                    status = 'live'
+                elif status_code == 2:
+                    status = 'completed'
+                else:
+                    status = 'upcoming'
+                
+                # Parse match date
+                date_start = match.get('date_start', '')
+                if date_start:
+                    try:
+                        # Parse format: "2025-03-09 09:00:00"
+                        match_date = datetime.strptime(date_start, '%Y-%m-%d %H:%M:%S')
+                        if timezone.is_naive(match_date):
+                            match_date = timezone.make_aware(match_date)
+                    except (ValueError, AttributeError):
+                        # Fallback to timestamp if available
+                        timestamp = match.get('timestamp_start')
+                        if timestamp:
+                            match_date = timezone.datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                        else:
+                            match_date = timezone.now()
+                else:
+                    match_date = timezone.now()
+                
+                # Get venue information
+                venue = match.get('venue', {})
+                venue_name = venue.get('name', 'TBA') if isinstance(venue, dict) else str(venue) if venue else 'TBA'
+                
+                formatted.append({
+                    'id': str(match.get('match_id', '')),
+                    'name': match.get('title', f"{team_a_name} vs {team_b_name}"),
+                    'team_a': {
+                        'id': f"entitysport_team_{teama.get('team_id', '')}",
+                        'name': team_a_name,
+                        'short_name': teama.get('short_name', team_a_name[:3].upper()),
+                        'logo_url': teama.get('logo_url', '')
+                    },
+                    'team_b': {
+                        'id': f"entitysport_team_{teamb.get('team_id', '')}",
+                        'name': team_b_name,
+                        'short_name': teamb.get('short_name', team_b_name[:3].upper()),
+                        'logo_url': teamb.get('logo_url', '')
+                    },
+                    'status': status,
+                    'date': match_date.isoformat(),
+                    'venue': venue_name,
+                    'format': match.get('format_str', ''),
+                    'competition': match.get('competition', {}).get('title', '') if isinstance(match.get('competition'), dict) else ''
+                })
+            except Exception as e:
+                logger.warning(f"Error formatting match {match.get('match_id', 'unknown')}: {str(e)}")
+                continue
+        
+        return formatted
+    
+    def get_match_details(self, match_id):
+        """
+        Get detailed information about a specific match
+        """
+        try:
+            response_data = self._make_request(f'matches/{match_id}/info')
+            if not response_data:
+                return None
+            
+            match = response_data.get('match', {})
+            if not match:
+                return None
+            
+            formatted = self._format_api_matches([match])
+            return formatted[0] if formatted else None
+            
+        except Exception as e:
+            logger.error(f"Error fetching match details for {match_id}: {str(e)}")
+            return None
+    
+    def get_match_squad(self, match_id):
+        """
+        Get squad/players for a match from EntitySport API
+        Returns dict with team_a_players and team_b_players
+        """
+        try:
+            response_data = self._make_request(f'matches/{match_id}/squads')
+            if not response_data:
+                return {'team_a_players': [], 'team_b_players': []}
+            
+            squad = response_data.get('squad', {})
+            teama_squad = squad.get('teama', {}).get('players', [])
+            teamb_squad = squad.get('teamb', {}).get('players', [])
+            
+            team_a_players = []
+            for player in teama_squad:
+                team_a_players.append({
+                    'id': f"entitysport_player_{player.get('player_id', '')}",
+                    'name': player.get('name', ''),
+                    'role': player.get('role', 'Player')
+                })
+            
+            team_b_players = []
+            for player in teamb_squad:
+                team_b_players.append({
+                    'id': f"entitysport_player_{player.get('player_id', '')}",
+                    'name': player.get('name', ''),
+                    'role': player.get('role', 'Player')
+                })
+            
+            return {
+                'team_a_players': team_a_players,
+                'team_b_players': team_b_players
+            }
+            
+        except Exception as e:
+            logger.error(f"Error fetching squad for match {match_id}: {str(e)}")
+            return {'team_a_players': [], 'team_b_players': []}
+    
+    def get_match_live_data(self, match_id):
+        """
+        Get live match data for a specific match
+        Endpoint: /matches/{match_id}/live
+        Returns dict with live scores, current players, etc.
+        """
+        try:
+            response_data = self._make_request(f'matches/{match_id}/live')
+            if not response_data:
+                return None
+            
+            return response_data
+            
+        except Exception as e:
+            logger.error(f"Error fetching live data for match {match_id}: {str(e)}")
+            return None
+    
+    def get_match_score(self, match_id):
+        """
+        Get current score and player stats for a match
+        Returns dict with player runs, wickets, etc.
+        """
+        try:
+            # Try live endpoint first for real-time data
+            live_data = self.get_match_live_data(match_id)
+            if live_data:
+                # Extract player stats from live data
+                scorecard = live_data.get('scorecard', {})
+                innings = scorecard.get('innings', [])
+                
+                player_stats = {}
+                for inning in innings:
+                    batting = inning.get('batting', [])
+                    for batsman in batting:
+                        player_id = f"entitysport_player_{batsman.get('player_id', '')}"
+                        player_stats[player_id] = {
+                            'runs': batsman.get('runs', 0),
+                            'balls': batsman.get('balls', 0),
+                            'wickets': 0
+                        }
+                
+                if player_stats:
+                    return {'player_stats': player_stats}
+            
+            # Fallback to scorecard endpoint
+            response_data = self._make_request(f'matches/{match_id}/scorecard')
+            if not response_data:
+                return {}
+            
+            scorecard = response_data.get('scorecard', {})
+            innings = scorecard.get('innings', [])
+            
+            player_stats = {}
+            for inning in innings:
+                batting = inning.get('batting', [])
+                for batsman in batting:
+                    player_id = f"entitysport_player_{batsman.get('player_id', '')}"
+                    player_stats[player_id] = {
+                        'runs': batsman.get('runs', 0),
+                        'balls': batsman.get('balls', 0),
+                        'wickets': 0
+                    }
+            
+            return {'player_stats': player_stats}
+            
+        except Exception as e:
+            logger.error(f"Error fetching scorecard for match {match_id}: {str(e)}")
+            return {}
+
+
 # Singleton instances
 cricket_api = CricketAPIService()
 odds_api = OddsAPIService()
+entitysport_api = EntitySportAPIService()

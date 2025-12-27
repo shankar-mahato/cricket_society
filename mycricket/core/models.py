@@ -315,6 +315,94 @@ class BettingSession(models.Model):
         return True, "Valid pick"
 
 
+class SessionInvite(models.Model):
+    """Invite for a betting session"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('declined', 'Declined'),
+        ('expired', 'Expired'),
+    ]
+    
+    session = models.ForeignKey(BettingSession, on_delete=models.CASCADE, related_name='invites')
+    inviter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_invites')
+    invitee = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_invites', null=True, blank=True)
+    invitee_email = models.EmailField(null=True, blank=True, help_text="Email of invitee if not a registered user")
+    invitee_username = models.CharField(max_length=150, null=True, blank=True, help_text="Username of invitee if registered")
+    
+    # Invite details
+    invite_code = models.CharField(max_length=32, unique=True, db_index=True, help_text="Unique code for invite link")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    message = models.TextField(blank=True, help_text="Optional message from inviter")
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(help_text="Invite expiration time (default 7 days)")
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['invite_code']),
+            models.Index(fields=['status', 'expires_at']),
+        ]
+    
+    def __str__(self):
+        invitee_name = self.invitee.username if self.invitee else (self.invitee_email or self.invitee_username or 'Unknown')
+        return f"Invite from {self.inviter.username} to {invitee_name} for session #{self.session.id}"
+    
+    def save(self, *args, **kwargs):
+        if not self.invite_code:
+            import secrets
+            self.invite_code = secrets.token_urlsafe(24)[:32]
+        
+        if not self.expires_at:
+            from django.utils import timezone
+            from datetime import timedelta
+            self.expires_at = timezone.now() + timedelta(days=7)
+        
+        super().save(*args, **kwargs)
+    
+    def is_expired(self):
+        """Check if invite has expired"""
+        from django.utils import timezone
+        return timezone.now() > self.expires_at
+    
+    def can_be_accepted(self):
+        """Check if invite can be accepted"""
+        return self.status == 'pending' and not self.is_expired() and self.session.status == 'pending' and self.session.better_b == self.session.better_a
+    
+    def accept(self, user):
+        """Accept the invite"""
+        if not self.can_be_accepted():
+            return False
+        
+        if self.invitee and user != self.invitee:
+            return False
+        
+        # Join the session
+        self.session.better_b = user
+        self.session.save()
+        
+        # Update invite status
+        self.status = 'accepted'
+        self.invitee = user
+        from django.utils import timezone
+        self.accepted_at = timezone.now()
+        self.save()
+        
+        return True
+    
+    def decline(self, user=None):
+        """Decline the invite"""
+        if user and self.invitee and user != self.invitee:
+            return False
+        
+        self.status = 'declined'
+        self.save()
+        return True
+
+
 class PickedPlayer(models.Model):
     """Player picked by a better in a session"""
     session = models.ForeignKey(BettingSession, on_delete=models.CASCADE, related_name='picked_players')

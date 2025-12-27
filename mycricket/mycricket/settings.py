@@ -160,13 +160,21 @@ if os.environ.get('DEBUG') is not None:
 # EMAIL_HOST_PASSWORD = 'your-app-password'
 # DEFAULT_FROM_EMAIL = 'CricketSociety <noreply@cricketsociety.com>'
 
-# Cricket API settings (optional - for future API integration)
-# CRICKET_API_KEY = 'your_api_key_here'
-# CRICKET_API_URL = 'https://api.example.com/v1'
+# Cricket API settings
+# CricAPI Configuration
+CRICKET_API_KEY = os.environ.get('CRICKET_API_KEY', '29703eb7-9d28-44e5-a732-33527c70afbf')
+CRICKET_API_URL = os.environ.get('CRICKET_API_URL', 'https://api.cricapi.com/v1')
+
+# EntitySport API Configuration (Production-ready with token-based authentication)
+# Token is automatically generated from access_key and secret_key
+# No need to set ENTITYSPORT_API_TOKEN - it's generated dynamically
+ENTITYSPORT_API_SECRET = os.environ.get('ENTITYSPORT_API_SECRET', '9bb7fd05727b4215593b85d2ff1afc9a')
+ENTITYSPORT_API_ACCESS = os.environ.get('ENTITYSPORT_API_ACCESS', 'edbf6c0ed9a9960a3fb8dab71fc9af54')
+ENTITYSPORT_API_BASE_URL = os.environ.get('ENTITYSPORT_API_BASE_URL', 'https://restapi.entitysport.com/v2')
 
 # The Odds API settings
-ODDS_API_KEY = '5218daaaf239f6111130008841138480'
-ODDS_API_BASE_URL = 'https://api.the-odds-api.com/v4'
+ODDS_API_KEY = os.environ.get('ODDS_API_KEY', '5218daaaf239f6111130008841138480')
+ODDS_API_BASE_URL = os.environ.get('ODDS_API_BASE_URL', 'https://api.the-odds-api.com/v4')
 
 # Logging configuration
 LOGGING = {

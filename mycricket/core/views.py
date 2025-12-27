@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.http import require_http_methods
@@ -12,9 +13,9 @@ import json
 
 from .models import (
     Match, Team, Player, Wallet, BettingSession, PickedPlayer, Bet,
-    Transaction, PlayerMatchStats
+    Transaction, PlayerMatchStats, SessionInvite
 )
-from .services import cricket_api
+from .services import cricket_api, entitysport_api
 
 
 @login_required
@@ -40,10 +41,26 @@ def home(request):
         if session.better_b != session.better_a:
             UserProfile.objects.get_or_create(user=session.better_b)
     
+    # Get pending invites for the user
+    pending_invites_count = SessionInvite.objects.filter(
+        invitee=request.user,
+        status='pending'
+    ).exclude(expires_at__lt=timezone.now()).count()
+    
+    # Also count email invites
+    email_invites_count = SessionInvite.objects.filter(
+        invitee_email=request.user.email,
+        status='pending',
+        invitee__isnull=True
+    ).exclude(expires_at__lt=timezone.now()).count()
+    
+    total_pending_invites = pending_invites_count + email_invites_count
+    
     context = {
         'live_matches': live_matches,
         'upcoming_matches': upcoming_matches,
         'active_sessions': active_sessions,
+        'pending_invites_count': total_pending_invites,
     }
     return render(request, 'core/home.html', context)
 
@@ -306,7 +323,19 @@ def session_detail(request, session_id):
         # For live matches, fetch current stats from API first, then PlayerMatchStats
         api_player_stats = {}
         try:
-            score_data = cricket_api.get_match_score(session.match.api_id)
+            # Try EntitySport API first (production API), then fallback to cricket_api
+            score_data = None
+            try:
+                score_data = entitysport_api.get_match_score(session.match.api_id)
+            except Exception:
+                pass
+            
+            if not score_data:
+                try:
+                    score_data = cricket_api.get_match_score(session.match.api_id)
+                except Exception:
+                    pass
+            
             if score_data:
                 api_player_stats = score_data.get('player_stats', {})
         except Exception:
@@ -716,8 +745,20 @@ def settle_session(request, session_id):
         return redirect('core:session_detail', session_id=session_id)
     
     # Fetch player stats from API
-    score_data = cricket_api.get_match_score(session.match.api_id)
-    player_stats = score_data.get('player_stats', {})
+    # Try EntitySport API first (production API), then fallback to cricket_api
+    score_data = None
+    try:
+        score_data = entitysport_api.get_match_score(session.match.api_id)
+    except Exception:
+        pass
+    
+    if not score_data:
+        try:
+            score_data = cricket_api.get_match_score(session.match.api_id)
+        except Exception:
+            pass
+    
+    player_stats = score_data.get('player_stats', {}) if score_data else {}
     
     better_a_total_runs = 0
     better_b_total_runs = 0
@@ -972,3 +1013,209 @@ def check_session_updates(request, session_id):
     }
     
     return JsonResponse(response_data)
+
+
+@login_required
+def search_users(request):
+    """Search users by username for invite dropdown"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        query = request.GET.get('q', '').strip()
+        logger.info(f"Search users called with query: '{query}' by user: {request.user.username}")
+        
+        if not query or len(query) < 2:
+            logger.info("Query too short, returning empty list")
+            return JsonResponse({'users': []})
+        
+        # Search users by username (case-insensitive)
+        users = User.objects.filter(
+            username__icontains=query
+        ).exclude(
+            id=request.user.id  # Exclude current user
+        ).values('id', 'username')[:20]  # Limit to 20 results
+        
+        users_list = list(users)
+        logger.info(f"Found {len(users_list)} users matching '{query}'")
+        
+        return JsonResponse({
+            'users': users_list
+        })
+    except Exception as e:
+        logger.error(f"Error in search_users: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return JsonResponse({'users': [], 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def send_invite(request, session_id):
+    """Send an invite to join a betting session"""
+    session = get_object_or_404(BettingSession, id=session_id)
+    
+    # Only session creator can send invites
+    if session.better_a != request.user:
+        messages.error(request, "Only the session creator can send invites")
+        return redirect('core:session_detail', session_id=session_id)
+    
+    # Can't invite if session already has both players
+    if session.better_b != session.better_a:
+        messages.error(request, "Session already has both players")
+        return redirect('core:session_detail', session_id=session_id)
+    
+    if request.method == 'POST':
+        invite_type = request.POST.get('invite_type', 'username')  # username or link
+        message = request.POST.get('message', '').strip()
+        
+        if invite_type == 'username':
+            username = request.POST.get('username', '').strip()
+            if not username:
+                messages.error(request, "Please select a username from the dropdown")
+                return redirect('core:send_invite', session_id=session_id)
+            
+            try:
+                invitee = User.objects.get(username=username)
+                if invitee == request.user:
+                    messages.error(request, "You cannot invite yourself")
+                    return redirect('core:send_invite', session_id=session_id)
+                
+                # Check if invite already exists
+                existing = SessionInvite.objects.filter(
+                    session=session,
+                    invitee=invitee,
+                    status='pending'
+                ).first()
+                
+                if existing and not existing.is_expired():
+                    messages.info(request, f"An active invite already exists for {username}")
+                    return redirect('core:session_detail', session_id=session_id)
+                
+                invite = SessionInvite.objects.create(
+                    session=session,
+                    inviter=request.user,
+                    invitee=invitee,
+                    invitee_username=username,
+                    message=message
+                )
+                messages.success(request, f"Invite sent to {username}!")
+                
+            except User.DoesNotExist:
+                messages.error(request, f"User '{username}' not found")
+                return redirect('core:send_invite', session_id=session_id)
+        
+        elif invite_type == 'link':
+            # Generate shareable link
+            invite = SessionInvite.objects.create(
+                session=session,
+                inviter=request.user,
+                message=message
+            )
+            invite_link = request.build_absolute_uri(
+                f"/session/{session_id}/invite/{invite.invite_code}/"
+            )
+            messages.success(request, f"Invite link created! Share this link: {invite_link}")
+        
+        return redirect('core:session_detail', session_id=session_id)
+    
+    # GET request - show invite form
+    pending_invites = SessionInvite.objects.filter(
+        session=session,
+        status='pending'
+    ).exclude(expires_at__lt=timezone.now())
+    
+    context = {
+        'session': session,
+        'pending_invites': pending_invites,
+    }
+    return render(request, 'core/send_invite.html', context)
+
+
+@login_required
+def accept_invite(request, session_id, invite_code):
+    """Accept an invite to join a betting session"""
+    session = get_object_or_404(BettingSession, id=session_id)
+    invite = get_object_or_404(SessionInvite, invite_code=invite_code, session=session)
+    
+    # Check if invite is valid
+    if invite.is_expired():
+        messages.error(request, "This invite has expired")
+        invite.status = 'expired'
+        invite.save()
+        return redirect('core:home')
+    
+    if invite.status != 'pending':
+        messages.error(request, f"This invite has already been {invite.status}")
+        return redirect('core:home')
+    
+    # If invite has specific invitee, check it matches
+    if invite.invitee and invite.invitee != request.user:
+        messages.error(request, "This invite is not for you")
+        return redirect('core:home')
+    
+    # Check if session is still available
+    if session.better_b != session.better_a:
+        messages.error(request, "This session is already full")
+        invite.status = 'expired'
+        invite.save()
+        return redirect('core:home')
+    
+    # Accept the invite
+    if invite.accept(request.user):
+        messages.success(request, f"You've joined {invite.inviter.username}'s betting session!")
+        return redirect('core:session_detail', session_id=session_id)
+    else:
+        messages.error(request, "Unable to accept invite. Session may be full or expired.")
+        return redirect('core:home')
+
+
+@login_required
+def my_invites(request):
+    """View all invites (sent and received)"""
+    # Invites sent by user
+    sent_invites = SessionInvite.objects.filter(inviter=request.user).select_related('session', 'invitee', 'session__match')
+    
+    # Invites received by user
+    received_invites = SessionInvite.objects.filter(
+        invitee=request.user,
+        status='pending'
+    ).select_related('session', 'inviter', 'session__match').exclude(expires_at__lt=timezone.now())
+    
+    # Invites by email (if user's email matches)
+    email_invites = SessionInvite.objects.filter(
+        invitee_email=request.user.email,
+        status='pending',
+        invitee__isnull=True
+    ).select_related('session', 'inviter', 'session__match').exclude(expires_at__lt=timezone.now())
+    
+    context = {
+        'sent_invites': sent_invites,
+        'received_invites': received_invites,
+        'email_invites': email_invites,
+    }
+    return render(request, 'core/my_invites.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def decline_invite(request, invite_id):
+    """Decline an invite"""
+    invite = get_object_or_404(SessionInvite, id=invite_id)
+    
+    # Only invitee can decline
+    if invite.invitee and invite.invitee != request.user:
+        messages.error(request, "You cannot decline this invite")
+        return redirect('core:my_invites')
+    
+    # Also allow declining by email match
+    if invite.invitee_email and invite.invitee_email != request.user.email:
+        messages.error(request, "You cannot decline this invite")
+        return redirect('core:my_invites')
+    
+    if invite.decline(request.user):
+        messages.success(request, "Invite declined")
+    else:
+        messages.error(request, "Unable to decline invite")
+    
+    return redirect('core:my_invites')

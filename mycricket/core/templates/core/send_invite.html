@@ -1,0 +1,390 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Invite Friend - Session #{{ session.id }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Invite Friend to Join Session</h1>
+    <p>{{ session.match.team_a.name }} vs {{ session.match.team_b.name }}</p>
+</div>
+
+<div class="card">
+    <h2 style="margin: 0 0 20px 0;">Send Invite</h2>
+    
+    <!-- Tabs for different invite methods -->
+    <div style="display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 2px solid #e2e8f0;">
+        <button onclick="showInviteTab('username')" id="tab-username" class="invite-tab active" style="padding: 12px 24px; background: #4299e1; color: white; border: none; border-radius: 6px 6px 0 0; cursor: pointer; font-weight: 600;">
+            By Username
+        </button>
+        <button onclick="showInviteTab('link')" id="tab-link" class="invite-tab" style="padding: 12px 24px; background: #e2e8f0; color: #4a5568; border: none; border-radius: 6px 6px 0 0; cursor: pointer; font-weight: 600;">
+            Shareable Link
+        </button>
+    </div>
+    
+    <!-- Invite by Username -->
+    <div id="invite-username" class="invite-form">
+        <form method="post" action="{% url 'core:send_invite' session.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="invite_type" value="username">
+            <input type="hidden" id="username" name="username" value="">
+            
+            <div style="margin-bottom: 16px;">
+                <label for="username-search" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Search Username</label>
+                <div style="position: relative;">
+                    <input type="text" id="username-search" 
+                           placeholder="Type to search users..." 
+                           autocomplete="off"
+                           style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;">
+                    <div id="username-dropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #cbd5e0; border-radius: 6px; margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <!-- Dropdown items will be populated here -->
+                    </div>
+                </div>
+                <div id="selected-username" style="margin-top: 8px; padding: 8px 12px; background: #ebf8ff; border-radius: 6px; display: none;">
+                    <span style="color: #2c5282; font-weight: 600;">Selected: </span>
+                    <span id="selected-username-text" style="color: #2c5282;"></span>
+                    <button type="button" onclick="clearUsernameSelection()" style="margin-left: 8px; background: #f56565; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">Clear</button>
+                </div>
+                <p style="margin: 8px 0 0 0; color: #718096; font-size: 14px;">Type at least 2 characters to search for users</p>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <label for="message-username" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Message (Optional)</label>
+                <textarea id="message-username" name="message" rows="3" 
+                          placeholder="Add a personal message..."
+                          style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px; resize: vertical;"></textarea>
+            </div>
+            
+            <button type="submit" class="btn" style="background: #4299e1; color: white; width: 100%;" onclick="return validateUsernameForm(event);">Send Invite</button>
+        </form>
+    </div>
+    
+    <!-- Shareable Link -->
+    <div id="invite-link" class="invite-form" style="display: none;">
+        <form method="post" action="{% url 'core:send_invite' session.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="invite_type" value="link">
+            
+            <div style="margin-bottom: 16px;">
+                <label for="message-link" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Message (Optional)</label>
+                <textarea id="message-link" name="message" rows="3" 
+                          placeholder="Add a personal message..."
+                          style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px; resize: vertical;"></textarea>
+            </div>
+            
+            <button type="submit" class="btn" style="background: #4299e1; color: white; width: 100%;">Generate Invite Link</button>
+        </form>
+    </div>
+</div>
+
+<!-- Pending Invites -->
+{% if pending_invites %}
+<div class="card">
+    <h3 style="margin: 0 0 16px 0;">Pending Invites</h3>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Invited To</th>
+                    <th>Method</th>
+                    <th>Status</th>
+                    <th>Expires</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invite in pending_invites %}
+                <tr>
+                    <td>
+                        {% if invite.invitee %}
+                            <strong>{{ invite.invitee.username }}</strong>
+                        {% else %}
+                            Shareable Link
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if invite.invitee %}Username{% else %}Link{% endif %}
+                    </td>
+                    <td>
+                        <span class="status-badge status-info">{{ invite.get_status_display }}</span>
+                    </td>
+                    <td>{{ invite.expires_at|date:"M d, Y H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div style="margin-top: 24px;">
+    <a href="{% url 'core:session_detail' session.id %}" class="btn" style="background: #718096; color: white;">← Back to Session</a>
+</div>
+
+<script>
+let searchTimeout;
+let selectedUserId = null;
+
+function showInviteTab(tab) {
+    // Hide all forms
+    document.querySelectorAll('.invite-form').forEach(form => {
+        form.style.display = 'none';
+    });
+    
+    // Remove active class from all tabs
+    document.querySelectorAll('.invite-tab').forEach(t => {
+        t.classList.remove('active');
+        t.style.background = '#e2e8f0';
+        t.style.color = '#4a5568';
+    });
+    
+    // Show selected form
+    document.getElementById('invite-' + tab).style.display = 'block';
+    
+    // Activate selected tab
+    const activeTab = document.getElementById('tab-' + tab);
+    activeTab.classList.add('active');
+    activeTab.style.background = '#4299e1';
+    activeTab.style.color = 'white';
+    
+    // Reset username search if switching away
+    if (tab !== 'username') {
+        clearUsernameSelection();
+    }
+    
+    // Re-attach event listeners when username tab is shown
+    if (tab === 'username') {
+        setupUsernameSearch();
+    }
+}
+
+// Setup username search event listeners
+function setupUsernameSearch() {
+    const usernameSearch = document.getElementById('username-search');
+    const usernameDropdown = document.getElementById('username-dropdown');
+    
+    if (!usernameSearch) {
+        console.error('Username search element not found in setupUsernameSearch');
+        return;
+    }
+    
+    // Remove existing listeners by cloning the element
+    const newSearch = usernameSearch.cloneNode(true);
+    usernameSearch.parentNode.replaceChild(newSearch, usernameSearch);
+    
+    // Re-attach listener - use 'this' to get the current input value
+    newSearch.addEventListener('input', function(e) {
+        // Use 'this.value' to get the current value of the input field
+        const query = this.value.trim();
+        console.log('Input event triggered, query:', query, 'length:', query.length);
+        
+        // Clear previous timeout
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+        
+        // Hide dropdown if query is too short
+        if (query.length < 2) {
+            console.log('Query too short (' + query.length + ' chars), hiding dropdown');
+            if (usernameDropdown) {
+                usernameDropdown.style.display = 'none';
+            }
+            // Don't clear selection if user is still typing
+            return;
+        }
+        
+        console.log('Starting debounced search for:', query);
+        // Debounce search
+        searchTimeout = setTimeout(() => {
+            // Re-read the value in case it changed during the debounce delay
+            const currentQuery = newSearch.value.trim();
+            console.log('Debounce timeout reached, calling searchUsers with:', currentQuery);
+            if (currentQuery.length >= 2) {
+                searchUsers(currentQuery);
+            }
+        }, 300);
+    });
+    
+    // Update the global reference
+    window.usernameSearchInput = newSearch;
+}
+
+// Username search functionality
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded - Setting up username search');
+    
+    // Initial setup
+    setupUsernameSearch();
+    
+    // Hide dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        const usernameDropdown = document.getElementById('username-dropdown');
+        if (usernameDropdown && !e.target.closest('#username-search') && !e.target.closest('#username-dropdown')) {
+            usernameDropdown.style.display = 'none';
+        }
+    });
+});
+
+function searchUsers(query) {
+    const usernameDropdown = document.getElementById('username-dropdown');
+    
+    if (!usernameDropdown) {
+        console.error('Username dropdown element not found');
+        return;
+    }
+    
+    if (!query || query.length < 2) {
+        usernameDropdown.style.display = 'none';
+        return;
+    }
+    
+    // Show loading state
+    usernameDropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #718096;">Searching...</div>';
+    usernameDropdown.style.display = 'block';
+    
+    // Fetch users - use relative URL to avoid template rendering issues
+    // Since core.urls is included at root, the path is /api/search-users/
+    const searchUrl = '/api/search-users/';
+    const fullUrl = searchUrl + '?q=' + encodeURIComponent(query);
+    
+    console.log('=== Username Search Debug ===');
+    console.log('Query:', query);
+    console.log('Full URL:', fullUrl);
+    console.log('Current page URL:', window.location.href);
+    
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    fetch(fullUrl, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+        },
+        credentials: 'same-origin',
+        signal: controller.signal
+    })
+        .then(response => {
+            clearTimeout(timeoutId);
+            console.log('Response received. Status:', response.status);
+            console.log('Response headers:', [...response.headers.entries()]);
+            
+            if (!response.ok) {
+                // Try to get error message from response
+                return response.text().then(text => {
+                    console.error('Error response body:', text);
+                    try {
+                        const errorData = JSON.parse(text);
+                        throw new Error(errorData.error || 'Network response was not ok: ' + response.status);
+                    } catch (e) {
+                        throw new Error('Network response was not ok: ' + response.status + ' - ' + text.substring(0, 100));
+                    }
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received data:', data);
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            if (data.users && data.users.length > 0) {
+                usernameDropdown.innerHTML = data.users.map(user => {
+                    const safeUsername = escapeHtml(user.username);
+                    return `<div class="username-option" onclick="selectUsername('${safeUsername}', ${user.id})" 
+                          style="padding: 12px; cursor: pointer; border-bottom: 1px solid #e2e8f0; transition: background 0.2s;"
+                          onmouseover="this.style.background='#f7fafc'" 
+                          onmouseout="this.style.background='white'">
+                        <strong style="color: #2d3748;">${safeUsername}</strong>
+                    </div>`;
+                }).join('');
+            } else {
+                usernameDropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #718096;">No users found</div>';
+            }
+        })
+        .catch(error => {
+            clearTimeout(timeoutId);
+            console.error('Error searching users:', error);
+            if (error.name === 'AbortError') {
+                usernameDropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #f56565;">Request timed out. Please try again.</div>';
+            } else {
+                usernameDropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #f56565;">Error: ' + escapeHtml(error.message) + '</div>';
+            }
+        });
+}
+
+function selectUsername(username, userId) {
+    const usernameInput = document.getElementById('username');
+    const usernameSearch = document.getElementById('username-search');
+    const selectedUsernameDiv = document.getElementById('selected-username');
+    const selectedUsernameText = document.getElementById('selected-username-text');
+    const usernameDropdown = document.getElementById('username-dropdown');
+    
+    // Set hidden input
+    usernameInput.value = username;
+    selectedUserId = userId;
+    
+    // Update UI
+    usernameSearch.value = username;
+    selectedUsernameText.textContent = username;
+    selectedUsernameDiv.style.display = 'block';
+    usernameDropdown.style.display = 'none';
+}
+
+function clearUsernameSelection() {
+    const usernameInput = document.getElementById('username');
+    const usernameSearch = document.getElementById('username-search');
+    const selectedUsernameDiv = document.getElementById('selected-username');
+    const usernameDropdown = document.getElementById('username-dropdown');
+    
+    if (usernameInput) usernameInput.value = '';
+    if (usernameSearch) usernameSearch.value = '';
+    if (selectedUsernameDiv) selectedUsernameDiv.style.display = 'none';
+    selectedUserId = null;
+    if (usernameDropdown) usernameDropdown.style.display = 'none';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function validateUsernameForm(event) {
+    const usernameInput = document.getElementById('username');
+    const usernameSearch = document.getElementById('username-search');
+    
+    if (!usernameInput || !usernameInput.value || usernameInput.value.trim() === '') {
+        event.preventDefault();
+        alert('Please select a username from the dropdown');
+        usernameSearch.focus();
+        return false;
+    }
+    
+    return true;
+}
+
+// Prevent form submission if username is not selected
+document.addEventListener('DOMContentLoaded', function() {
+    const usernameForm = document.querySelector('#invite-username form');
+    if (usernameForm) {
+        usernameForm.addEventListener('submit', function(e) {
+            const usernameInput = document.getElementById('username');
+            if (!usernameInput || !usernameInput.value || usernameInput.value.trim() === '') {
+                e.preventDefault();
+                alert('Please select a username from the dropdown');
+                document.getElementById('username-search').focus();
+                return false;
+            }
+        });
+    }
+});
+</script>
+
+<style>
+.invite-tab.active {
+    background: #4299e1 !important;
+    color: white !important;
+}
+</style>
+{% endblock %}
+

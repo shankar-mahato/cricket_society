@@ -71,7 +71,11 @@
     {% if session.better_b == session.better_a %}
         <div class="card" style="background: #ebf8ff; border-color: #4299e1;">
             <h3 style="margin: 0 0 12px 0;">Waiting for Opponent</h3>
-            <p style="margin: 0 0 16px 0; color: #2c5282;">Share this session with a friend to start playing. Session ID: <strong>#{{ session.id }}</strong></p>
+            <p style="margin: 0 0 16px 0; color: #2c5282;">Invite a friend to join your betting session. Session ID: <strong>#{{ session.id }}</strong></p>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <a href="{% url 'core:send_invite' session.id %}" class="btn" style="background: #4299e1; color: white;">📧 Invite Friend</a>
+                <a href="{% url 'core:my_invites' %}" class="btn" style="background: #718096; color: white;">View My Invites</a>
+            </div>
         </div>
     {% elif can_perform_toss and not toss_completed %}
         <div class="card" id="toss-card" style="background: #fffaf0; border-color: #ed8936;">

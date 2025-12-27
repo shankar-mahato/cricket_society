@@ -19,6 +19,12 @@ urlpatterns = [
     path('session/<int:session_id>/withdraw-winnings/', views.withdraw_winnings, name='withdraw_winnings'),
     path('wallet/', views.wallet_view, name='wallet'),
     path('wallet/deposit/', views.deposit_wallet, name='deposit_wallet'),
+    # Invite endpoints
+    path('session/<int:session_id>/invite/', views.send_invite, name='send_invite'),
+    path('session/<int:session_id>/invite/<str:invite_code>/', views.accept_invite, name='accept_invite'),
+    path('invites/', views.my_invites, name='my_invites'),
+    path('invite/<int:invite_id>/decline/', views.decline_invite, name='decline_invite'),
+    path('api/search-users/', views.search_users, name='search_users'),
     # Job endpoint (to prevent 404 errors from polling)
     path('job/check_for_completed_jobs/', job_views.check_for_completed_jobs, name='check_for_completed_jobs'),
 ]

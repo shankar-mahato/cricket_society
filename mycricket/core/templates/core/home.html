@@ -18,6 +18,18 @@
         <a href="{% url 'core:wallet' %}" class="btn" style="background: white; color: #4299e1;">Add Money</a>
     </div>
 </div>
+
+{% if pending_invites_count > 0 %}
+<div class="card" style="background: #fffaf0; border-color: #ed8936; border-left: 4px solid #ed8936;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h3 style="margin: 0 0 8px 0; color: #7c2d12;">📧 You have {{ pending_invites_count }} pending invite{{ pending_invites_count|pluralize }}</h3>
+            <p style="margin: 0; color: #7c2d12;">Check your invites to join betting sessions!</p>
+        </div>
+        <a href="{% url 'core:my_invites' %}" class="btn" style="background: #ed8936; color: white;">View Invites</a>
+    </div>
+</div>
+{% endif %}
 {% endif %}
 
 <div class="card">

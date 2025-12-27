@@ -1,0 +1,164 @@
+{% extends 'core/base.html' %}
+
+{% block title %}My Invites{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>My Invites</h1>
+    <p>Manage your sent and received invites</p>
+</div>
+
+<!-- Received Invites -->
+{% if received_invites or email_invites %}
+<div class="card">
+    <h2 style="margin: 0 0 20px 0;">📥 Invites Received</h2>
+    
+    {% if received_invites %}
+    <div class="table-wrapper" style="margin-bottom: 24px;">
+        <table>
+            <thead>
+                <tr>
+                    <th>From</th>
+                    <th>Match</th>
+                    <th>Session</th>
+                    <th>Expires</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invite in received_invites %}
+                <tr>
+                    <td><strong>{{ invite.inviter.username }}</strong></td>
+                    <td>{{ invite.session.match.team_a.name }} vs {{ invite.session.match.team_b.name }}</td>
+                    <td>#{{ invite.session.id }}</td>
+                    <td>{{ invite.expires_at|date:"M d, Y H:i" }}</td>
+                    <td>
+                        <div style="display: flex; gap: 8px;">
+                            <a href="{% url 'core:accept_invite' invite.session.id invite.invite_code %}" 
+                               class="btn" style="background: #48bb78; color: white; padding: 6px 12px; font-size: 14px;">
+                                Accept
+                            </a>
+                            <form method="post" action="{% url 'core:decline_invite' invite.id %}" style="display: inline;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn" style="background: #f56565; color: white; padding: 6px 12px; font-size: 14px;">
+                                    Decline
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    
+    {% if email_invites %}
+    <div style="margin-top: 24px;">
+        <h3 style="margin: 0 0 16px 0; color: #4a5568;">Invites by Email</h3>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>From</th>
+                        <th>Match</th>
+                        <th>Session</th>
+                        <th>Expires</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invite in email_invites %}
+                    <tr>
+                        <td><strong>{{ invite.inviter.username }}</strong></td>
+                        <td>{{ invite.session.match.team_a.name }} vs {{ invite.session.match.team_b.name }}</td>
+                        <td>#{{ invite.session.id }}</td>
+                        <td>{{ invite.expires_at|date:"M d, Y H:i" }}</td>
+                        <td>
+                            <div style="display: flex; gap: 8px;">
+                                <a href="{% url 'core:accept_invite' invite.session.id invite.invite_code %}" 
+                                   class="btn" style="background: #48bb78; color: white; padding: 6px 12px; font-size: 14px;">
+                                    Accept
+                                </a>
+                                <form method="post" action="{% url 'core:decline_invite' invite.id %}" style="display: inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn" style="background: #f56565; color: white; padding: 6px 12px; font-size: 14px;">
+                                        Decline
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<div class="card">
+    <p style="text-align: center; color: #718096; padding: 40px 0;">No pending invites received.</p>
+</div>
+{% endif %}
+
+<!-- Sent Invites -->
+{% if sent_invites %}
+<div class="card">
+    <h2 style="margin: 0 0 20px 0;">📤 Invites Sent</h2>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>To</th>
+                    <th>Match</th>
+                    <th>Session</th>
+                    <th>Status</th>
+                    <th>Sent</th>
+                    <th>Expires</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invite in sent_invites %}
+                <tr>
+                    <td>
+                        {% if invite.invitee %}
+                            <strong>{{ invite.invitee.username }}</strong>
+                        {% elif invite.invitee_email %}
+                            {{ invite.invitee_email }}
+                        {% else %}
+                            Shareable Link
+                        {% endif %}
+                    </td>
+                    <td>{{ invite.session.match.team_a.name }} vs {{ invite.session.match.team_b.name }}</td>
+                    <td>
+                        <a href="{% url 'core:session_detail' invite.session.id %}">#{{ invite.session.id }}</a>
+                    </td>
+                    <td>
+                        <span class="status-badge 
+                            {% if invite.status == 'accepted' %}status-completed
+                            {% elif invite.status == 'declined' %}status-error
+                            {% elif invite.is_expired %}status-warning
+                            {% else %}status-info{% endif %}">
+                            {% if invite.is_expired and invite.status == 'pending' %}Expired{% else %}{{ invite.get_status_display }}{% endif %}
+                        </span>
+                    </td>
+                    <td>{{ invite.created_at|date:"M d, Y H:i" }}</td>
+                    <td>{{ invite.expires_at|date:"M d, Y H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <p style="text-align: center; color: #718096; padding: 40px 0;">No invites sent yet.</p>
+</div>
+{% endif %}
+
+<div style="margin-top: 24px;">
+    <a href="{% url 'core:home' %}" class="btn" style="background: #718096; color: white;">← Back to Home</a>
+</div>
+{% endblock %}
+
