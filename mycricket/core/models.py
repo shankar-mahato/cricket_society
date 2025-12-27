@@ -214,7 +214,7 @@ class BettingSession(models.Model):
         self.save()
 
     def check_picks_complete(self):
-        """Check if all players have been picked"""
+        """Check if all players have been picked and automatically place bets"""
         total_picks_needed = self.players_per_side * 2  # players_per_side for each team
         total_picks = PickedPlayer.objects.filter(session=self).count()
         
@@ -223,6 +223,68 @@ class BettingSession(models.Model):
             self.status = 'betting'
             self.current_turn = None
             self.save()
+            
+            # Automatically place bets for both players
+            # Note: Wallet, Transaction, Bet, and PickedPlayer are defined in this same file
+            # Place bet for better_a
+            wallet_a, _ = Wallet.objects.get_or_create(user=self.better_a)
+            if wallet_a.balance >= self.fixed_bet_amount:
+                wallet_a.withdraw(self.fixed_bet_amount)
+                Transaction.objects.create(
+                    user=self.better_a,
+                    transaction_type='bet_placed',
+                    amount=self.fixed_bet_amount,
+                    balance_after=wallet_a.balance,
+                    description=f'Fixed bet amount for session #{self.id}'
+                )
+                # Create bets for all picked players
+                better_a_picks = PickedPlayer.objects.filter(session=self, better=self.better_a)
+                for picked_player in better_a_picks:
+                    Bet.objects.get_or_create(
+                        session=self,
+                        better=self.better_a,
+                        picked_player=picked_player,
+                        defaults={
+                            'amount_per_run': Decimal('0.00'),  # Not used with fixed bet
+                            'insurance_percentage': Decimal('0.00'),
+                            'insurance_premium': Decimal('0.00'),
+                            'insured_amount': Decimal('0.00')
+                        }
+                    )
+            
+            # Place bet for better_b
+            wallet_b, _ = Wallet.objects.get_or_create(user=self.better_b)
+            if wallet_b.balance >= self.fixed_bet_amount:
+                wallet_b.withdraw(self.fixed_bet_amount)
+                Transaction.objects.create(
+                    user=self.better_b,
+                    transaction_type='bet_placed',
+                    amount=self.fixed_bet_amount,
+                    balance_after=wallet_b.balance,
+                    description=f'Fixed bet amount for session #{self.id}'
+                )
+                # Create bets for all picked players
+                better_b_picks = PickedPlayer.objects.filter(session=self, better=self.better_b)
+                for picked_player in better_b_picks:
+                    Bet.objects.get_or_create(
+                        session=self,
+                        better=self.better_b,
+                        picked_player=picked_player,
+                        defaults={
+                            'amount_per_run': Decimal('0.00'),  # Not used with fixed bet
+                            'insurance_percentage': Decimal('0.00'),
+                            'insurance_premium': Decimal('0.00'),
+                            'insured_amount': Decimal('0.00')
+                        }
+                    )
+            
+            # Mark bets as completed if both have sufficient balance
+            better_a_bets = Bet.objects.filter(session=self, better=self.better_a).exists()
+            better_b_bets = Bet.objects.filter(session=self, better=self.better_b).exists()
+            if better_a_bets and better_b_bets:
+                self.bets_completed = True
+                self.save()
+            
             return True
         return False
 

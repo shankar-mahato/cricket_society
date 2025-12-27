@@ -513,11 +513,20 @@
                 grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             }
             .progress-steps {
-                flex-direction: column;
-                gap: 16px;
+                gap: 8px;
+                margin: 24px 0;
+            }
+            .progress-step-circle {
+                width: 32px;
+                height: 32px;
+                font-size: 14px;
+            }
+            .progress-step-label {
+                font-size: 11px;
             }
             .progress-steps::before {
-                display: none;
+                top: 16px;
+                height: 2px;
             }
         }
     </style>
