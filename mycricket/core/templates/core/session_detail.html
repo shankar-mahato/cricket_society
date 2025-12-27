@@ -196,6 +196,22 @@
             </div>
         </div>
     {% endif %}
+    
+    <script>
+    // Auto-scroll to players list on mobile after page load if it's user's turn
+    (function() {
+        {% if is_my_turn %}
+        if (window.innerWidth <= 768) {
+            setTimeout(function() {
+                const playersCard = document.querySelector('.card:has(.player-list)');
+                if (playersCard) {
+                    playersCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 500);
+        }
+        {% endif %}
+    })();
+    </script>
 
     <!-- Selected Players Display - Side by Side -->
     <div class="card" id="selected-players-card">
@@ -850,9 +866,14 @@ function performToss() {
                 if (typeof showToast !== 'undefined') {
                     showToast('🎯 You won the toss! It\'s your turn to pick players.', 'success');
                 }
+                // Reload immediately on mobile, with shorter delay on desktop
+                const isMobile = window.innerWidth <= 768;
+                const reloadDelay = isMobile ? 500 : 1500;
                 setTimeout(() => {
+                    // Scroll to top before reload to ensure players list is visible
+                    window.scrollTo(0, 0);
                     location.reload();
-                }, 1500);
+                }, reloadDelay);
             } else {
                 if (typeof showNotification !== 'undefined') {
                     showNotification('Toss Completed', `${data.toss_winner} won the toss and will pick first`);
@@ -865,13 +886,6 @@ function performToss() {
             // Update last update time for polling
             if (data.updated_at && typeof lastUpdateTime !== 'undefined') {
                 lastUpdateTime = data.updated_at;
-            }
-            
-            // If it's my turn, reload to show player selection
-            if (data.is_my_turn) {
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
             }
         } else {
             alert('Error: ' + (data.error || 'Failed to perform toss'));
@@ -1431,9 +1445,14 @@ if (tossCard && (tossCard.style.display !== 'none')) {
                     if (typeof showToast !== 'undefined') {
                         showToast('🎯 You won the toss! It\'s your turn to pick players.', 'success');
                     }
+                    // Reload immediately on mobile, with shorter delay on desktop
+                    const isMobile = window.innerWidth <= 768;
+                    const reloadDelay = isMobile ? 500 : 1500;
                     setTimeout(() => {
-                location.reload();
-                    }, 1500);
+                        // Scroll to top before reload to ensure players list is visible
+                        window.scrollTo(0, 0);
+                        location.reload();
+                    }, reloadDelay);
                 } else {
                     if (typeof showNotification !== 'undefined') {
                         showNotification('Toss Completed', `${data.toss_winner} won the toss and will pick first`);
@@ -1724,6 +1743,40 @@ window.onclick = function(event) {
 
 /* Responsive styles for session detail page */
 @media (max-width: 768px) {
+    /* Ensure players list is visible and properly displayed on mobile */
+    .player-list {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+        gap: 12px !important;
+        margin-top: 16px !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    .player-card {
+        min-height: 120px !important;
+        padding: 12px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    /* Ensure cards containing players list are visible */
+    .card .player-list {
+        display: grid !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* Ensure player cards are visible */
+    #team-a-players-list,
+    #team-b-players-list {
+        display: grid !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
     /* Modal responsive */
     #standingsModal {
         padding: 8px !important;
