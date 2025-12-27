@@ -1,0 +1,120 @@
+{% extends 'core/base.html' %}
+
+{% block title %}DL Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>DL Dashboard</h1>
+    <p>Welcome, {{ user.username }}</p>
+</div>
+
+<!-- Wallet Info -->
+<div class="card">
+    <h2 style="margin: 0 0 20px 0;">My Wallet</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+        <div style="padding: 20px; background: #ebf8ff; border-radius: 8px;">
+            <h3 style="margin: 0 0 8px 0; color: #2c5282; font-size: 14px;">Current Balance</h3>
+            <p style="margin: 0; font-size: 32px; font-weight: bold; color: #2c5282;">₹{{ dl_wallet.balance|floatformat:2 }}</p>
+        </div>
+        <div style="padding: 20px; background: #f0fff4; border-radius: 8px;">
+            <h3 style="margin: 0 0 8px 0; color: #22543d; font-size: 14px;">Total Distributed</h3>
+            <p style="margin: 0; font-size: 24px; font-weight: bold; color: #22543d;">₹{{ dl_wallet.total_distributed|floatformat:2 }}</p>
+        </div>
+        <div style="padding: 20px; background: #fffaf0; border-radius: 8px;">
+            <h3 style="margin: 0 0 8px 0; color: #7c2d12; font-size: 14px;">End Users</h3>
+            <p style="margin: 0; font-size: 24px; font-weight: bold; color: #7c2d12;">{{ total_end_users }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Deposit Requests -->
+<div class="card">
+    <h2 style="margin: 0 0 20px 0;">Pending Deposit Requests</h2>
+    {% if pending_requests %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Amount</th>
+                    <th>Requested At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for request in pending_requests %}
+                <tr>
+                    <td><strong>{{ request.end_user.username }}</strong></td>
+                    <td><strong style="color: #2d3748;">₹{{ request.amount|floatformat:2 }}</strong></td>
+                    <td>{{ request.requested_at|date:"M d, Y H:i" }}</td>
+                    <td>
+                        <div style="display: flex; gap: 8px;">
+                            <a href="{% url 'core:approve_deposit' request.id %}" 
+                               class="btn" 
+                               style="background: #48bb78; color: white; padding: 6px 12px; font-size: 14px;"
+                               onclick="return confirm('Approve deposit of ₹{{ request.amount }} to {{ request.end_user.username }}?')">Approve</a>
+                            <a href="{% url 'core:reject_deposit' request.id %}" 
+                               class="btn" 
+                               style="background: #f56565; color: white; padding: 6px 12px; font-size: 14px;">Reject</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: #718096; text-align: center; padding: 40px;">No pending deposit requests</p>
+    {% endif %}
+</div>
+
+<!-- Actions -->
+<div class="card">
+    <h2 style="margin: 0 0 20px 0;">Actions</h2>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <a href="{% url 'core:dl_assign_end_user' %}" class="btn" style="background: #4299e1; color: white;">Assign End User</a>
+        <a href="{% url 'core:dl_transactions' %}" class="btn" style="background: #718096; color: white;">View Transactions</a>
+    </div>
+</div>
+
+<!-- End Users -->
+<div class="card">
+    <h2 style="margin: 0 0 20px 0;">My End Users</h2>
+    {% if end_users %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Wallet Balance</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for end_user in end_users %}
+                <tr>
+                    <td><strong>{{ end_user.username }}</strong></td>
+                    <td>{{ end_user.email }}</td>
+                    <td><strong>₹{{ end_user.wallet.balance|floatformat:2 }}</strong></td>
+                    <td>
+                        <a href="{% url 'core:dl_credit_end_user' end_user.id %}" 
+                           class="btn" 
+                           style="background: #48bb78; color: white; padding: 6px 12px; font-size: 14px;">
+                            Credit Points
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: #718096; text-align: center; padding: 40px;">
+        No end users assigned yet. 
+        <a href="{% url 'core:dl_assign_end_user' %}" style="color: #4299e1;">Assign your first end user</a>
+    </p>
+    {% endif %}
+</div>
+{% endblock %}
+

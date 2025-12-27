@@ -1,0 +1,40 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Assign End User{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Assign End User</h1>
+    <p>Assign an end user to your DL account</p>
+</div>
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 16px;">
+            <label for="username" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Username *</label>
+            <input type="text" id="username" name="username" required 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="Enter username to assign" autocomplete="off">
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 14px;">Enter the username of the end user you want to assign to your DL account</p>
+        </div>
+        
+        <div style="display: flex; gap: 12px;">
+            <button type="submit" class="btn" style="background: #4299e1; color: white;">Assign User</button>
+            <a href="{% url 'core:dl_dashboard' %}" class="btn" style="background: #718096; color: white;">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<div class="card" style="margin-top: 24px; background: #ebf8ff;">
+    <h3 style="margin: 0 0 12px 0; color: #2c5282;">Information:</h3>
+    <ul style="margin: 0; padding-left: 20px; color: #2c5282;">
+        <li>Once assigned, you can credit points directly to this user</li>
+        <li>The user can also request deposits from you</li>
+        <li>You can view all transactions for this user</li>
+        <li>Each user can only be assigned to one DL at a time</li>
+    </ul>
+</div>
+{% endblock %}
+

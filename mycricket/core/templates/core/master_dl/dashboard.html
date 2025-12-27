@@ -1,0 +1,1319 @@
+{% extends 'core/master_dl/base.html' %}
+
+{% block title %}Master DL Dashboard{% endblock %}
+
+{% block page_title %}Dashboard Overview{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+    .stat-card {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-left: 4px solid;
+    }
+    .stat-card.blue {
+        border-left-color: #4299e1;
+    }
+    .stat-card.green {
+        border-left-color: #48bb78;
+    }
+    .stat-card.purple {
+        border-left-color: #9f7aea;
+    }
+    .stat-card h3 {
+        margin: 0 0 8px 0;
+        color: #718096;
+        font-size: 14px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .stat-card .value {
+        font-size: 36px;
+        font-weight: bold;
+        color: #2d3748;
+        margin: 0;
+    }
+    .table-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+        margin-top: 32px;
+    }
+    .table-header {
+        padding: 24px;
+        border-bottom: 2px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .table-header h2 {
+        margin: 0;
+        color: #2d3748;
+        font-size: 20px;
+        font-weight: 700;
+    }
+    .create-btn {
+        padding: 12px 20px;
+        background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(66, 153, 225, 0.3);
+        min-height: 44px;
+        box-sizing: border-box;
+    }
+    .create-btn:hover {
+        background: linear-gradient(135deg, #3182ce 0%, #2c5aa0 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(66, 153, 225, 0.4);
+    }
+    .create-btn:active {
+        transform: translateY(0);
+    }
+    .table-wrapper {
+        overflow-x: auto;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    thead {
+        background: #f7fafc;
+    }
+    th {
+        padding: 16px 24px;
+        text-align: left;
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    td {
+        padding: 20px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #4a5568;
+    }
+    tr:hover {
+        background: #f7fafc;
+    }
+    .user-info {
+        display: flex;
+        flex-direction: column;
+    }
+    .username {
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 15px;
+        margin-bottom: 4px;
+    }
+    .user-email {
+        font-size: 13px;
+        color: #718096;
+    }
+    .amount-display {
+        font-weight: 600;
+        font-size: 16px;
+        color: #2d3748;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .btn-action {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+        min-height: 44px;
+        box-sizing: border-box;
+    }
+    .btn-icon {
+        font-size: 16px;
+    }
+    .btn-text {
+        font-size: 14px;
+    }
+    .btn-add {
+        background: #48bb78;
+        color: white;
+    }
+    .btn-add:hover {
+        background: #38a169;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(72,187,120,0.3);
+    }
+    .btn-withdraw {
+        background: #f56565;
+        color: white;
+    }
+    .btn-withdraw:hover {
+        background: #e53e3e;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(245,101,101,0.3);
+    }
+    .btn-statement {
+        background: #4299e1;
+        color: white;
+    }
+    .btn-statement:hover {
+        background: #3182ce;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(66,153,225,0.3);
+    }
+    .inline-form {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .amount-input {
+        width: 120px;
+        padding: 8px 12px;
+        border: 1px solid #cbd5e0;
+        border-radius: 6px;
+        font-size: 14px;
+    }
+    .amount-input:focus {
+        outline: none;
+        border-color: #4299e1;
+        box-shadow: 0 0 0 3px rgba(66,153,225,0.1);
+    }
+    .empty-state {
+        padding: 60px;
+        text-align: center;
+        color: #718096;
+    }
+    .empty-state h3 {
+        font-size: 18px;
+        margin-bottom: 8px;
+        color: #4a5568;
+    }
+    
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 2000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        backdrop-filter: blur(4px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .modal.active {
+        display: flex !important;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 20px;
+        overflow-y: auto;
+    }
+    /* Ensure modal is visible when active */
+    .modal.active {
+        visibility: visible;
+        opacity: 1;
+    }
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        width: 100%;
+        max-width: 600px;
+        max-height: 90vh;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        display: flex;
+        flex-direction: column;
+        margin: 20px auto;
+        position: relative;
+    }
+    /* Statement Modal Specific Styles */
+    #statementModal .modal-content {
+        max-width: 950px;
+    }
+    #statementContent {
+        padding: 0;
+    }
+    /* Beautiful Summary Cards in Statement Modal */
+    #statementContent .user-summary {
+        margin: 0;
+        border-radius: 0;
+        padding: 28px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    #statementContent .user-summary h3 {
+        font-size: 20px;
+        margin-bottom: 20px;
+    }
+    #statementContent .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+    }
+    #statementContent .summary-card {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        padding: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    #statementContent .summary-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        background: rgba(255, 255, 255, 0.25);
+    }
+    #statementContent .summary-card-icon {
+        font-size: 36px;
+        margin-bottom: 12px;
+        display: block;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    }
+    #statementContent .summary-card label {
+        display: block;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
+    }
+    #statementContent .summary-card .value {
+        font-size: 28px;
+        font-weight: 700;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    #statementContent .summary-card.balance {
+        background: rgba(255, 255, 255, 0.25);
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+    #statementContent .summary-card.balance .value {
+        font-size: 32px;
+    }
+    #statementContent .summary-card.credit {
+        background: rgba(72, 187, 120, 0.25);
+        border-color: rgba(72, 187, 120, 0.4);
+    }
+    #statementContent .summary-card.debit {
+        background: rgba(245, 101, 101, 0.25);
+        border-color: rgba(245, 101, 101, 0.4);
+    }
+    #statementContent .table-container {
+        border-radius: 0;
+        box-shadow: none;
+        border-top: 1px solid #e2e8f0;
+    }
+    #statementContent .table-header {
+        padding: 20px 28px;
+    }
+    #statementContent .table-header h2 {
+        font-size: 18px;
+    }
+    #statementContent table {
+        font-size: 13px;
+    }
+    #statementContent th {
+        padding: 14px 20px;
+        font-size: 11px;
+    }
+    #statementContent td {
+        padding: 14px 20px;
+    }
+    #statementContent .badge {
+        padding: 5px 12px;
+        font-size: 11px;
+    }
+    /* Statement Summary Wrapper */
+    .statement-summary-wrapper {
+        background: #f8fafc;
+        padding: 0;
+    }
+    /* Enhanced empty state */
+    #statementContent .empty-state {
+        padding: 60px 40px;
+        text-align: center;
+        color: #718096;
+    }
+    #statementContent .empty-state::before {
+        content: "📭";
+        font-size: 48px;
+        display: block;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+    #statementContent .empty-state p {
+        font-size: 16px;
+        margin: 0;
+        color: #a0aec0;
+    }
+    /* Better table row spacing */
+    #statementContent tbody tr {
+        border-bottom: 1px solid #f1f5f9;
+    }
+    #statementContent tbody tr:last-child {
+        border-bottom: none;
+    }
+    /* Improved date display */
+    #statementContent td small {
+        display: block;
+        color: #a0aec0;
+        font-size: 11px;
+        margin-top: 4px;
+    }
+    /* Compact transaction cards for better mobile view */
+    @media (max-width: 768px) {
+        #statementModal .modal-content {
+            max-width: 100%;
+            max-height: 100vh;
+            border-radius: 0;
+            margin: 0;
+        }
+        #statementContent .summary-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        #statementContent .user-summary {
+            padding: 20px;
+        }
+        #statementContent .summary-card .value {
+            font-size: 20px;
+        }
+        #statementContent .table-wrapper {
+            overflow-x: scroll;
+        }
+        #statementContent table {
+            min-width: 600px;
+        }
+    }
+    .modal-header {
+        padding: 24px;
+        border-bottom: 2px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    .modal-header h2 {
+        margin: 0;
+        color: #2d3748;
+        font-size: 20px;
+        font-weight: 700;
+    }
+    .close-modal {
+        background: none;
+        border: none;
+        font-size: 28px;
+        color: #718096;
+        cursor: pointer;
+        padding: 0;
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+    .close-modal:hover {
+        background: #f7fafc;
+        color: #2d3748;
+    }
+    .modal-body {
+        padding: 24px;
+        overflow-y: auto;
+        flex: 1;
+    }
+    .modal-footer {
+        padding: 20px 24px;
+        border-top: 2px solid #e2e8f0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        flex-shrink: 0;
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 14px;
+    }
+    .form-group input,
+    .form-group textarea {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #cbd5e0;
+        border-radius: 6px;
+        font-size: 16px;
+        transition: all 0.2s;
+        box-sizing: border-box;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #4299e1;
+        box-shadow: 0 0 0 3px rgba(66,153,225,0.1);
+    }
+    .form-help {
+        display: block;
+        margin-top: 6px;
+        font-size: 12px;
+        color: #718096;
+    }
+    /* Modal Animation */
+    .modal {
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    .modal.active {
+        opacity: 1;
+    }
+    .modal-content {
+        transform: scale(0.9);
+        transition: transform 0.3s ease;
+    }
+    .modal.active .modal-content {
+        transform: scale(1);
+    }
+    .info-box {
+        background: #ebf8ff;
+        border-left: 4px solid #4299e1;
+        padding: 16px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+    }
+    .info-box p {
+        margin: 4px 0;
+        color: #2c5282;
+        font-size: 14px;
+    }
+    .btn-modal {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-height: 44px;
+        box-sizing: border-box;
+    }
+    .btn-modal-primary {
+        background: #4299e1;
+        color: white;
+    }
+    .btn-modal-primary:hover {
+        background: #3182ce;
+    }
+    .btn-modal-secondary {
+        background: #e2e8f0;
+        color: #4a5568;
+    }
+    .btn-modal-secondary:hover {
+        background: #cbd5e0;
+    }
+    .statement-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    .statement-table th {
+        padding: 12px;
+        text-align: left;
+        background: #f7fafc;
+        font-weight: 600;
+        color: #2d3748;
+        border-bottom: 2px solid #e2e8f0;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+    .statement-table td {
+        padding: 12px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #4a5568;
+    }
+    .statement-table tr:hover {
+        background: #f7fafc;
+    }
+    .badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .badge-credit {
+        background: #d4edda;
+        color: #155724;
+    }
+    .badge-debit {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        .stat-card {
+            padding: 20px;
+        }
+        
+        .stat-card .value {
+            font-size: 28px;
+        }
+        
+        .table-container {
+            margin-top: 24px;
+        }
+        
+        .table-header {
+            flex-direction: column;
+            gap: 16px;
+            align-items: flex-start;
+            padding: 20px;
+        }
+        
+        .table-header h2 {
+            font-size: 18px;
+        }
+        
+        .create-btn {
+            width: 100%;
+            text-align: center;
+            padding: 12px;
+        }
+        
+        .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        table {
+            min-width: 600px;
+        }
+        
+        th, td {
+            padding: 12px 16px;
+            font-size: 14px;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+            width: 100%;
+            gap: 6px;
+        }
+        
+        .btn-action {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 14px;
+            justify-content: center;
+        }
+        
+        .btn-text {
+            font-size: 14px;
+        }
+        
+        .btn-icon {
+            font-size: 16px;
+        }
+        
+        .modal.active {
+            padding: 10px;
+            align-items: flex-start;
+        }
+        
+        .modal-content {
+            width: 100%;
+            max-width: 100%;
+            margin: 0;
+            max-height: 100vh;
+            border-radius: 0;
+        }
+        
+        .modal-header {
+            padding: 20px;
+        }
+        
+        .modal-header h2 {
+            font-size: 18px;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 16px 20px;
+            flex-direction: column;
+        }
+        
+        .btn-modal {
+            width: 100%;
+            padding: 12px;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            font-size: 16px; /* Prevents zoom on iOS */
+        }
+        
+        .info-box {
+            padding: 12px;
+        }
+        
+        .info-box p {
+            font-size: 13px;
+        }
+        
+        .user-info {
+            min-width: 150px;
+        }
+        
+        .username {
+            font-size: 14px;
+        }
+        
+        .user-email {
+            font-size: 12px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .table-header h2 {
+            font-size: 16px;
+        }
+        
+        th {
+            font-size: 11px;
+            padding: 10px 12px;
+        }
+        
+        td {
+            padding: 10px 12px;
+            font-size: 13px;
+        }
+        
+        .amount-display {
+            font-size: 14px;
+        }
+        
+        .modal-header {
+            padding: 16px;
+        }
+        
+        .modal-body {
+            padding: 16px;
+        }
+        
+        .modal-footer {
+            padding: 12px 16px;
+        }
+        
+        .stat-card {
+            padding: 16px;
+        }
+        
+        .stat-card .value {
+            font-size: 24px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Statistics -->
+<div class="stats-grid">
+    <div class="stat-card blue">
+        <h3>Total DL Users</h3>
+        <p class="value">{{ total_dl_users }}</p>
+    </div>
+    <div class="stat-card green">
+        <h3>Total DL Balance</h3>
+        <p class="value">₹{{ total_dl_balance|floatformat:2 }}</p>
+    </div>
+    <div class="stat-card purple">
+        <h3>Total Credited</h3>
+        <p class="value">₹{{ total_credited|floatformat:2 }}</p>
+    </div>
+</div>
+
+<!-- DL Users Table -->
+<div class="table-container" id="dl-users">
+    <div class="table-header">
+        <h2>DL Users</h2>
+        <a href="{% url 'core:create_dl_user' %}" class="create-btn">➕ Create DL User</a>
+    </div>
+    {% if dl_users %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Total Amount in Wallet</th>
+                    <th>Total in Exposure</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dl_user in dl_users %}
+                <tr>
+                    <td>
+                        <div class="user-info">
+                            <div class="username">{{ dl_user.username }}</div>
+                            <div class="user-email">{{ dl_user.email }}</div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="amount-display">
+                            {% if dl_user.dl_wallet %}
+                                ₹{{ dl_user.dl_wallet.balance|floatformat:2 }}
+                            {% else %}
+                                ₹0.00
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="amount-display">
+                            {% if dl_user.dl_wallet %}
+                                ₹{{ dl_user.dl_wallet.total_distributed|floatformat:2 }}
+                            {% else %}
+                                ₹0.00
+                            {% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button type="button" class="btn-action btn-add" 
+                                    data-user-id="{{ dl_user.id }}"
+                                    data-username="{{ dl_user.username }}"
+                                    data-balance="{% if dl_user.dl_wallet %}{{ dl_user.dl_wallet.balance|floatformat:2 }}{% else %}0.00{% endif %}"
+                                    onclick="openAddPointsModal(this)">
+                                <span class="btn-icon">➕</span>
+                                <span class="btn-text">Add Points</span>
+                            </button>
+                            <button type="button" class="btn-action btn-withdraw"
+                                    data-user-id="{{ dl_user.id }}"
+                                    data-username="{{ dl_user.username }}"
+                                    data-balance="{% if dl_user.dl_wallet %}{{ dl_user.dl_wallet.balance|floatformat:2 }}{% else %}0.00{% endif %}"
+                                    onclick="openWithdrawPointsModal(this)">
+                                <span class="btn-icon">➖</span>
+                                <span class="btn-text">Withdraw Points</span>
+                            </button>
+                            <button type="button" class="btn-action btn-statement"
+                                    data-user-id="{{ dl_user.id }}"
+                                    data-username="{{ dl_user.username }}"
+                                    onclick="openStatementModal(this)">
+                                <span class="btn-icon">📊</span>
+                                <span class="btn-text">See Statement</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No DL Users Yet</h3>
+        <p>Create your first DL user to get started</p>
+        <a href="{% url 'core:create_dl_user' %}" class="create-btn" style="margin-top: 16px;">Create DL User</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Points Modal -->
+<div id="addPointsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Add Points</h2>
+            <button class="close-modal" onclick="closeModal('addPointsModal')" type="button">&times;</button>
+        </div>
+        <form id="addPointsForm" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="dl_user_id" id="addPointsUserId">
+            <div class="modal-body">
+                <!-- User Details Section -->
+                <div class="info-box">
+                    <p><strong>👤 User:</strong> <span id="addPointsUsername"></span></p>
+                    <p><strong>💰 Current Balance:</strong> ₹<span id="addPointsBalance"></span></p>
+                    <p><strong>📅 Date & Time:</strong> <span id="addPointsDateTime"></span></p>
+                </div>
+                
+                <!-- Amount Input -->
+                <div class="form-group">
+                    <label for="addPointsAmount">Amount to Add *</label>
+                    <input type="number" 
+                           id="addPointsAmount" 
+                           name="amount" 
+                           step="0.01" 
+                           min="0.01" 
+                           required 
+                           placeholder="Enter amount"
+                           autofocus>
+                    <small class="form-help">Minimum amount: ₹0.01</small>
+                </div>
+                
+                <!-- Description Input -->
+                <div class="form-group">
+                    <label for="addPointsDescription">Description (Optional)</label>
+                    <textarea id="addPointsDescription" 
+                              name="description" 
+                              rows="3" 
+                              placeholder="Add a description for this transaction..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-modal btn-modal-secondary" onclick="closeModal('addPointsModal')">Cancel</button>
+                <button type="submit" class="btn-modal btn-modal-primary">
+                    <span>➕ Add Points</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Withdraw Points Modal -->
+<div id="withdrawPointsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Withdraw Points</h2>
+            <button class="close-modal" onclick="closeModal('withdrawPointsModal')" type="button">&times;</button>
+        </div>
+        <form id="withdrawPointsForm" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="dl_user_id" id="withdrawPointsUserId">
+            <div class="modal-body">
+                <!-- User Details Section -->
+                <div class="info-box">
+                    <p><strong>👤 User:</strong> <span id="withdrawPointsUsername"></span></p>
+                    <p><strong>💰 Current Balance:</strong> ₹<span id="withdrawPointsBalance"></span></p>
+                    <p><strong>📅 Date & Time:</strong> <span id="withdrawPointsDateTime"></span></p>
+                </div>
+                
+                <!-- Amount Input -->
+                <div class="form-group">
+                    <label for="withdrawPointsAmount">Amount to Withdraw *</label>
+                    <input type="number" 
+                           id="withdrawPointsAmount" 
+                           name="amount" 
+                           step="0.01" 
+                           min="0.01" 
+                           required 
+                           placeholder="Enter amount"
+                           autofocus>
+                    <small class="form-help">Maximum: Current balance</small>
+                </div>
+                
+                <!-- Description Input -->
+                <div class="form-group">
+                    <label for="withdrawPointsDescription">Description (Optional)</label>
+                    <textarea id="withdrawPointsDescription" 
+                              name="description" 
+                              rows="3" 
+                              placeholder="Add a description for this transaction..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-modal btn-modal-secondary" onclick="closeModal('withdrawPointsModal')">Cancel</button>
+                <button type="submit" class="btn-modal btn-modal-primary">
+                    <span>➖ Withdraw Points</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Statement Modal -->
+<div id="statementModal" class="modal">
+    <div class="modal-content" style="max-width: 950px;">
+        <div class="modal-header">
+            <h2>📊 Transaction Statement - <span id="statementUsername"></span></h2>
+            <button class="close-modal" onclick="closeModal('statementModal')" type="button" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body" id="statementContent" style="padding: 0;">
+            <div style="text-align: center; padding: 60px 40px; color: #718096;">
+                <div style="font-size: 48px; margin-bottom: 16px;">⏳</div>
+                <p style="font-size: 16px; margin: 0;">Loading statement...</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-modal btn-modal-secondary" onclick="closeModal('statementModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Make functions globally available
+window.openAddPointsModal = function(button) {
+
+    try {
+        console.log('Opening Add Points Modal', button);
+        const userId = button.getAttribute('data-user-id');
+        const username = button.getAttribute('data-username');
+        const balance = button.getAttribute('data-balance') || '0.00';
+        
+        console.log('User ID:', userId, 'Username:', username, 'Balance:', balance);
+        
+        // Close any other open modals first
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.classList.remove('active');
+        });
+        
+        // Get current date and time
+        const now = new Date();
+        const dateTimeString = now.toLocaleString('en-IN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+        
+        // Set form values
+        const userIdInput = document.getElementById('addPointsUserId');
+        const usernameSpan = document.getElementById('addPointsUsername');
+        const balanceSpan = document.getElementById('addPointsBalance');
+        const dateTimeSpan = document.getElementById('addPointsDateTime');
+        const amountInput = document.getElementById('addPointsAmount');
+        const descriptionInput = document.getElementById('addPointsDescription');
+        const modal = document.getElementById('addPointsModal');
+        
+        if (userIdInput) userIdInput.value = userId || '';
+        if (usernameSpan) usernameSpan.textContent = username || '';
+        if (balanceSpan) balanceSpan.textContent = parseFloat(balance).toFixed(2);
+        if (dateTimeSpan) dateTimeSpan.textContent = dateTimeString;
+        if (amountInput) {
+            amountInput.value = '';
+            // Focus on amount input after modal opens
+            setTimeout(() => amountInput.focus(), 150);
+        }
+        if (descriptionInput) descriptionInput.value = '';
+        
+        // Show modal with smooth animation
+        if (modal) {
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.add('active');
+            }, 10);
+            document.body.style.overflow = 'hidden';
+        } else {
+            console.error('Modal element not found!');
+            alert('Modal element not found. Please refresh the page.');
+        }
+    } catch (error) {
+        console.error('Error opening Add Points modal:', error);
+        alert('Error opening modal: ' + error.message);
+    }
+};
+
+window.openWithdrawPointsModal = function(button) {
+    try {
+        console.log('Opening Withdraw Points Modal', button);
+        const userId = button.getAttribute('data-user-id');
+        const username = button.getAttribute('data-username');
+        const balance = button.getAttribute('data-balance') || '0.00';
+        
+        // Close any other open modals first
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.classList.remove('active');
+        });
+        
+        // Get current date and time
+        const now = new Date();
+        const dateTimeString = now.toLocaleString('en-IN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+        
+        // Set form values
+        const userIdInput = document.getElementById('withdrawPointsUserId');
+        const usernameSpan = document.getElementById('withdrawPointsUsername');
+        const balanceSpan = document.getElementById('withdrawPointsBalance');
+        const dateTimeSpan = document.getElementById('withdrawPointsDateTime');
+        const amountInput = document.getElementById('withdrawPointsAmount');
+        const descriptionInput = document.getElementById('withdrawPointsDescription');
+        const modal = document.getElementById('withdrawPointsModal');
+        
+        if (userIdInput) userIdInput.value = userId || '';
+        if (usernameSpan) usernameSpan.textContent = username || '';
+        if (balanceSpan) balanceSpan.textContent = parseFloat(balance).toFixed(2);
+        if (dateTimeSpan) dateTimeSpan.textContent = dateTimeString;
+        if (amountInput) {
+            amountInput.value = '';
+            // Focus on amount input after modal opens
+            setTimeout(() => amountInput.focus(), 150);
+        }
+        if (descriptionInput) descriptionInput.value = '';
+        
+        // Show modal with smooth animation
+        if (modal) {
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.add('active');
+            }, 10);
+            document.body.style.overflow = 'hidden';
+        } else {
+            console.error('Withdraw modal element not found!');
+            alert('Modal element not found. Please refresh the page.');
+        }
+    } catch (error) {
+        console.error('Error opening Withdraw Points modal:', error);
+        alert('Error opening modal: ' + error.message);
+    }
+};
+
+window.openStatementModal = function(button) {
+    try {
+        console.log('Opening Statement Modal', button);
+        const userId = button.getAttribute('data-user-id');
+        const username = button.getAttribute('data-username');
+        
+        // Close any other open modals first
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.classList.remove('active');
+        });
+        
+        const usernameSpan = document.getElementById('statementUsername');
+        const contentDiv = document.getElementById('statementContent');
+        const modal = document.getElementById('statementModal');
+        
+        if (usernameSpan) usernameSpan.textContent = username || '';
+        if (contentDiv) contentDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><p>Loading...</p></div>';
+        
+        // Show modal with smooth animation
+        if (modal) {
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.add('active');
+            }, 10);
+            document.body.style.overflow = 'hidden';
+        } else {
+            console.error('Statement modal element not found!');
+            alert('Modal element not found. Please refresh the page.');
+            return;
+        }
+        
+        // Fetch statement data
+        const statementUrl = '{% url "core:master_dl_user_statement" 999 %}'.replace('999', userId);
+        fetch(statementUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.text();
+            })
+            .then(html => {
+                // Extract table content from the response
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const tableContainer = doc.querySelector('#statementTableContainer');
+                const summary = doc.querySelector('.user-summary');
+                
+                let content = '';
+                if (summary) {
+                    content += summary.outerHTML;
+                }
+                if (tableContainer) {
+                    content += tableContainer.outerHTML;
+                } else {
+                    const table = doc.querySelector('.table-container');
+                    if (table) {
+                        content += table.outerHTML;
+                    } else {
+                        content = '<div style="text-align: center; padding: 40px;"><p>No transactions found</p></div>';
+                    }
+                }
+                
+                if (contentDiv) {
+                    contentDiv.innerHTML = content;
+                    // Scroll to top after content loads
+                    setTimeout(() => {
+                        contentDiv.scrollTop = 0;
+                    }, 100);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading statement:', error);
+                if (contentDiv) {
+                    contentDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><p>Error loading statement. Please try again.</p></div>';
+                }
+            });
+    } catch (error) {
+        console.error('Error opening Statement modal:', error);
+        alert('Error opening modal: ' + error.message);
+    }
+};
+
+window.closeModal = function(modalId) {
+    try {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            // Remove active class first for smooth fade out
+            modal.classList.remove('active');
+            // Hide after animation completes
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300);
+            document.body.style.overflow = ''; // Restore scrolling
+        }
+    } catch (error) {
+        console.error('Error closing modal:', error);
+    }
+};
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.classList.remove('active');
+        setTimeout(() => {
+            event.target.style.display = 'none';
+        }, 300);
+        document.body.style.overflow = ''; // Restore scrolling
+    }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        document.querySelectorAll('.modal.active').forEach(modal => {
+            modal.classList.remove('active');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300);
+            document.body.style.overflow = ''; // Restore scrolling
+        });
+    }
+});
+
+// Wait for DOM to be ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up form handlers');
+    
+    // Handle form submissions
+    const addPointsForm = document.getElementById('addPointsForm');
+    const withdrawPointsForm = document.getElementById('withdrawPointsForm');
+    
+    if (addPointsForm) {
+        addPointsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const userId = formData.get('dl_user_id');
+            const addPointsUrl = '{% url "core:master_dl_add_points" 999 %}'.replace('999', userId);
+            
+            console.log('Submitting add points form for user:', userId);
+            
+            fetch(addPointsUrl, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                // Check if response is ok
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'Server error');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // Close modal and reload silently
+                    closeModal('addPointsModal');
+                    location.reload();
+                } else {
+                    alert(data.error || 'Error adding points. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert(error.message || 'Error adding points. Please try again.');
+            });
+        });
+    } else {
+        console.error('Add Points form not found!');
+    }
+    
+    if (withdrawPointsForm) {
+        withdrawPointsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const userId = formData.get('dl_user_id');
+            const subtractPointsUrl = '{% url "core:master_dl_subtract_points" 999 %}'.replace('999', userId);
+            
+            console.log('Submitting withdraw points form for user:', userId);
+            
+            fetch(subtractPointsUrl, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    closeModal('withdrawPointsModal');
+                    location.reload();
+                } else {
+                    alert(data.error || 'Error withdrawing points. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error withdrawing points. Please try again.');
+            });
+        });
+    } else {
+        console.error('Withdraw Points form not found!');
+    }
+});
+</script>
+{% endblock %}

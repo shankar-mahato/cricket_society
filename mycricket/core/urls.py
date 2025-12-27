@@ -27,4 +27,22 @@ urlpatterns = [
     path('api/search-users/', views.search_users, name='search_users'),
     # Job endpoint (to prevent 404 errors from polling)
     path('job/check_for_completed_jobs/', job_views.check_for_completed_jobs, name='check_for_completed_jobs'),
+    # Distributor/Dealer System URLs
+    path('master-dl/', views.master_dl_dashboard, name='master_dl_dashboard'),
+    path('master-dl/create-dl/', views.create_dl_user, name='create_dl_user'),
+    path('master-dl/credit/<int:dl_user_id>/', views.credit_dl_wallet, name='credit_dl_wallet'),
+    path('master-dl/withdraw/<int:dl_user_id>/', views.withdraw_dl_wallet, name='withdraw_dl_wallet'),
+    path('master-dl/reset-password/<int:dl_user_id>/', views.reset_dl_password, name='reset_dl_password'),
+    path('master-dl/add-points/<int:dl_user_id>/', views.master_dl_add_points, name='master_dl_add_points'),
+    path('master-dl/subtract-points/<int:dl_user_id>/', views.master_dl_subtract_points, name='master_dl_subtract_points'),
+    path('master-dl/statement/', views.master_dl_statement, name='master_dl_statement'),
+    path('master-dl/user/<int:dl_user_id>/statement/', views.master_dl_user_statement, name='master_dl_user_statement'),
+    path('dl/dashboard/', views.dl_dashboard, name='dl_dashboard'),
+    path('dl/approve-deposit/<int:request_id>/', views.approve_deposit_request, name='approve_deposit'),
+    path('dl/reject-deposit/<int:request_id>/', views.reject_deposit_request, name='reject_deposit'),
+    path('dl/credit-end-user/<int:end_user_id>/', views.dl_credit_end_user, name='dl_credit_end_user'),
+    path('dl/assign-end-user/', views.dl_assign_end_user, name='dl_assign_end_user'),
+    path('dl/transactions/', views.dl_transactions, name='dl_transactions'),
+    path('request-deposit/', views.request_deposit, name='request_deposit'),
+    path('my-deposit-requests/', views.my_deposit_requests, name='my_deposit_requests'),
 ]

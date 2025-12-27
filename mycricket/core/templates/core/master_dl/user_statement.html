@@ -1,0 +1,304 @@
+{% extends 'core/master_dl/base.html' %}
+
+{% block title %}{{ dl_user.username }} - Statement{% endblock %}
+
+{% block page_title %}{{ dl_user.username }} - Transaction Statement{% endblock %}
+
+{% block extra_css %}
+<style>
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #4299e1;
+        text-decoration: none;
+        font-weight: 500;
+        margin-bottom: 24px;
+        padding: 8px 0;
+    }
+    .back-link:hover {
+        color: #3182ce;
+    }
+    
+    /* Enhanced User Summary */
+    .user-summary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 32px;
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        margin-bottom: 32px;
+        color: white;
+    }
+    .user-summary-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+    }
+    .user-summary h3 {
+        margin: 0;
+        color: white;
+        font-size: 24px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .user-summary h3::before {
+        content: "👤";
+        font-size: 28px;
+    }
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+    }
+    .summary-card {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .summary-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    }
+    .summary-card-icon {
+        font-size: 32px;
+        margin-bottom: 12px;
+        display: block;
+    }
+    .summary-card label {
+        display: block;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    .summary-card .value {
+        font-size: 28px;
+        font-weight: 700;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .summary-card.balance .value {
+        font-size: 32px;
+    }
+    .summary-card.credit {
+        background: rgba(72, 187, 120, 0.2);
+        border-color: rgba(72, 187, 120, 0.3);
+    }
+    .summary-card.debit {
+        background: rgba(245, 101, 101, 0.2);
+        border-color: rgba(245, 101, 101, 0.3);
+    }
+    
+    /* Enhanced Table */
+    .table-container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+    .table-header {
+        padding: 24px 28px;
+        border-bottom: 2px solid #e2e8f0;
+        background: linear-gradient(to right, #f7fafc, #ffffff);
+    }
+    .table-header h2 {
+        margin: 0;
+        color: #2d3748;
+        font-size: 22px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .table-header h2::before {
+        content: "📊";
+        font-size: 24px;
+    }
+    .table-wrapper {
+        overflow-x: auto;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    thead {
+        background: linear-gradient(to right, #f7fafc, #edf2f7);
+    }
+    th {
+        padding: 18px 24px;
+        text-align: left;
+        font-weight: 700;
+        color: #2d3748;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    td {
+        padding: 18px 24px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #4a5568;
+        font-size: 14px;
+    }
+    tbody tr {
+        transition: background 0.2s ease;
+    }
+    tbody tr:hover {
+        background: #f8fafc;
+        transform: scale(1.01);
+    }
+    .badge {
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .badge::before {
+        font-size: 14px;
+    }
+    .badge-credit {
+        background: linear-gradient(135deg, #d4edda, #c3e6cb);
+        color: #155724;
+        border: 1px solid #b8dacc;
+    }
+    .badge-credit::before {
+        content: "↑";
+    }
+    .badge-debit {
+        background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+        color: #721c24;
+        border: 1px solid #f1b0b7;
+    }
+    .badge-debit::before {
+        content: "↓";
+    }
+    .amount-positive {
+        color: #48bb78;
+        font-weight: 700;
+        font-size: 15px;
+    }
+    .amount-negative {
+        color: #f56565;
+        font-weight: 700;
+        font-size: 15px;
+    }
+    .empty-state {
+        padding: 80px 40px;
+        text-align: center;
+        color: #718096;
+    }
+    .empty-state::before {
+        content: "📭";
+        font-size: 64px;
+        display: block;
+        margin-bottom: 16px;
+    }
+    .empty-state p {
+        font-size: 18px;
+        margin: 0;
+    }
+    
+    @media (max-width: 768px) {
+        .user-summary {
+            padding: 24px;
+        }
+        .summary-grid {
+            grid-template-columns: 1fr;
+        }
+        .summary-card .value {
+            font-size: 24px;
+        }
+        th, td {
+            padding: 12px 16px;
+            font-size: 13px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="{% url 'core:master_dl_dashboard' %}" class="back-link">← Back to Dashboard</a>
+
+<!-- User Summary -->
+<div class="user-summary">
+    <div class="user-summary-header">
+        <h3>{{ dl_user.username }}</h3>
+    </div>
+    <div class="summary-grid">
+        <div class="summary-card balance">
+            <span class="summary-card-icon">💰</span>
+            <label>Current Balance</label>
+            <div class="value">₹{{ current_balance|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card credit">
+            <span class="summary-card-icon">📈</span>
+            <label>Total Credits</label>
+            <div class="value">₹{{ total_credits|floatformat:2 }}</div>
+        </div>
+        <div class="summary-card debit">
+            <span class="summary-card-icon">📉</span>
+            <label>Total Debits</label>
+            <div class="value">₹{{ total_debits|floatformat:2 }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Transactions Table -->
+<div class="table-container" id="statementTableContainer">
+    <div class="table-header">
+        <h2>Transaction History</h2>
+    </div>
+    {% if transactions %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date & Time</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Balance After</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.created_at|date:"M d, Y" }}<br><small style="color: #a0aec0;">{{ transaction.created_at|date:"H:i A" }}</small></td>
+                    <td>
+                        <span class="badge {% if transaction.transaction_type == 'credit' %}badge-credit{% else %}badge-debit{% endif %}">
+                            {% if transaction.transaction_type == 'credit' %}Credit{% else %}Debit{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <strong class="{% if transaction.transaction_type == 'credit' %}amount-positive{% else %}amount-negative{% endif %}">
+                            {% if transaction.transaction_type == 'credit' %}+{% else %}-{% endif %}₹{{ transaction.amount|floatformat:2 }}
+                        </strong>
+                    </td>
+                    <td><strong>₹{{ transaction.balance_after|floatformat:2 }}</strong></td>
+                    <td>{{ transaction.description|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="padding: 60px; text-align: center; color: #718096;">
+        <p style="font-size: 18px;">No transactions found</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

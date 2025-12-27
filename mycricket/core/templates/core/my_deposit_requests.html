@@ -1,0 +1,71 @@
+{% extends 'core/base.html' %}
+
+{% block title %}My Deposit Requests{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>My Deposit Requests</h1>
+    <p>View all your deposit requests</p>
+</div>
+
+<div class="card">
+    {% if requests %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Amount</th>
+                    <th>DL User</th>
+                    <th>Status</th>
+                    <th>Requested At</th>
+                    <th>Processed At</th>
+                    <th>Remarks</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for request in requests %}
+                <tr>
+                    <td><strong>₹{{ request.amount|floatformat:2 }}</strong></td>
+                    <td>{{ request.dl_user.username }}</td>
+                    <td>
+                        {% if request.status == 'pending' %}
+                            <span class="status-badge status-info">Pending</span>
+                        {% elif request.status == 'approved' %}
+                            <span class="status-badge status-completed">Approved</span>
+                        {% elif request.status == 'rejected' %}
+                            <span class="status-badge" style="background: #f56565; color: white;">Rejected</span>
+                        {% else %}
+                            <span class="status-badge">{{ request.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ request.requested_at|date:"M d, Y H:i" }}</td>
+                    <td>
+                        {% if request.processed_at %}
+                            {{ request.processed_at|date:"M d, Y H:i" }}
+                        {% else %}
+                            <span style="color: #718096;">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if request.remarks %}
+                            {{ request.remarks }}
+                        {% else %}
+                            <span style="color: #718096;">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: #718096; text-align: center; padding: 40px;">No deposit requests yet. <a href="{% url 'core:request_deposit' %}">Request a deposit</a></p>
+    {% endif %}
+</div>
+
+<div style="margin-top: 24px;">
+    <a href="{% url 'core:request_deposit' %}" class="btn" style="background: #4299e1; color: white;">New Deposit Request</a>
+    <a href="{% url 'core:wallet' %}" class="btn" style="background: #718096; color: white;">Back to Wallet</a>
+</div>
+{% endblock %}
+

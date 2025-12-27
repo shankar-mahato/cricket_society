@@ -350,6 +350,180 @@ class SessionInvite(models.Model):
     def __str__(self):
         invitee_name = self.invitee.username if self.invitee else (self.invitee_email or self.invitee_username or 'Unknown')
         return f"Invite from {self.inviter.username} to {invitee_name} for session #{self.session.id}"
+
+
+# ==================== DISTRIBUTOR/DEALER SYSTEM MODELS ====================
+
+class DLWallet(models.Model):
+    """Separate wallet for DL users"""
+    dl_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='dl_wallet')
+    balance = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'),
+                                  validators=[MinValueValidator(Decimal('0.00'))])
+    total_credited = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'),
+                                         help_text="Total amount credited by Master DL")
+    total_distributed = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'),
+                                            help_text="Total amount distributed to end users")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"DL Wallet - {self.dl_user.username}: ₹{self.balance}"
+    
+    def credit(self, amount, description=""):
+        """Credit amount to DL wallet"""
+        self.balance += amount
+        self.total_credited += amount
+        self.save()
+        
+        # Create transaction record
+        DLTransaction.objects.create(
+            dl_user=self.dl_user,
+            transaction_type='credit',
+            amount=amount,
+            balance_after=self.balance,
+            description=description or f'Credited by Master DL'
+        )
+    
+    def debit(self, amount, description=""):
+        """Debit amount from DL wallet"""
+        if self.balance >= amount:
+            self.balance -= amount
+            self.total_distributed += amount
+            self.save()
+            
+            # Create transaction record
+            DLTransaction.objects.create(
+                dl_user=self.dl_user,
+                transaction_type='debit',
+                amount=amount,
+                balance_after=self.balance,
+                description=description or f'Distributed to end user'
+            )
+            return True
+        return False
+    
+    def withdraw(self, amount, description=""):
+        """Withdraw amount from DL wallet (by Master DL)"""
+        if self.balance >= amount:
+            self.balance -= amount
+            self.save()
+            
+            # Create transaction record
+            DLTransaction.objects.create(
+                dl_user=self.dl_user,
+                transaction_type='debit',  # Using debit for withdrawal
+                amount=amount,
+                balance_after=self.balance,
+                description=description or f'Withdrawn by Master DL'
+            )
+            return True
+        return False
+
+
+class DLTransaction(models.Model):
+    """Transaction history for DL wallets"""
+    TRANSACTION_TYPES = [
+        ('credit', 'Credit from Master DL'),
+        ('debit', 'Debit to End User'),
+        ('refund', 'Refund'),
+    ]
+    
+    dl_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='dl_transactions')
+    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    balance_after = models.DecimalField(max_digits=12, decimal_places=2)
+    description = models.TextField(null=True, blank=True)
+    related_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name='related_dl_transactions',
+                                      help_text="End user related to this transaction")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.dl_user.username} - {self.transaction_type} - ₹{self.amount}"
+
+
+class DepositRequest(models.Model):
+    """End user deposit requests to DL users"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    end_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='deposit_requests')
+    dl_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_deposit_requests',
+                                help_text="DL user who will approve this request")
+    amount = models.DecimalField(max_digits=12, decimal_places=2,
+                                 validators=[MinValueValidator(Decimal('0.01'))])
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    remarks = models.TextField(null=True, blank=True,
+                              help_text="Remarks from DL user")
+    
+    # Timestamps
+    requested_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    processed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
+                                     related_name='processed_deposit_requests')
+    
+    class Meta:
+        ordering = ['-requested_at']
+    
+    def __str__(self):
+        return f"{self.end_user.username} - ₹{self.amount} - {self.status}"
+    
+    def approve(self, dl_user):
+        """Approve deposit request"""
+        from django.utils import timezone
+        
+        # Check DL wallet balance
+        try:
+            dl_wallet = DLWallet.objects.get(dl_user=self.dl_user)
+        except DLWallet.DoesNotExist:
+            return False, "DL wallet not found"
+        
+        if dl_wallet.balance < self.amount:
+            return False, "Insufficient balance in DL wallet"
+        
+        # Debit from DL wallet
+        if not dl_wallet.debit(self.amount, f'Deposit to {self.end_user.username}'):
+            return False, "Failed to debit from DL wallet"
+        
+        # Credit to end user wallet
+        end_user_wallet, _ = Wallet.objects.get_or_create(user=self.end_user)
+        end_user_wallet.deposit(self.amount)
+        
+        # Create transaction record
+        Transaction.objects.create(
+            user=self.end_user,
+            transaction_type='deposit',
+            amount=self.amount,
+            balance_after=end_user_wallet.balance,
+            description=f'Deposit approved by DL: {self.dl_user.username}'
+        )
+        
+        # Update request status
+        self.status = 'approved'
+        self.processed_at = timezone.now()
+        self.processed_by = dl_user
+        self.save()
+        
+        return True, "Deposit approved successfully"
+    
+    def reject(self, dl_user, remarks=""):
+        """Reject deposit request"""
+        from django.utils import timezone
+        
+        self.status = 'rejected'
+        self.remarks = remarks
+        self.processed_at = timezone.now()
+        self.processed_by = dl_user
+        self.save()
+        
+        return True, "Deposit request rejected"
     
     def save(self, *args, **kwargs):
         if not self.invite_code:

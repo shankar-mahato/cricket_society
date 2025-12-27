@@ -1,0 +1,65 @@
+{% extends 'core/base.html' %}
+
+{% block title %}DL Transactions{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Transaction History</h1>
+    <p>View all your DL wallet transactions</p>
+</div>
+
+<div class="card">
+    <div style="margin-bottom: 20px;">
+        <a href="{% url 'core:dl_dashboard' %}" class="btn" style="background: #718096; color: white;">← Back to Dashboard</a>
+    </div>
+    
+    {% if transactions %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Balance After</th>
+                    <th>Related User</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.created_at|date:"M d, Y H:i" }}</td>
+                    <td>
+                        <span style="padding: 4px 8px; border-radius: 4px; font-size: 12px;
+                            {% if transaction.transaction_type == 'credit' %}
+                                background: #d4edda; color: #155724;
+                            {% elif transaction.transaction_type == 'debit' %}
+                                background: #f8d7da; color: #721c24;
+                            {% else %}
+                                background: #d1ecf1; color: #0c5460;
+                            {% endif %}">
+                            {{ transaction.get_transaction_type_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <strong style="color: {% if transaction.transaction_type == 'credit' %}#4caf50{% else %}#f44336{% endif %};">
+                            {% if transaction.transaction_type == 'credit' %}+{% else %}-{% endif %}₹{{ transaction.amount|floatformat:2 }}
+                        </strong>
+                    </td>
+                    <td>₹{{ transaction.balance_after|floatformat:2 }}</td>
+                    <td>
+                        <span style="color: #718096;">-</span>
+                    </td>
+                    <td>{{ transaction.description|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: #718096; text-align: center; padding: 40px;">No transactions yet</p>
+    {% endif %}
+</div>
+{% endblock %}
+

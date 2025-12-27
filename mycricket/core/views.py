@@ -1,6 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.db.models import Sum
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.http import require_http_methods
@@ -13,15 +16,28 @@ import json
 
 from .models import (
     Match, Team, Player, Wallet, BettingSession, PickedPlayer, Bet,
-    Transaction, PlayerMatchStats, SessionInvite
+    Transaction, PlayerMatchStats, SessionInvite, DLWallet, DLTransaction, DepositRequest
 )
 from .services import cricket_api, entitysport_api
 
 
 @login_required
 def home(request):
-    """Home page showing live and upcoming matches"""
+    """Home page showing live and upcoming matches - redirects based on user type"""
     from accounts.models import UserProfile
+    
+    # Check user type and redirect accordingly
+    if request.user.is_superuser or request.user.is_staff:
+        # Master DL (Superuser) - redirect to Master DL dashboard
+        return redirect('core:master_dl_dashboard')
+    
+    # Check if user has profile
+    if hasattr(request.user, 'profile'):
+        profile = request.user.profile
+        if profile.user_type == 'dl':
+            # DL User - redirect to DL dashboard
+            return redirect('core:dl_dashboard')
+        # End users continue to home page
     
     # Get matches from database (synced from API)
     live_matches = Match.objects.filter(status='live').order_by('-match_date')
@@ -1219,3 +1235,556 @@ def decline_invite(request, invite_id):
         messages.error(request, "Unable to decline invite")
     
     return redirect('core:my_invites')
+
+
+# ==================== DISTRIBUTOR/DEALER SYSTEM VIEWS ====================
+
+def is_master_dl(user):
+    """Check if user is Master DL (Superuser)"""
+    return user.is_superuser or user.is_staff
+
+@user_passes_test(is_master_dl)
+def master_dl_dashboard(request):
+    """Master DL dashboard"""
+    from accounts.models import UserProfile
+    from django.db.models import Prefetch
+    
+    # Get all DL users with their wallets
+    # Use select_related for OneToOne relationships
+    dl_users = User.objects.filter(
+        profile__user_type='dl'
+    ).select_related('profile', 'dl_wallet').order_by('-id')
+    
+    # Ensure all DL users have wallets (create if missing)
+    for dl_user in dl_users:
+        if not hasattr(dl_user, 'dl_wallet'):
+            DLWallet.objects.create(dl_user=dl_user, balance=Decimal('0.00'))
+    
+    # Refresh the queryset to include newly created wallets
+    dl_users = User.objects.filter(
+        profile__user_type='dl'
+    ).select_related('profile', 'dl_wallet').order_by('-id')
+    
+    # Statistics
+    total_dl_users = dl_users.count()
+    total_dl_balance = DLWallet.objects.aggregate(
+        total=Sum('balance')
+    )['total'] or Decimal('0.00')
+    total_credited = DLWallet.objects.aggregate(
+        total=Sum('total_credited')
+    )['total'] or Decimal('0.00')
+    
+    context = {
+        'total_dl_users': total_dl_users,
+        'total_dl_balance': total_dl_balance,
+        'total_credited': total_credited,
+        'dl_users': dl_users,
+    }
+    return render(request, 'core/master_dl/dashboard.html', context)
+
+@user_passes_test(is_master_dl)
+@require_http_methods(["POST"])
+def master_dl_add_points(request, dl_user_id):
+    """Master DL adds points to DL user wallet (inline)"""
+    dl_user = get_object_or_404(User, id=dl_user_id)
+    
+    amount = Decimal(request.POST.get('amount', '0.00'))
+    description = request.POST.get('description', f'Credit by Master DL')
+    
+    if amount <= 0:
+        error_msg = "Amount must be greater than 0"
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=400)
+        messages.error(request, error_msg)
+        return redirect('core:master_dl_dashboard')
+    
+    try:
+        dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=dl_user)
+        dl_wallet.credit(amount, description)
+        
+        success_msg = f'₹{amount} added to {dl_user.username}\'s wallet'
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'message': success_msg})
+        messages.success(request, success_msg)
+        return redirect('core:master_dl_dashboard')
+    except Exception as e:
+        error_msg = f"Error adding points: {str(e)}"
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': error_msg}, status=500)
+        messages.error(request, error_msg)
+        return redirect('core:master_dl_dashboard')
+
+@user_passes_test(is_master_dl)
+@require_http_methods(["POST"])
+def master_dl_subtract_points(request, dl_user_id):
+    """Master DL subtracts points from DL user wallet (inline)"""
+    from django.http import JsonResponse
+    
+    dl_user = get_object_or_404(User, id=dl_user_id)
+    
+    amount = Decimal(request.POST.get('amount', '0.00'))
+    description = request.POST.get('description', f'Withdrawal by Master DL')
+    
+    if amount <= 0:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Amount must be greater than 0'}, status=400)
+        messages.error(request, "Amount must be greater than 0")
+        return redirect('core:master_dl_dashboard')
+    
+    try:
+        dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=dl_user)
+        
+        # Check balance
+        if dl_wallet.balance < amount:
+            error_msg = f"Insufficient balance. Current balance: ₹{dl_wallet.balance}"
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': error_msg}, status=400)
+            messages.error(request, error_msg)
+            return redirect('core:master_dl_dashboard')
+        
+        # Withdraw
+        if dl_wallet.withdraw(amount, description):
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': True, 'message': f'₹{amount} subtracted from {dl_user.username}\'s wallet'})
+            messages.success(request, f'₹{amount} subtracted from {dl_user.username}\'s wallet')
+        else:
+            error_msg = "Failed to subtract amount"
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'error': error_msg}, status=500)
+            messages.error(request, error_msg)
+        
+        return redirect('core:master_dl_dashboard')
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        messages.error(request, f"Error: {str(e)}")
+        return redirect('core:master_dl_dashboard')
+
+@user_passes_test(is_master_dl)
+def master_dl_statement(request):
+    """Master DL statement view - all transactions"""
+    # Get all DL transactions
+    transactions = DLTransaction.objects.all().select_related('dl_user').order_by('-created_at')[:100]
+    
+    # Statistics
+    total_credits = DLTransaction.objects.filter(transaction_type='credit').aggregate(
+        total=Sum('amount')
+    )['total'] or Decimal('0.00')
+    
+    total_debits = DLTransaction.objects.filter(transaction_type='debit').aggregate(
+        total=Sum('amount')
+    )['total'] or Decimal('0.00')
+    
+    context = {
+        'transactions': transactions,
+        'total_credits': total_credits,
+        'total_debits': total_debits,
+    }
+    return render(request, 'core/master_dl/statement.html', context)
+
+@user_passes_test(is_master_dl)
+def master_dl_user_statement(request, dl_user_id):
+    """Individual DL user statement"""
+    dl_user = get_object_or_404(User, id=dl_user_id)
+    
+    # Get all transactions for this DL user
+    transactions = DLTransaction.objects.filter(
+        dl_user=dl_user
+    ).order_by('-created_at')
+    
+    # Statistics
+    total_credits = DLTransaction.objects.filter(
+        dl_user=dl_user,
+        transaction_type='credit'
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    
+    total_debits = DLTransaction.objects.filter(
+        dl_user=dl_user,
+        transaction_type='debit'
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    
+    dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=dl_user)
+    
+    context = {
+        'dl_user': dl_user,
+        'transactions': transactions,
+        'total_credits': total_credits,
+        'total_debits': total_debits,
+        'current_balance': dl_wallet.balance,
+    }
+    return render(request, 'core/master_dl/user_statement.html', context)
+
+@user_passes_test(is_master_dl)
+def create_dl_user(request):
+    """Create a new DL user"""
+    from accounts.models import UserProfile
+    
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        initial_balance = Decimal(request.POST.get('initial_balance', '0'))
+        
+        # Validate input
+        if not username or not password:
+            messages.error(request, "Username and password are required")
+            return render(request, 'core/master_dl/create_dl_user.html')
+        
+        try:
+            # Create user (email is optional)
+            user = User.objects.create_user(
+                username=username,
+                email=email if email else f"{username}@dl.local",
+                password=password
+            )
+            
+            # Get or create profile - the signal may have already created it
+            profile, created = UserProfile.objects.get_or_create(user=user)
+            
+            # Always update to ensure it's set as DL user
+            profile.user_type = 'dl'
+            profile.master_dl = request.user
+            profile.save()
+            
+            # Create DL wallet
+            dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=user)
+            
+            # Credit initial balance if provided
+            if initial_balance > 0:
+                dl_wallet.credit(initial_balance, f'Initial credit from Master DL')
+            
+            messages.success(request, f'DL user {username} created successfully')
+            return redirect('core:master_dl_dashboard')
+            
+        except IntegrityError as e:
+            if 'username' in str(e).lower():
+                messages.error(request, f"Username '{username}' already exists")
+            elif 'email' in str(e).lower():
+                messages.error(request, f"Email '{email}' already exists")
+            else:
+                messages.error(request, f"Error creating user: {str(e)}")
+        except Exception as e:
+            messages.error(request, f"Error creating DL user: {str(e)}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error creating DL user: {str(e)}", exc_info=True)
+    
+    return render(request, 'core/master_dl/create_dl_user.html')
+
+@user_passes_test(is_master_dl)
+def credit_dl_wallet(request, dl_user_id):
+    """Credit amount to DL user's wallet"""
+    dl_user = get_object_or_404(User, id=dl_user_id)
+    
+    if request.method == 'POST':
+        amount = Decimal(request.POST.get('amount'))
+        description = request.POST.get('description', '')
+        
+        if amount <= 0:
+            messages.error(request, "Amount must be greater than 0")
+            return redirect('core:credit_dl_wallet', dl_user_id=dl_user_id)
+        
+        dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=dl_user)
+        dl_wallet.credit(amount, description)
+        
+        messages.success(request, f'₹{amount} credited to {dl_user.username}')
+        return redirect('core:master_dl_dashboard')
+    
+    dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=dl_user)
+    context = {'dl_user': dl_user, 'dl_wallet': dl_wallet}
+    return render(request, 'core/master_dl/credit_wallet.html', context)
+
+@user_passes_test(is_master_dl)
+def withdraw_dl_wallet(request, dl_user_id):
+    """Withdraw amount from DL user's wallet"""
+    dl_user = get_object_or_404(User, id=dl_user_id)
+    
+    if request.method == 'POST':
+        amount = Decimal(request.POST.get('amount'))
+        description = request.POST.get('description', '')
+        
+        if amount <= 0:
+            messages.error(request, "Amount must be greater than 0")
+            return redirect('core:withdraw_dl_wallet', dl_user_id=dl_user_id)
+        
+        dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=dl_user)
+        
+        # Check balance
+        if dl_wallet.balance < amount:
+            messages.error(request, f"Insufficient balance. Current balance: ₹{dl_wallet.balance}")
+            return redirect('core:withdraw_dl_wallet', dl_user_id=dl_user_id)
+        
+        # Withdraw
+        if dl_wallet.withdraw(amount, description):
+            messages.success(request, f'₹{amount} withdrawn from {dl_user.username}')
+        else:
+            messages.error(request, "Failed to withdraw amount")
+        
+        return redirect('core:master_dl_dashboard')
+    
+    dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=dl_user)
+    context = {'dl_user': dl_user, 'dl_wallet': dl_wallet}
+    return render(request, 'core/master_dl/withdraw_wallet.html', context)
+
+@user_passes_test(is_master_dl)
+def reset_dl_password(request, dl_user_id):
+    """Reset password for DL user"""
+    from django.contrib.auth.hashers import make_password
+    
+    dl_user = get_object_or_404(User, id=dl_user_id)
+    
+    if request.method == 'POST':
+        new_password = request.POST.get('new_password')
+        confirm_password = request.POST.get('confirm_password')
+        
+        if not new_password or len(new_password) < 8:
+            messages.error(request, "Password must be at least 8 characters long")
+            return redirect('core:reset_dl_password', dl_user_id=dl_user_id)
+        
+        if new_password != confirm_password:
+            messages.error(request, "Passwords do not match")
+            return redirect('core:reset_dl_password', dl_user_id=dl_user_id)
+        
+        # Set new password
+        dl_user.set_password(new_password)
+        dl_user.save()
+        
+        messages.success(request, f'Password reset successfully for {dl_user.username}')
+        return redirect('core:master_dl_dashboard')
+    
+    context = {'dl_user': dl_user}
+    return render(request, 'core/master_dl/reset_password.html', context)
+
+@login_required
+def dl_dashboard(request):
+    """DL user dashboard"""
+    from accounts.models import UserProfile
+    
+    # Check if user is DL
+    if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
+        messages.error(request, "Access denied. You are not a DL user.")
+        return redirect('core:home')
+    
+    # Get DL wallet
+    dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=request.user)
+    
+    # Get end users assigned to this DL
+    end_users = User.objects.filter(profile__dl_user=request.user)
+    
+    # Get pending deposit requests
+    pending_requests = DepositRequest.objects.filter(
+        dl_user=request.user,
+        status='pending'
+    ).order_by('-requested_at')
+    
+    # Statistics
+    total_end_users = end_users.count()
+    total_distributed = dl_wallet.total_distributed
+    
+    context = {
+        'dl_wallet': dl_wallet,
+        'end_users': end_users,
+        'pending_requests': pending_requests,
+        'total_end_users': total_end_users,
+        'total_distributed': total_distributed,
+    }
+    return render(request, 'core/dl/dashboard.html', context)
+
+@login_required
+def approve_deposit_request(request, request_id):
+    """Approve a deposit request"""
+    deposit_request = get_object_or_404(DepositRequest, id=request_id)
+    
+    # Check if user is the DL for this request
+    if deposit_request.dl_user != request.user:
+        messages.error(request, "Unauthorized access")
+        return redirect('core:dl_dashboard')
+    
+    success, message = deposit_request.approve(request.user)
+    
+    if success:
+        messages.success(request, message)
+    else:
+        messages.error(request, message)
+    
+    return redirect('core:dl_dashboard')
+
+@login_required
+def reject_deposit_request(request, request_id):
+    """Reject a deposit request"""
+    deposit_request = get_object_or_404(DepositRequest, id=request_id)
+    
+    if deposit_request.dl_user != request.user:
+        messages.error(request, "Unauthorized access")
+        return redirect('core:dl_dashboard')
+    
+    if request.method == 'POST':
+        remarks = request.POST.get('remarks', '')
+        deposit_request.reject(request.user, remarks)
+        messages.success(request, "Deposit request rejected")
+        return redirect('core:dl_dashboard')
+    
+    context = {'deposit_request': deposit_request}
+    return render(request, 'core/dl/reject_request.html', context)
+
+@login_required
+def request_deposit(request):
+    """End user requests deposit from DL"""
+    from accounts.models import UserProfile
+    
+    # Check if user has assigned DL
+    if not hasattr(request.user, 'profile') or not request.user.profile.dl_user:
+        messages.error(request, "No DL user assigned. Please contact support.")
+        return redirect('core:wallet')
+    
+    if request.method == 'POST':
+        amount = Decimal(request.POST.get('amount'))
+        dl_user = request.user.profile.dl_user
+        
+        # Create deposit request
+        deposit_request = DepositRequest.objects.create(
+            end_user=request.user,
+            dl_user=dl_user,
+            amount=amount,
+            status='pending'
+        )
+        
+        messages.success(request, f'Deposit request of ₹{amount} sent to your DL user')
+        return redirect('core:wallet')
+    
+    dl_user = request.user.profile.dl_user
+    context = {'dl_user': dl_user}
+    return render(request, 'core/deposit_request.html', context)
+
+@login_required
+def my_deposit_requests(request):
+    """View user's deposit requests"""
+    requests = DepositRequest.objects.filter(
+        end_user=request.user
+    ).order_by('-requested_at')
+    
+    context = {'requests': requests}
+    return render(request, 'core/my_deposit_requests.html', context)
+
+@login_required
+def dl_transactions(request):
+    """View DL user's transaction history"""
+    from accounts.models import UserProfile
+    
+    # Check if user is DL
+    if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
+        messages.error(request, "Access denied. You are not a DL user.")
+        return redirect('core:home')
+    
+    # Get DL transactions
+    transactions = DLTransaction.objects.filter(
+        dl_user=request.user
+    ).order_by('-created_at')[:50]
+    
+    context = {
+        'transactions': transactions,
+    }
+    return render(request, 'core/dl/transactions.html', context)
+
+@login_required
+def dl_credit_end_user(request, end_user_id):
+    """DL user credits points directly to end user"""
+    from accounts.models import UserProfile
+    
+    # Check if user is DL
+    if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
+        messages.error(request, "Access denied. You are not a DL user.")
+        return redirect('core:home')
+    
+    end_user = get_object_or_404(User, id=end_user_id)
+    
+    # Check if end user is assigned to this DL
+    if not hasattr(end_user, 'profile') or end_user.profile.dl_user != request.user:
+        messages.error(request, "This user is not assigned to you.")
+        return redirect('core:dl_dashboard')
+    
+    if request.method == 'POST':
+        amount = Decimal(request.POST.get('amount'))
+        description = request.POST.get('description', '')
+        
+        if amount <= 0:
+            messages.error(request, "Amount must be greater than 0")
+            return redirect('core:dl_credit_end_user', end_user_id=end_user_id)
+        
+        # Get DL wallet
+        dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=request.user)
+        
+        # Check DL wallet balance
+        if dl_wallet.balance < amount:
+            messages.error(request, f"Insufficient balance. Your balance: ₹{dl_wallet.balance}")
+            return redirect('core:dl_credit_end_user', end_user_id=end_user_id)
+        
+        # Debit from DL wallet
+        if not dl_wallet.debit(amount, f'Credit to {end_user.username}'):
+            messages.error(request, "Failed to debit from DL wallet")
+            return redirect('core:dl_credit_end_user', end_user_id=end_user_id)
+        
+        # Credit to end user wallet
+        end_user_wallet, _ = Wallet.objects.get_or_create(user=end_user)
+        end_user_wallet.deposit(amount)
+        
+        # Create transaction record
+        Transaction.objects.create(
+            user=end_user,
+            transaction_type='deposit',
+            amount=amount,
+            balance_after=end_user_wallet.balance,
+            description=description or f'Credited by DL: {request.user.username}'
+        )
+        
+        messages.success(request, f'₹{amount} credited to {end_user.username} successfully')
+        return redirect('core:dl_dashboard')
+    
+    # Get DL wallet for balance display
+    dl_wallet, _ = DLWallet.objects.get_or_create(dl_user=request.user)
+    
+    context = {
+        'end_user': end_user,
+        'dl_wallet': dl_wallet,
+    }
+    return render(request, 'core/dl/credit_end_user.html', context)
+
+@login_required
+def dl_assign_end_user(request):
+    """DL user assigns an end user to themselves"""
+    from accounts.models import UserProfile
+    
+    # Check if user is DL
+    if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
+        messages.error(request, "Access denied. You are not a DL user.")
+        return redirect('core:home')
+    
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        
+        if not username:
+            messages.error(request, "Please enter a username")
+            return redirect('core:dl_assign_end_user')
+        
+        try:
+            end_user = User.objects.get(username=username)
+            
+            # Check if user is already assigned to another DL
+            if hasattr(end_user, 'profile') and end_user.profile.dl_user and end_user.profile.dl_user != request.user:
+                messages.error(request, f"User {username} is already assigned to another DL user")
+                return redirect('core:dl_assign_end_user')
+            
+            # Assign to this DL
+            profile, _ = UserProfile.objects.get_or_create(user=end_user)
+            profile.dl_user = request.user
+            profile.user_type = 'end_user'  # Ensure it's marked as end user
+            profile.save()
+            
+            messages.success(request, f'User {username} assigned to you successfully')
+            return redirect('core:dl_dashboard')
+            
+        except User.DoesNotExist:
+            messages.error(request, f"User '{username}' not found")
+            return redirect('core:dl_assign_end_user')
+    
+    return render(request, 'core/dl/assign_end_user.html')

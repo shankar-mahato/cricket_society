@@ -1,0 +1,59 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Credit Points to End User{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Credit Points to End User</h1>
+    <p>Add points directly to {{ end_user.username }}'s wallet</p>
+</div>
+
+<div class="card">
+    <div style="margin-bottom: 24px; padding: 16px; background: #ebf8ff; border-radius: 8px;">
+        <h3 style="margin: 0 0 12px 0; color: #2c5282;">User Information</h3>
+        <p style="margin: 4px 0; color: #2c5282;"><strong>Username:</strong> {{ end_user.username }}</p>
+        <p style="margin: 4px 0; color: #2c5282;"><strong>Email:</strong> {{ end_user.email }}</p>
+        <p style="margin: 4px 0; color: #2c5282;"><strong>Current Balance:</strong> ₹{{ end_user.wallet.balance|floatformat:2 }}</p>
+    </div>
+    
+    <div style="margin-bottom: 24px; padding: 16px; background: #fffaf0; border-radius: 8px;">
+        <h3 style="margin: 0 0 12px 0; color: #7c2d12;">Your DL Wallet</h3>
+        <p style="margin: 0; color: #7c2d12; font-size: 24px; font-weight: bold;">Available Balance: ₹{{ dl_wallet.balance|floatformat:2 }}</p>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 16px;">
+            <label for="amount" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Amount to Credit *</label>
+            <input type="number" id="amount" name="amount" step="0.01" min="0.01" required 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="Enter amount">
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 14px;">Minimum amount: ₹0.01</p>
+        </div>
+        
+        <div style="margin-bottom: 24px;">
+            <label for="description" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Description (Optional)</label>
+            <textarea id="description" name="description" rows="3" 
+                      style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px; resize: vertical;"
+                      placeholder="Add a description for this credit..."></textarea>
+        </div>
+        
+        <div style="display: flex; gap: 12px;">
+            <button type="submit" class="btn" style="background: #48bb78; color: white;">Credit Points</button>
+            <a href="{% url 'core:dl_dashboard' %}" class="btn" style="background: #718096; color: white;">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<div class="card" style="margin-top: 24px; background: #f0fff4; border-color: #48bb78;">
+    <h3 style="margin: 0 0 12px 0; color: #22543d;">How it works:</h3>
+    <ol style="margin: 0; padding-left: 20px; color: #22543d;">
+        <li>Enter the amount you want to credit to this user</li>
+        <li>The amount will be deducted from your DL wallet</li>
+        <li>The same amount will be added to the end user's wallet</li>
+        <li>Both transactions will be recorded in the transaction history</li>
+    </ol>
+</div>
+{% endblock %}
+

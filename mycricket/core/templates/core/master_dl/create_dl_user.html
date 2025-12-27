@@ -1,0 +1,63 @@
+{% extends 'core/master_dl/base.html' %}
+
+{% block title %}Create DL User{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Create New DL User</h1>
+    <p>Create a new distributor/dealer user account</p>
+</div>
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 16px;">
+            <label for="username" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Username *</label>
+            <input type="text" id="username" name="username" required 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="Enter username">
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+            <label for="password" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Password *</label>
+            <input type="password" id="password" name="password" required 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="Enter password">
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 14px;">Password should be at least 8 characters long</p>
+        </div>
+        
+        <div style="margin-bottom: 24px;">
+            <label for="initial_balance" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Initial Balance (Optional)</label>
+            <input type="number" id="initial_balance" name="initial_balance" step="0.01" min="0" 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="0.00">
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 14px;">Initial amount to credit to DL wallet (leave 0 if not needed)</p>
+        </div>
+        
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button type="submit" style="flex: 1; padding: 12px 24px; background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(66, 153, 225, 0.3);">
+                <span>➕ Create DL User</span>
+            </button>
+            <a href="{% url 'core:master_dl_dashboard' %}" style="flex: 1; padding: 12px 24px; background: #e2e8f0; color: #2d3748; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; text-decoration: none; text-align: center; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;">
+                Cancel
+            </a>
+        </div>
+        <style>
+            button[type="submit"]:hover {
+                background: linear-gradient(135deg, #3182ce 0%, #2c5aa0 100%) !important;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(66, 153, 225, 0.4) !important;
+            }
+            button[type="submit"]:active {
+                transform: translateY(0);
+            }
+            a[href*="master_dl_dashboard"]:hover {
+                background: #cbd5e0 !important;
+                transform: translateY(-2px);
+            }
+        </style>
+    </form>
+</div>
+{% endblock %}
+

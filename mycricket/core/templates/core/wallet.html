@@ -10,22 +10,42 @@
             <h3 style="color: #4caf50; font-size: 2em;">₹{{ wallet.balance }}</h3>
             <p>Current Balance</p>
         </div>
-        <div>
-            <button onclick="document.getElementById('depositForm').style.display='block'" class="btn btn-success">
-                Deposit Money
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            {% if user.profile and user.profile.dl_user %}
+                <a href="{% url 'core:request_deposit' %}" class="btn" style="background: #4299e1; color: white;">
+                    Request Deposit from DL
+                </a>
+            {% endif %}
+            <button onclick="document.getElementById('depositForm').style.display='block'" class="btn" style="background: #48bb78; color: white;">
+                Direct Deposit
             </button>
         </div>
     </div>
 
+    {% if user.profile and user.profile.dl_user %}
+    <div class="card" style="background: #ebf8ff; border-color: #4299e1; margin-top: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+                <h3 style="margin: 0 0 8px 0; color: #2c5282;">Your DL User</h3>
+                <p style="margin: 0; color: #2c5282;"><strong>{{ user.profile.dl_user.username }}</strong></p>
+                {% if user.profile.dl_user.profile.dl_code %}
+                <p style="margin: 4px 0 0 0; color: #2c5282;">DL Code: <span style="font-family: monospace; background: white; padding: 2px 6px; border-radius: 4px;">{{ user.profile.dl_user.profile.dl_code }}</span></p>
+                {% endif %}
+            </div>
+            <a href="{% url 'core:my_deposit_requests' %}" class="btn" style="background: #4299e1; color: white;">View Deposit Requests</a>
+        </div>
+    </div>
+    {% endif %}
+
     <div id="depositForm" style="display: none; margin-top: 30px; padding: 20px; background: #f5f5f5; border-radius: 8px;">
-        <h3>Deposit Money</h3>
+        <h3>Direct Deposit (Admin/Testing)</h3>
         <form method="post" action="{% url 'core:deposit_wallet' %}">
             {% csrf_token %}
             <div class="form-group">
                 <label for="amount">Amount:</label>
                 <input type="number" id="amount" name="amount" min="0.01" step="0.01" required>
             </div>
-            <button type="submit" class="btn btn-success">Deposit</button>
+            <button type="submit" class="btn" style="background: #48bb78; color: white;">Deposit</button>
             <button type="button" class="btn" onclick="document.getElementById('depositForm').style.display='none'">Cancel</button>
         </form>
     </div>

@@ -1,0 +1,36 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Reject Deposit Request{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Reject Deposit Request</h1>
+    <p>Reject deposit request from {{ deposit_request.end_user.username }}</p>
+</div>
+
+<div class="card">
+    <div style="margin-bottom: 24px; padding: 16px; background: #fffaf0; border-radius: 8px;">
+        <h3 style="margin: 0 0 12px 0; color: #7c2d12;">Request Details</h3>
+        <p style="margin: 4px 0; color: #7c2d12;"><strong>User:</strong> {{ deposit_request.end_user.username }}</p>
+        <p style="margin: 4px 0; color: #7c2d12;"><strong>Amount:</strong> ₹{{ deposit_request.amount|floatformat:2 }}</p>
+        <p style="margin: 4px 0; color: #7c2d12;"><strong>Requested At:</strong> {{ deposit_request.requested_at|date:"M d, Y H:i" }}</p>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 24px;">
+            <label for="remarks" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Rejection Remarks (Optional)</label>
+            <textarea id="remarks" name="remarks" rows="4" 
+                      style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px; resize: vertical;"
+                      placeholder="Add a reason for rejection (optional)..."></textarea>
+        </div>
+        
+        <div style="display: flex; gap: 12px;">
+            <button type="submit" class="btn" style="background: #f56565; color: white;">Reject Request</button>
+            <a href="{% url 'core:dl_dashboard' %}" class="btn" style="background: #718096; color: white;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

@@ -1,0 +1,48 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Request Deposit{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Request Deposit</h1>
+    <p>Request deposit from your DL user</p>
+</div>
+
+<div class="card">
+    <div style="margin-bottom: 24px; padding: 16px; background: #ebf8ff; border-radius: 8px;">
+        <h3 style="margin: 0 0 12px 0; color: #2c5282;">Your DL User</h3>
+        <p style="margin: 4px 0; color: #2c5282;"><strong>DL User:</strong> {{ dl_user.username }}</p>
+        {% if dl_user.profile.dl_code %}
+        <p style="margin: 4px 0; color: #2c5282;"><strong>DL Code:</strong> <span style="font-family: monospace; background: white; padding: 2px 6px; border-radius: 4px;">{{ dl_user.profile.dl_code }}</span></p>
+        {% endif %}
+        <p style="margin: 8px 0 0 0; color: #2c5282; font-size: 14px;">Your deposit request will be sent to this DL user for approval.</p>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 16px;">
+            <label for="amount" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Deposit Amount *</label>
+            <input type="number" id="amount" name="amount" step="0.01" min="0.01" required 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="Enter amount">
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 14px;">Minimum amount: ₹0.01</p>
+        </div>
+        
+        <div style="display: flex; gap: 12px;">
+            <button type="submit" class="btn" style="background: #4299e1; color: white; width: 100%;">Submit Deposit Request</button>
+        </div>
+    </form>
+</div>
+
+<div class="card" style="margin-top: 24px;">
+    <h3 style="margin: 0 0 12px 0;">How it works:</h3>
+    <ol style="margin: 0; padding-left: 20px; color: #4a5568;">
+        <li>Enter the amount you want to deposit</li>
+        <li>Submit the request to your DL user</li>
+        <li>Your DL user will review and approve/reject the request</li>
+        <li>Once approved, the amount will be added to your wallet</li>
+    </ol>
+</div>
+{% endblock %}
+

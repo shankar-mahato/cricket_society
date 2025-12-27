@@ -1,0 +1,58 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Withdraw from DL Wallet{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Withdraw from DL Wallet</h1>
+    <p>Withdraw funds from {{ dl_user.username }}'s wallet</p>
+</div>
+
+<div class="card">
+    <div style="margin-bottom: 24px; padding: 16px; background: #fffaf0; border-radius: 8px;">
+        <h3 style="margin: 0 0 12px 0; color: #7c2d12;">DL User Information</h3>
+        <p style="margin: 4px 0; color: #7c2d12;"><strong>Username:</strong> {{ dl_user.username }}</p>
+        <p style="margin: 4px 0; color: #7c2d12;"><strong>Email:</strong> {{ dl_user.email }}</p>
+        <p style="margin: 4px 0; color: #7c2d12;"><strong>Current Balance:</strong> ₹{{ dl_wallet.balance|floatformat:2 }}</p>
+        <p style="margin: 4px 0; color: #7c2d12;"><strong>Total Credited:</strong> ₹{{ dl_wallet.total_credited|floatformat:2 }}</p>
+        <p style="margin: 4px 0; color: #7c2d12;"><strong>Total Distributed:</strong> ₹{{ dl_wallet.total_distributed|floatformat:2 }}</p>
+        {% if dl_user.profile.dl_code %}
+        <p style="margin: 4px 0; color: #7c2d12;"><strong>DL Code:</strong> <span style="font-family: monospace; background: white; padding: 2px 6px; border-radius: 4px;">{{ dl_user.profile.dl_code }}</span></p>
+        {% endif %}
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div style="margin-bottom: 16px;">
+            <label for="amount" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Amount to Withdraw *</label>
+            <input type="number" id="amount" name="amount" step="0.01" min="0.01" max="{{ dl_wallet.balance }}" required 
+                   style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px;"
+                   placeholder="Enter amount">
+            <p style="margin: 8px 0 0 0; color: #718096; font-size: 14px;">Maximum withdrawable: ₹{{ dl_wallet.balance|floatformat:2 }}</p>
+        </div>
+        
+        <div style="margin-bottom: 24px;">
+            <label for="description" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748;">Description (Optional)</label>
+            <textarea id="description" name="description" rows="3" 
+                      style="width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px; resize: vertical;"
+                      placeholder="Add a description for this withdrawal..."></textarea>
+        </div>
+        
+        <div style="display: flex; gap: 12px;">
+            <button type="submit" class="btn" style="background: #f56565; color: white;">Withdraw Amount</button>
+            <a href="{% url 'core:master_dl_dashboard' %}" class="btn" style="background: #718096; color: white;">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<div class="card" style="margin-top: 24px; background: #fffaf0; border-color: #f56565;">
+    <h3 style="margin: 0 0 12px 0; color: #7c2d12;">⚠️ Warning:</h3>
+    <ul style="margin: 0; padding-left: 20px; color: #7c2d12;">
+        <li>This will permanently remove funds from the DL user's wallet</li>
+        <li>The transaction will be recorded in the transaction history</li>
+        <li>Make sure you have proper authorization before withdrawing</li>
+    </ul>
+</div>
+{% endblock %}
+
