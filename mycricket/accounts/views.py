@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.views import LoginView
 from django.urls import reverse_lazy
+from django.conf import settings
 from core.models import Wallet
 from .forms import CustomUserCreationForm
 from .models import UserProfile
@@ -60,6 +61,18 @@ def profile(request):
 class CustomLoginView(LoginView):
     """Custom login view that redirects based on user type"""
     template_name = 'registration/login.html'
+    
+    def form_valid(self, form):
+        """Handle remember me functionality"""
+        remember_me = self.request.POST.get('remember_me')
+        if remember_me:
+            # Set session to expire in 2 weeks (14 days)
+            self.request.session.set_expiry(1209600)  # 14 days in seconds
+        else:
+            # Set session to expire when browser closes
+            self.request.session.set_expiry(0)
+        
+        return super().form_valid(form)
     
     def get_success_url(self):
         """Redirect based on user type after login"""

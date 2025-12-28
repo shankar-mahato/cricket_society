@@ -2,33 +2,295 @@
 
 {% block title %}Login{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Beautiful Background for Login Page */
+    body.login-page {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+        background-size: 400% 400%;
+        animation: gradientShift 15s ease infinite;
+        min-height: 100vh;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    body.login-page::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+            radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
+    }
+    
+    body.login-page .container {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: calc(100vh - 72px); /* Subtract navbar height */
+        padding: 20px;
+    }
+    
+    body.login-page .navbar {
+        background: rgba(30, 58, 138, 0.8);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    @keyframes gradientShift {
+        0% {
+            background-position: 0% 50%;
+        }
+        50% {
+            background-position: 100% 50%;
+        }
+        100% {
+            background-position: 0% 50%;
+        }
+    }
+    
+    .login-form-container {
+        max-width: 450px;
+        width: 100%;
+        margin: 0 auto;
+        position: relative;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        padding: 50px 45px;
+        min-height: 480px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    
+    .input-with-icon {
+        position: relative;
+        margin-bottom: 24px;
+    }
+    
+    .input-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 20px;
+        color: #718096;
+        z-index: 1;
+    }
+    
+    .input-with-icon input {
+        width: 100%;
+        padding: 14px 14px 14px 48px;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 15px;
+        transition: all 0.3s;
+        background: #ffffff;
+    }
+    
+    .input-with-icon input:focus {
+        outline: none;
+        border-color: #4299e1;
+        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+    
+    .remember-me-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 28px;
+        margin-top: 8px;
+    }
+    
+    .remember-me-container input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+        accent-color: #4299e1;
+    }
+    
+    .remember-me-container label {
+        font-size: 15px;
+        color: #4a5568;
+        cursor: pointer;
+        user-select: none;
+        font-weight: 500;
+    }
+    
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        body.login-page .container {
+            min-height: calc(100vh - 72px);
+            padding: 20px;
+        }
+        
+        .login-form-container {
+            margin: 0 auto;
+            padding: 40px 30px !important;
+            min-height: 450px;
+            max-width: 100%;
+            border-radius: 16px;
+        }
+        
+        .login-form-container h2 {
+            margin-bottom: 28px !important;
+            font-size: 24px;
+        }
+        
+        .input-with-icon {
+            margin-bottom: 20px;
+        }
+        
+        .input-with-icon input {
+            padding: 12px 12px 12px 44px;
+            font-size: 16px; /* Prevents zoom on iOS */
+            border-radius: 10px;
+        }
+        
+        .input-icon {
+            left: 14px;
+            font-size: 18px;
+        }
+        
+        .remember-me-container {
+            margin-bottom: 24px;
+            margin-top: 4px;
+        }
+        
+        .remember-me-container input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .remember-me-container label {
+            font-size: 14px;
+        }
+        
+        .login-form-container form {
+            margin: 0 !important;
+        }
+        
+        .login-form-container button {
+            padding: 12px !important;
+            font-size: 15px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        body.login-page .container {
+            min-height: calc(100vh - 72px);
+            padding: 16px;
+        }
+        
+        .login-form-container {
+            margin: 0 auto;
+            padding: 32px 24px !important;
+            min-height: 420px;
+            border-radius: 16px;
+        }
+        
+        .login-form-container h2 {
+            margin-bottom: 24px !important;
+            font-size: 22px;
+        }
+        
+        .input-with-icon {
+            margin-bottom: 18px;
+        }
+        
+        .input-with-icon input {
+            padding: 12px 12px 12px 42px;
+            font-size: 16px;
+        }
+        
+        .input-icon {
+            left: 12px;
+            font-size: 18px;
+        }
+        
+        .remember-me-container {
+            margin-bottom: 20px;
+            margin-top: 4px;
+        }
+        
+        .remember-me-container input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .remember-me-container label {
+            font-size: 14px;
+        }
+        
+        .login-form-container button {
+            padding: 12px !important;
+            font-size: 15px;
+        }
+    }
+    
+    @media (max-width: 360px) {
+        .login-form-container {
+            padding: 28px 20px !important;
+            min-height: 400px;
+        }
+        
+        .login-form-container h2 {
+            font-size: 20px;
+            margin-bottom: 20px !important;
+        }
+        
+        .input-with-icon {
+            margin-bottom: 16px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add login-page class to body for styling
+    document.body.classList.add('login-page');
+</script>
+{% endblock %}
+
 {% block content %}
-<div class="card" style="max-width: 400px; margin: 50px auto;">
-    <h2>Login</h2>
-    <form method="post">
+<div class="login-form-container">
+    <h2 style="margin-bottom: 32px; text-align: center; color: #1a202c; font-size: 28px; font-weight: 700;">Login</h2>
+    <form method="post" style="margin: 0;">
         {% csrf_token %}
         {% if form.errors %}
-            <div style="color: #f44336; margin-bottom: 15px; padding: 10px; background: #ffebee; border-radius: 6px;">
+            <div style="color: #dc2626; margin-bottom: 20px; padding: 12px; background: #fee2e2; border-radius: 8px; border: 1px solid #fecaca;">
                 Please enter a correct username and password. Note that both fields may be case-sensitive.
             </div>
         {% endif %}
-        <div class="form-group">
-            <label for="id_username">Username:</label>
-            <input type="text" id="id_username" name="username" class="form-control" required autocomplete="username" autofocus>
+        
+        <div class="input-with-icon">
+            <span class="input-icon">👤</span>
+            <input type="text" id="id_username" name="username" placeholder="Username" required autocomplete="username" autofocus>
         </div>
-        <div class="form-group">
-            <label for="id_password">Password:</label>
-            <input type="password" id="id_password" name="password" class="form-control" required autocomplete="current-password">
+        
+        <div class="input-with-icon">
+            <span class="input-icon">🔑</span>
+            <input type="password" id="id_password" name="password" placeholder="Password" required autocomplete="current-password">
         </div>
-        <button type="submit" class="btn" style="width: 100%;">Login</button>
+        
+        <div class="remember-me-container">
+            <input type="checkbox" id="id_remember_me" name="remember_me" value="1">
+            <label for="id_remember_me">Remember me</label>
+        </div>
+        
+        <button type="submit" class="btn" style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600; margin-top: 0; border-radius: 10px; background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);">Login</button>
     </form>
-    
-    <p style="margin-top: 15px; text-align: center;">
-        <a href="{% url 'password_reset' %}">Forgot password?</a>
-    </p>
-    
-    <p style="margin-top: 20px; text-align: center;">
-        Don't have an account? <a href="{% url 'signup' %}">Sign up here</a>
-    </p>
 </div>
 {% endblock %}

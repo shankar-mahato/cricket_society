@@ -771,16 +771,16 @@
 <body>
     <nav class="navbar">
         <div class="navbar-container">
-            <a href="{% url 'core:home' %}" class="navbar-brand">
+            <a href="{% if user.is_authenticated %}{% url 'core:home' %}{% else %}{% url 'login' %}{% endif %}" class="navbar-brand">
                 <span class="navbar-brand-icon">🏏</span>
                 <span>CricketSociety</span>
             </a>
+            {% if user.is_authenticated %}
             <ul class="navbar-nav">
                 <li><a href="{% url 'core:home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">Home</a></li>
-                {% if user.is_authenticated %}
-                    <li><a href="{% url 'core:my_invites' %}" class="{% if request.resolver_match.url_name == 'my_invites' %}active{% endif %}">Invites</a></li>
-                {% endif %}
+                <li><a href="{% url 'core:my_invites' %}" class="{% if request.resolver_match.url_name == 'my_invites' %}active{% endif %}">Invites</a></li>
             </ul>
+            {% endif %}
             <div class="user-menu">
                 {% if user.is_authenticated %}
                     <div class="wallet-dropdown" id="walletDropdown">
@@ -829,9 +829,6 @@
                         {% csrf_token %}
                         <button type="submit" class="btn logout-btn-mobile" style="width: 100%; padding: 12px 16px; font-size: 14px; background: #f56565; border: 1px solid #f56565; color: white; min-height: 44px; box-sizing: border-box; border-radius: 8px;">Logout</button>
                     </form>
-                {% else %}
-                    <a href="{% url 'login' %}" class="btn btn-outline" style="padding: 8px 16px; font-size: 14px; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); color: white;">Login</a>
-                    <a href="{% url 'signup' %}" class="btn" style="padding: 8px 16px; font-size: 14px; background: #ffffff; color: #3b82f6; font-weight: 600;">Sign Up</a>
                 {% endif %}
             </div>
         </div>
