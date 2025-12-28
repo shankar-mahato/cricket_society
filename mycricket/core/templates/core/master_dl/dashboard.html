@@ -6,48 +6,44 @@
 
 {% block extra_css %}
 <style>
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 24px;
-        margin-bottom: 32px;
+    .search-container {
+        display: flex;
+        gap: 12px;
+        align-items: center;
     }
-    .stat-card {
-        background: white;
-        padding: 24px;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        border-left: 4px solid;
+    .search-input-wrapper {
+        position: relative;
+        flex: 1;
+        max-width: 400px;
     }
-    .stat-card.blue {
-        border-left-color: #4299e1;
-    }
-    .stat-card.green {
-        border-left-color: #48bb78;
-    }
-    .stat-card.purple {
-        border-left-color: #9f7aea;
-    }
-    .stat-card h3 {
-        margin: 0 0 8px 0;
-        color: #718096;
+    .search-input {
+        width: 100%;
+        padding: 12px 16px 12px 44px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
         font-size: 14px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        box-sizing: border-box;
     }
-    .stat-card .value {
-        font-size: 36px;
-        font-weight: bold;
-        color: #2d3748;
-        margin: 0;
+    .search-input:focus {
+        outline: none;
+        border-color: #4299e1;
+        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+    .search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #718096;
+        font-size: 18px;
+        pointer-events: none;
     }
     .table-container {
         background: white;
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         overflow: hidden;
-        margin-top: 32px;
     }
     .table-header {
         padding: 24px;
@@ -55,6 +51,8 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
     }
     .table-header h2 {
         margin: 0;
@@ -99,7 +97,7 @@
         background: #f7fafc;
     }
     th {
-        padding: 16px 24px;
+        padding: 16px 20px;
         text-align: left;
         font-weight: 600;
         color: #2d3748;
@@ -107,11 +105,13 @@
         text-transform: uppercase;
         letter-spacing: 0.5px;
         border-bottom: 2px solid #e2e8f0;
+        white-space: nowrap;
     }
     td {
-        padding: 20px 24px;
+        padding: 16px 20px;
         border-bottom: 1px solid #e2e8f0;
         color: #4a5568;
+        font-size: 14px;
     }
     tr:hover {
         background: #f7fafc;
@@ -585,38 +585,45 @@
     
     /* Mobile Responsive Styles */
     @media (max-width: 768px) {
-        .stats-grid {
-            grid-template-columns: 1fr;
-            gap: 16px;
-        }
-        
-        .stat-card {
-            padding: 20px;
-        }
-        
-        .stat-card .value {
-            font-size: 28px;
-        }
-        
         .table-container {
-            margin-top: 24px;
+            margin-top: 0;
         }
         
         .table-header {
             flex-direction: column;
-            gap: 16px;
-            align-items: flex-start;
+            align-items: stretch;
             padding: 20px;
+            gap: 16px;
         }
         
         .table-header h2 {
+            width: 100%;
             font-size: 18px;
+            margin-bottom: 0;
+        }
+        
+        .search-container {
+            width: 100%;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .search-input-wrapper {
+            width: 100%;
+            max-width: 100%;
+        }
+        
+        .search-input {
+            width: 100%;
+            font-size: 16px; /* Prevents zoom on iOS */
+            padding: 12px 16px 12px 44px;
         }
         
         .create-btn {
             width: 100%;
             text-align: center;
             padding: 12px;
+            justify-content: center;
         }
         
         .table-wrapper {
@@ -630,7 +637,7 @@
         
         th, td {
             padding: 12px 16px;
-            font-size: 14px;
+            font-size: 12px;
         }
         
         .action-buttons {
@@ -727,7 +734,7 @@
         
         td {
             padding: 10px 12px;
-            font-size: 13px;
+            font-size: 12px;
         }
         
         .amount-display {
@@ -746,39 +753,44 @@
             padding: 12px 16px;
         }
         
-        .stat-card {
+        .table-header {
             padding: 16px;
         }
         
-        .stat-card .value {
-            font-size: 24px;
+        .search-container {
+            gap: 10px;
+        }
+        
+        .search-input {
+            padding: 12px 14px 12px 42px;
+            font-size: 16px; /* Prevents zoom on iOS */
+        }
+        
+        .search-icon {
+            font-size: 16px;
+            left: 12px;
+        }
+        
+        .create-btn {
+            padding: 12px;
+            font-size: 14px;
         }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Statistics -->
-<div class="stats-grid">
-    <div class="stat-card blue">
-        <h3>Total DL Users</h3>
-        <p class="value">{{ total_dl_users }}</p>
-    </div>
-    <div class="stat-card green">
-        <h3>Total DL Balance</h3>
-        <p class="value">₹{{ total_dl_balance|floatformat:2 }}</p>
-    </div>
-    <div class="stat-card purple">
-        <h3>Total Credited</h3>
-        <p class="value">₹{{ total_credited|floatformat:2 }}</p>
-    </div>
-</div>
-
 <!-- DL Users Table -->
 <div class="table-container" id="dl-users">
     <div class="table-header">
         <h2>DL Users</h2>
-        <a href="{% url 'core:create_dl_user' %}" class="create-btn">➕ Create DL User</a>
+        <div class="search-container">
+            <div class="search-input-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="dlUsersSearch" class="search-input" placeholder="Search by username..." autocomplete="off">
+            </div>
+            <a href="{% url 'core:create_dl_user' %}" class="create-btn">➕ Create DL User</a>
+        </div>
     </div>
     {% if dl_users %}
     <div class="table-wrapper">
@@ -795,10 +807,7 @@
                 {% for dl_user in dl_users %}
                 <tr>
                     <td>
-                        <div class="user-info">
-                            <div class="username">{{ dl_user.username }}</div>
-                            <div class="user-email">{{ dl_user.email }}</div>
-                        </div>
+                        <div class="username">{{ dl_user.username }}</div>
                     </td>
                     <td>
                         <span class="amount-display">
@@ -849,6 +858,10 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <div id="noResultsMessage" class="empty-state" style="display: none;">
+        <h3>No users found</h3>
+        <p>Try adjusting your search query</p>
     </div>
     {% else %}
     <div class="empty-state">
@@ -1313,6 +1326,40 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     } else {
         console.error('Withdraw Points form not found!');
+    }
+    
+    // Search functionality for DL Users list
+    const searchInput = document.getElementById('dlUsersSearch');
+    const tableRows = document.querySelectorAll('#dl-users tbody tr');
+    const noResultsMessage = document.getElementById('noResultsMessage');
+    
+    if (searchInput && tableRows.length > 0) {
+        searchInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            let visibleCount = 0;
+            
+            tableRows.forEach(row => {
+                const usernameCell = row.querySelector('.username');
+                if (usernameCell) {
+                    const username = usernameCell.textContent.toLowerCase();
+                    if (username.includes(searchTerm)) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+            
+            // Show/hide "no results" message
+            if (noResultsMessage) {
+                if (visibleCount === 0 && searchTerm !== '') {
+                    noResultsMessage.style.display = 'block';
+                } else {
+                    noResultsMessage.style.display = 'none';
+                }
+            }
+        });
     }
 });
 </script>
