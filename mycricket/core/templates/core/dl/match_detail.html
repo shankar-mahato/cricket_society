@@ -38,57 +38,88 @@
         gap: 6px;
     }
     
-    /* Tabs */
-    .tabs-container {
+    /* Accordion Styles */
+    .accordion-container {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    .accordion-item {
         background: white;
         border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        margin-bottom: 24px;
         border: 1px solid #e2e8f0;
         overflow: hidden;
     }
-    .tabs-header {
-        display: flex;
-        border-bottom: 2px solid #e2e8f0;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-    .tab-btn {
-        padding: 16px 24px;
-        background: transparent;
-        border: none;
+    .accordion-header {
+        padding: 20px 24px;
         cursor: pointer;
-        font-weight: 600;
-        font-size: 15px;
-        color: #718096;
-        white-space: nowrap;
-        transition: all 0.2s;
-        border-bottom: 3px solid transparent;
-    }
-    .tab-btn:hover {
-        background: #f7fafc;
-        color: #4299e1;
-    }
-    .tab-btn.active {
-        color: #4299e1;
-        border-bottom-color: #4299e1;
-        background: #f7fafc;
-    }
-    .tab-content {
-        display: none;
-        padding: 24px;
-    }
-    .tab-content.active {
-        display: block;
-    }
-    
-    /* Match Odds Tab */
-    .runner-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 16px;
+        transition: all 0.2s;
+        background: #f7fafc;
         border-bottom: 1px solid #e2e8f0;
+    }
+    .accordion-header:hover {
+        background: #edf2f7;
+    }
+    .accordion-header.active {
+        background: #4299e1;
+        color: white;
+    }
+    .accordion-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #2d3748;
+    }
+    .accordion-header.active .accordion-title {
+        color: white;
+    }
+    .accordion-icon {
+        font-size: 20px;
+        transition: transform 0.3s;
+        color: #718096;
+    }
+    .accordion-header.active .accordion-icon {
+        color: white;
+        transform: rotate(180deg);
+    }
+    .accordion-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+    .accordion-content.active {
+        max-height: 5000px;
+        transition: max-height 0.5s ease-in;
+    }
+    .accordion-body {
+        padding: 24px;
+    }
+    
+    /* Betting Interface Styles */
+    .betting-market {
+        margin-bottom: 24px;
+    }
+    .betting-market:last-child {
+        margin-bottom: 0;
+    }
+    .market-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .runner-row {
+        display: grid;
+        grid-template-columns: 2fr 1fr 2fr;
+        gap: 8px;
+        padding: 12px 0;
+        border-bottom: 1px solid #e2e8f0;
+        align-items: center;
     }
     .runner-row:last-child {
         border-bottom: none;
@@ -97,25 +128,67 @@
         font-weight: 600;
         font-size: 16px;
         color: #2d3748;
-        flex: 1;
+        padding: 8px 0;
     }
-    .odds-section {
+    .odds-cell {
         display: flex;
-        gap: 24px;
-    }
-    .odds-item {
-        text-align: center;
-    }
-    .odds-label {
-        font-size: 12px;
-        color: #718096;
-        text-transform: uppercase;
-        margin-bottom: 4px;
+        flex-direction: column;
+        gap: 4px;
     }
     .odds-value {
         font-size: 18px;
         font-weight: 700;
         color: #2d3748;
+        text-align: center;
+        padding: 8px;
+        white-space: nowrap;
+    }
+    .bet-buttons {
+        display: flex;
+        gap: 8px;
+    }
+    .bet-btn {
+        flex: 1;
+        padding: 12px 16px;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: center;
+    }
+    .bet-btn.back {
+        background: #48bb78;
+        color: white;
+    }
+    .bet-btn.back:hover {
+        background: #38a169;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(72, 187, 120, 0.3);
+    }
+    .bet-btn.lay {
+        background: #f56565;
+        color: white;
+    }
+    .bet-btn.lay:hover {
+        background: #e53e3e;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(245, 101, 101, 0.3);
+    }
+    .bet-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .header-row {
+        grid-template-columns: 2fr 1fr 2fr !important;
+        margin-bottom: 8px;
+        padding: 8px 0;
+        border-bottom: 2px solid #e2e8f0;
+        font-weight: 600;
+        color: #718096;
+        font-size: 12px;
+        text-transform: uppercase;
     }
     
     .session-details {
@@ -123,18 +196,16 @@
         padding-top: 24px;
         border-top: 2px solid #e2e8f0;
     }
-    .session-details h3 {
-        font-size: 16px;
-        font-weight: 700;
-        color: #2d3748;
+    .session-details .market-title {
         margin-bottom: 16px;
     }
     .session-detail-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
+        display: grid;
+        grid-template-columns: 2fr 1fr 2fr;
+        gap: 8px;
+        padding: 12px 0;
         border-bottom: 1px solid #e2e8f0;
+        align-items: center;
     }
     .session-detail-row:last-child {
         border-bottom: none;
@@ -142,14 +213,10 @@
     .session-detail-label {
         font-weight: 500;
         color: #4a5568;
-        flex: 1;
-    }
-    .session-detail-odds {
-        display: flex;
-        gap: 24px;
+        padding: 8px 0;
     }
     
-    /* Total Points Tab */
+    /* Total Points */
     .total-points-grid {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -158,29 +225,30 @@
     .points-card {
         background: #f7fafc;
         border-radius: 8px;
-        padding: 20px;
+        padding: 24px;
         text-align: center;
         border: 1px solid #e2e8f0;
     }
     .points-label {
         font-size: 14px;
         color: #718096;
-        margin-bottom: 8px;
-        font-weight: 500;
+        margin-bottom: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
     }
     .points-value {
-        font-size: 24px;
+        font-size: 32px;
         font-weight: 700;
         color: #2d3748;
     }
     
     /* Table Styles */
     .table-container {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        overflow: hidden;
-        border: 1px solid #e2e8f0;
+        background: transparent;
+        border-radius: 0;
+        box-shadow: none;
+        overflow: visible;
+        border: none;
     }
     .table-wrapper {
         overflow-x: auto;
@@ -211,7 +279,7 @@
         color: #4a5568;
         font-size: 14px;
     }
-    tr:hover {
+    tbody tr:hover {
         background: #f7fafc;
     }
     .empty-state {
@@ -237,35 +305,35 @@
             gap: 12px;
             width: 100%;
         }
-        .tabs-header {
-            flex-wrap: nowrap;
+        .accordion-header {
+            padding: 16px 20px;
         }
-        .tab-btn {
-            padding: 14px 16px;
-            font-size: 14px;
+        .accordion-title {
+            font-size: 16px;
         }
-        .tab-content {
+        .accordion-body {
             padding: 20px;
         }
         .runner-row {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
-            padding: 12px;
+            grid-template-columns: 2fr 1fr 2fr;
+            gap: 8px;
+            padding: 12px 0;
         }
-        .odds-section {
-            width: 100%;
-            justify-content: space-around;
+        .runner-name {
+            font-size: 15px;
+        }
+        .odds-value {
+            font-size: 16px;
+            white-space: nowrap;
+        }
+        .bet-btn {
+            padding: 10px 12px;
+            font-size: 13px;
         }
         .session-detail-row {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
-            padding: 12px;
-        }
-        .session-detail-odds {
-            width: 100%;
-            justify-content: space-around;
+            grid-template-columns: 2fr 1fr 2fr;
+            gap: 8px;
+            padding: 12px 0;
         }
         .total-points-grid {
             grid-template-columns: 1fr;
@@ -286,18 +354,33 @@
         .match-header {
             padding: 16px;
         }
-        .tab-btn {
-            padding: 12px 14px;
-            font-size: 13px;
+        .accordion-header {
+            padding: 14px 16px;
         }
-        .tab-content {
-            padding: 16px;
-        }
-        .runner-name {
+        .accordion-title {
             font-size: 15px;
         }
+        .accordion-body {
+            padding: 16px;
+        }
+        .runner-row {
+            grid-template-columns: 2fr 1fr 2fr;
+            padding: 10px 0;
+        }
+        .session-detail-row {
+            grid-template-columns: 2fr 1fr 2fr;
+            padding: 10px 0;
+        }
         .odds-value {
-            font-size: 16px;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        .bet-btn {
+            padding: 8px 10px;
+            font-size: 12px;
+        }
+        .runner-name, .session-detail-label {
+            font-size: 14px;
         }
         table {
             min-width: 600px;
@@ -323,177 +406,460 @@
     </div>
 </div>
 
-<!-- Tabs Container -->
-<div class="tabs-container">
-    <div class="tabs-header">
-        <button class="tab-btn active" onclick="showTab('match-odds')">Match Odds</button>
-        <button class="tab-btn" onclick="showTab('total-points')">Total Points</button>
-        <button class="tab-btn" onclick="showTab('match-bet')">Match Bet</button>
-        <button class="tab-btn" onclick="showTab('session')">Session</button>
+<!-- Accordion Container -->
+<div class="accordion-container">
+    <!-- Match Odds Accordion -->
+    <div class="accordion-item">
+        <div class="accordion-header active" onclick="toggleAccordion('match-odds')">
+            <span class="accordion-title">Match Odds</span>
+            <span class="accordion-icon">▼</span>
+        </div>
+        <div id="match-odds" class="accordion-content active">
+            <div class="accordion-body">
+                <!-- Runner Section -->
+                <div class="betting-market">
+                    <div class="market-title">Runner</div>
+                    <div class="runner-row header-row">
+                        <div>TEAM</div>
+                        <div style="text-align: center;">ODDS</div>
+                        <div style="text-align: center;">ACTION</div>
+                    </div>
+                    {% for odds in match_odds %}
+                    <div class="runner-row">
+                        <div class="runner-name">{{ odds.runner }}</div>
+                        <div class="odds-cell">
+                            <div class="odds-value">{{ odds.back_odds }} / {{ odds.lay_odds }}</div>
+                        </div>
+                        <div class="bet-buttons">
+                            <button class="bet-btn back" onclick="placeBet('{{ odds.runner }}', 'back', '{{ odds.back_odds }}')">Back</button>
+                            <button class="bet-btn lay" onclick="placeBet('{{ odds.runner }}', 'lay', '{{ odds.lay_odds }}')">Lay</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Session Details Section -->
+                <div class="session-details">
+                    <div class="market-title">Session Details</div>
+                    <div class="session-detail-row header-row">
+                        <div>SESSION</div>
+                        <div style="text-align: center;">ODDS</div>
+                        <div style="text-align: center;">ACTION</div>
+                    </div>
+                    {% for detail in session_details %}
+                    <div class="session-detail-row">
+                        <div class="session-detail-label">{{ detail.label }}</div>
+                        <div class="odds-cell">
+                            <div class="odds-value">{{ detail.not }} / {{ detail.yes }}</div>
+                        </div>
+                        <div class="bet-buttons">
+                            <button class="bet-btn back" onclick="placeBet('{{ detail.label }}', 'not', '{{ detail.not }}')">Not</button>
+                            <button class="bet-btn lay" onclick="placeBet('{{ detail.label }}', 'yes', '{{ detail.yes }}')">Yes</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
     </div>
     
-    <!-- Match Odds Tab -->
-    <div id="match-odds" class="tab-content active">
-        <!-- Runner Section -->
-        <div>
-            <h3 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 700; color: #2d3748;">Runner</h3>
-            {% for odds in match_odds %}
-            <div class="runner-row">
-                <div class="runner-name">{{ odds.runner }}</div>
-                <div class="odds-section">
-                    <div class="odds-item">
-                        <div class="odds-label">Back</div>
-                        <div class="odds-value">{{ odds.back_odds }}</div>
+    <!-- Total Points Accordion -->
+    <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion('total-points')">
+            <span class="accordion-title">Total Points</span>
+            <span class="accordion-icon">▼</span>
+        </div>
+        <div id="total-points" class="accordion-content">
+            <div class="accordion-body">
+                <div class="total-points-grid">
+                    <div class="points-card">
+                        <div class="points-label">{{ match.team_a.name }}</div>
+                        <div class="points-value">{{ total_points.team1 }}</div>
                     </div>
-                    <div class="odds-item">
-                        <div class="odds-label">Lay</div>
-                        <div class="odds-value">{{ odds.lay_odds }}</div>
+                    <div class="points-card">
+                        <div class="points-label">{{ match.team_b.name }}</div>
+                        <div class="points-value">{{ total_points.team2 }}</div>
+                    </div>
+                    <div class="points-card">
+                        <div class="points-label">Drawn</div>
+                        <div class="points-value">{{ total_points.drawn }}</div>
                     </div>
                 </div>
             </div>
-            {% endfor %}
         </div>
-        
-        <!-- Session Details Section -->
-        <div class="session-details">
-            <h3>Session Details</h3>
-            {% for detail in session_details %}
-            <div class="session-detail-row">
-                <div class="session-detail-label">{{ detail.label }}</div>
-                <div class="session-detail-odds">
-                    <div class="odds-item">
-                        <div class="odds-label">Not</div>
-                        <div class="odds-value">{{ detail.not }}</div>
-                    </div>
-                    <div class="odds-item">
-                        <div class="odds-label">Yes</div>
-                        <div class="odds-value">{{ detail.yes }}</div>
+    </div>
+    
+    <!-- Match Bet Accordion -->
+    <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion('match-bet')">
+            <span class="accordion-title">Match Bet</span>
+            <span class="accordion-icon">▼</span>
+        </div>
+        <div id="match-bet" class="accordion-content">
+            <div class="accordion-body">
+                <div class="table-container">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Sr.</th>
+                                    <th>User</th>
+                                    <th>Odds</th>
+                                    <th>Stake</th>
+                                    <th>Bettype</th>
+                                    <th>Team</th>
+                                    <th>Data</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if match_bets %}
+                                    {% for bet in match_bets %}
+                                    <tr>
+                                        <td>{{ bet.sr }}</td>
+                                        <td>{{ bet.user }}</td>
+                                        <td>{{ bet.odds }}</td>
+                                        <td>₹{{ bet.stake|floatformat:2 }}</td>
+                                        <td>{{ bet.bettype }}</td>
+                                        <td>{{ bet.team }}</td>
+                                        <td>{{ bet.data }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="7" class="empty-state">No match bets found</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-            {% endfor %}
         </div>
     </div>
     
-    <!-- Total Points Tab -->
-    <div id="total-points" class="tab-content">
-        <div class="total-points-grid">
-            <div class="points-card">
-                <div class="points-label">{{ match.team_a.name }}</div>
-                <div class="points-value">{{ total_points.team1 }}</div>
-            </div>
-            <div class="points-card">
-                <div class="points-label">{{ match.team_b.name }}</div>
-                <div class="points-value">{{ total_points.team2 }}</div>
-            </div>
-            <div class="points-card">
-                <div class="points-label">Drawn</div>
-                <div class="points-value">{{ total_points.drawn }}</div>
-            </div>
+    <!-- Session Accordion -->
+    <div class="accordion-item">
+        <div class="accordion-header" onclick="toggleAccordion('session')">
+            <span class="accordion-title">Session</span>
+            <span class="accordion-icon">▼</span>
         </div>
-    </div>
-    
-    <!-- Match Bet Tab -->
-    <div id="match-bet" class="tab-content">
-        <div class="table-container">
-            <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Sr.</th>
-                            <th>User</th>
-                            <th>Odds</th>
-                            <th>Stake</th>
-                            <th>Bettype</th>
-                            <th>Team</th>
-                            <th>Data</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if match_bets %}
-                            {% for bet in match_bets %}
-                            <tr>
-                                <td>{{ bet.sr }}</td>
-                                <td>{{ bet.user }}</td>
-                                <td>{{ bet.odds }}</td>
-                                <td>₹{{ bet.stake|floatformat:2 }}</td>
-                                <td>{{ bet.bettype }}</td>
-                                <td>{{ bet.team }}</td>
-                                <td>{{ bet.data }}</td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="7" class="empty-state">No match bets found</td>
-                            </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Session Tab -->
-    <div id="session" class="tab-content">
-        <div class="table-container">
-            <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Sr.</th>
-                            <th>User</th>
-                            <th>Odds</th>
-                            <th>Stake</th>
-                            <th>Bettype</th>
-                            <th>Team</th>
-                            <th>Data</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if session_data %}
-                            {% for session in session_data %}
-                            <tr>
-                                <td>{{ session.sr }}</td>
-                                <td>{{ session.user }}</td>
-                                <td>{{ session.odds }}</td>
-                                <td>₹{{ session.stake|floatformat:2 }}</td>
-                                <td>{{ session.bettype }}</td>
-                                <td>{{ session.team }}</td>
-                                <td>{{ session.data }}</td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr>
-                                <td colspan="7" class="empty-state">No session data found</td>
-                            </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
+        <div id="session" class="accordion-content">
+            <div class="accordion-body">
+                <div class="table-container">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Sr.</th>
+                                    <th>User</th>
+                                    <th>Odds</th>
+                                    <th>Stake</th>
+                                    <th>Bettype</th>
+                                    <th>Team</th>
+                                    <th>Data</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if session_data %}
+                                    {% for session in session_data %}
+                                    <tr>
+                                        <td>{{ session.sr }}</td>
+                                        <td>{{ session.user }}</td>
+                                        <td>{{ session.odds }}</td>
+                                        <td>₹{{ session.stake|floatformat:2 }}</td>
+                                        <td>{{ session.bettype }}</td>
+                                        <td>{{ session.team }}</td>
+                                        <td>{{ session.data }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="7" class="empty-state">No session data found</td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-function showTab(tabName) {
-    // Hide all tab contents
-    const tabContents = document.querySelectorAll('.tab-content');
-    tabContents.forEach(content => {
-        content.classList.remove('active');
-    });
+function toggleAccordion(id) {
+    const content = document.getElementById(id);
+    const header = content.previousElementSibling;
     
-    // Remove active class from all tab buttons
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    tabButtons.forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // Show selected tab content
-    document.getElementById(tabName).classList.add('active');
-    
-    // Add active class to clicked button
-    event.target.classList.add('active');
+    // Toggle active class
+    content.classList.toggle('active');
+    header.classList.toggle('active');
 }
-</script>
-{% endblock %}
 
+let currentBetData = null;
+
+function placeBet(selection, type, odds) {
+    currentBetData = {
+        selection: selection,
+        type: type,
+        odds: odds
+    };
+    
+    // Update modal content
+    document.getElementById('betSelection').textContent = selection;
+    document.getElementById('betType').textContent = type.toUpperCase();
+    document.getElementById('betOdds').textContent = odds;
+    document.getElementById('betAmount').value = '';
+    
+    // Show modal
+    document.getElementById('betModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Focus on input
+    setTimeout(() => {
+        document.getElementById('betAmount').focus();
+    }, 100);
+}
+
+function closeBetModal() {
+    document.getElementById('betModal').style.display = 'none';
+    document.body.style.overflow = 'auto';
+    currentBetData = null;
+}
+
+function submitBet() {
+    const amount = document.getElementById('betAmount').value;
+    
+    if (!amount || parseFloat(amount) <= 0) {
+        alert('Please enter a valid amount');
+        return;
+    }
+    
+    if (!currentBetData) {
+        alert('Bet data not found');
+        return;
+    }
+    
+    // Here you can integrate with your betting API
+    console.log('Placing bet:', {
+        selection: currentBetData.selection,
+        type: currentBetData.type,
+        odds: currentBetData.odds,
+        amount: parseFloat(amount)
+    });
+    
+    // Example: You can make an AJAX call here
+    // fetch('/api/place-bet/', {
+    //     method: 'POST',
+    //     headers: {'Content-Type': 'application/json'},
+    //     body: JSON.stringify({
+    //         selection: currentBetData.selection,
+    //         type: currentBetData.type,
+    //         odds: currentBetData.odds,
+    //         amount: parseFloat(amount)
+    //     })
+    // })
+    
+    alert(`Bet placed: ${currentBetData.type.toUpperCase()} on ${currentBetData.selection} at odds ${currentBetData.odds} for ₹${amount}`);
+    closeBetModal();
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeBetModal();
+    }
+});
+</script>
+
+<!-- Bet Modal -->
+<div id="betModal" class="bet-modal" style="display: none;">
+    <div class="bet-modal-overlay" onclick="closeBetModal()"></div>
+    <div class="bet-modal-content">
+        <div class="bet-modal-header">
+            <h3 id="betModalTitle">Place Bet</h3>
+            <button class="bet-modal-close" onclick="closeBetModal()">×</button>
+        </div>
+        <div class="bet-modal-body">
+            <div class="bet-info">
+                <p><strong>Selection:</strong> <span id="betSelection"></span></p>
+                <p><strong>Type:</strong> <span id="betType"></span></p>
+                <p><strong>Odds:</strong> <span id="betOdds"></span></p>
+            </div>
+            <div class="bet-amount-input">
+                <label for="betAmount">Enter Amount (₹)</label>
+                <input type="number" id="betAmount" min="1" step="0.01" placeholder="Enter amount" autofocus>
+            </div>
+            <div class="bet-modal-actions">
+                <button class="bet-submit-btn" onclick="submitBet()">Place Bet</button>
+                <button class="bet-cancel-btn" onclick="closeBetModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bet-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .bet-modal-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+    }
+    .bet-modal-content {
+        position: relative;
+        background: white;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        z-index: 10001;
+        animation: slideUp 0.3s ease-out;
+    }
+    @keyframes slideUp {
+        from {
+            transform: translateY(50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    .bet-modal-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .bet-modal-header h3 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+        color: #2d3748;
+    }
+    .bet-modal-close {
+        background: none;
+        border: none;
+        font-size: 28px;
+        color: #718096;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: all 0.2s;
+    }
+    .bet-modal-close:hover {
+        background: #f7fafc;
+        color: #2d3748;
+    }
+    .bet-modal-body {
+        padding: 24px;
+    }
+    .bet-info {
+        background: #f7fafc;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+    }
+    .bet-info p {
+        margin: 8px 0;
+        color: #4a5568;
+        font-size: 15px;
+    }
+    .bet-info strong {
+        color: #2d3748;
+    }
+    .bet-amount-input {
+        margin-bottom: 24px;
+    }
+    .bet-amount-input label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 14px;
+    }
+    .bet-amount-input input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: all 0.2s;
+        box-sizing: border-box;
+    }
+    .bet-amount-input input:focus {
+        outline: none;
+        border-color: #4299e1;
+        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+    .bet-modal-actions {
+        display: flex;
+        gap: 12px;
+    }
+    .bet-submit-btn, .bet-cancel-btn {
+        flex: 1;
+        padding: 14px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 15px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .bet-submit-btn {
+        background: #4299e1;
+        color: white;
+    }
+    .bet-submit-btn:hover {
+        background: #3182ce;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(66, 153, 225, 0.3);
+    }
+    .bet-cancel-btn {
+        background: #e2e8f0;
+        color: #4a5568;
+    }
+    .bet-cancel-btn:hover {
+        background: #cbd5e0;
+    }
+    
+    @media (max-width: 480px) {
+        .bet-modal-content {
+            width: 95%;
+            margin: 20px;
+        }
+        .bet-modal-header {
+            padding: 16px 20px;
+        }
+        .bet-modal-body {
+            padding: 20px;
+        }
+        .bet-modal-actions {
+            flex-direction: column;
+        }
+        .bet-submit-btn, .bet-cancel-btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
