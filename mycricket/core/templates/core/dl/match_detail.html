@@ -1,0 +1,499 @@
+{% extends 'core/dl/base.html' %}
+
+{% block title %}{{ match }} - Match Details{% endblock %}
+
+{% block page_title %}{{ match.team_a.name }} vs {{ match.team_b.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .match-header {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 24px;
+        border: 1px solid #e2e8f0;
+    }
+    .match-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    .match-teams {
+        font-size: 20px;
+        font-weight: 700;
+        color: #2d3748;
+    }
+    .match-meta {
+        display: flex;
+        gap: 24px;
+        color: #718096;
+        font-size: 14px;
+    }
+    .match-meta span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    /* Tabs */
+    .tabs-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 24px;
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+    .tabs-header {
+        display: flex;
+        border-bottom: 2px solid #e2e8f0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .tab-btn {
+        padding: 16px 24px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 15px;
+        color: #718096;
+        white-space: nowrap;
+        transition: all 0.2s;
+        border-bottom: 3px solid transparent;
+    }
+    .tab-btn:hover {
+        background: #f7fafc;
+        color: #4299e1;
+    }
+    .tab-btn.active {
+        color: #4299e1;
+        border-bottom-color: #4299e1;
+        background: #f7fafc;
+    }
+    .tab-content {
+        display: none;
+        padding: 24px;
+    }
+    .tab-content.active {
+        display: block;
+    }
+    
+    /* Match Odds Tab */
+    .runner-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .runner-row:last-child {
+        border-bottom: none;
+    }
+    .runner-name {
+        font-weight: 600;
+        font-size: 16px;
+        color: #2d3748;
+        flex: 1;
+    }
+    .odds-section {
+        display: flex;
+        gap: 24px;
+    }
+    .odds-item {
+        text-align: center;
+    }
+    .odds-label {
+        font-size: 12px;
+        color: #718096;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+    .odds-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #2d3748;
+    }
+    
+    .session-details {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 2px solid #e2e8f0;
+    }
+    .session-details h3 {
+        font-size: 16px;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 16px;
+    }
+    .session-detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .session-detail-row:last-child {
+        border-bottom: none;
+    }
+    .session-detail-label {
+        font-weight: 500;
+        color: #4a5568;
+        flex: 1;
+    }
+    .session-detail-odds {
+        display: flex;
+        gap: 24px;
+    }
+    
+    /* Total Points Tab */
+    .total-points-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+    }
+    .points-card {
+        background: #f7fafc;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        border: 1px solid #e2e8f0;
+    }
+    .points-label {
+        font-size: 14px;
+        color: #718096;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    .points-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #2d3748;
+    }
+    
+    /* Table Styles */
+    .table-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+    }
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 800px;
+    }
+    thead {
+        background: #f7fafc;
+    }
+    th {
+        padding: 16px 20px;
+        text-align: left;
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #e2e8f0;
+        white-space: nowrap;
+    }
+    td {
+        padding: 16px 20px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #4a5568;
+        font-size: 14px;
+    }
+    tr:hover {
+        background: #f7fafc;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #718096;
+    }
+    
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .match-header {
+            padding: 20px;
+        }
+        .match-info {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .match-teams {
+            font-size: 18px;
+        }
+        .match-meta {
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+        }
+        .tabs-header {
+            flex-wrap: nowrap;
+        }
+        .tab-btn {
+            padding: 14px 16px;
+            font-size: 14px;
+        }
+        .tab-content {
+            padding: 20px;
+        }
+        .runner-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+        }
+        .odds-section {
+            width: 100%;
+            justify-content: space-around;
+        }
+        .session-detail-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 12px;
+        }
+        .session-detail-odds {
+            width: 100%;
+            justify-content: space-around;
+        }
+        .total-points-grid {
+            grid-template-columns: 1fr;
+        }
+        .table-wrapper {
+            overflow-x: auto;
+        }
+        table {
+            min-width: 700px;
+        }
+        th, td {
+            padding: 12px 16px;
+            font-size: 13px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .match-header {
+            padding: 16px;
+        }
+        .tab-btn {
+            padding: 12px 14px;
+            font-size: 13px;
+        }
+        .tab-content {
+            padding: 16px;
+        }
+        .runner-name {
+            font-size: 15px;
+        }
+        .odds-value {
+            font-size: 16px;
+        }
+        table {
+            min-width: 600px;
+        }
+        th, td {
+            padding: 10px 12px;
+            font-size: 12px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Match Header -->
+<div class="match-header">
+    <div class="match-info">
+        <div class="match-teams">{{ match.team_a.name }} vs {{ match.team_b.name }}</div>
+        <div class="match-meta">
+            <span>📍 {{ match.venue|default:"TBA" }}</span>
+            <span>📅 {{ match.match_date|date:"M d, Y H:i" }}</span>
+            <span>⚡ {{ match.get_status_display }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs Container -->
+<div class="tabs-container">
+    <div class="tabs-header">
+        <button class="tab-btn active" onclick="showTab('match-odds')">Match Odds</button>
+        <button class="tab-btn" onclick="showTab('total-points')">Total Points</button>
+        <button class="tab-btn" onclick="showTab('match-bet')">Match Bet</button>
+        <button class="tab-btn" onclick="showTab('session')">Session</button>
+    </div>
+    
+    <!-- Match Odds Tab -->
+    <div id="match-odds" class="tab-content active">
+        <!-- Runner Section -->
+        <div>
+            <h3 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 700; color: #2d3748;">Runner</h3>
+            {% for odds in match_odds %}
+            <div class="runner-row">
+                <div class="runner-name">{{ odds.runner }}</div>
+                <div class="odds-section">
+                    <div class="odds-item">
+                        <div class="odds-label">Back</div>
+                        <div class="odds-value">{{ odds.back_odds }}</div>
+                    </div>
+                    <div class="odds-item">
+                        <div class="odds-label">Lay</div>
+                        <div class="odds-value">{{ odds.lay_odds }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Session Details Section -->
+        <div class="session-details">
+            <h3>Session Details</h3>
+            {% for detail in session_details %}
+            <div class="session-detail-row">
+                <div class="session-detail-label">{{ detail.label }}</div>
+                <div class="session-detail-odds">
+                    <div class="odds-item">
+                        <div class="odds-label">Not</div>
+                        <div class="odds-value">{{ detail.not }}</div>
+                    </div>
+                    <div class="odds-item">
+                        <div class="odds-label">Yes</div>
+                        <div class="odds-value">{{ detail.yes }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Total Points Tab -->
+    <div id="total-points" class="tab-content">
+        <div class="total-points-grid">
+            <div class="points-card">
+                <div class="points-label">{{ match.team_a.name }}</div>
+                <div class="points-value">{{ total_points.team1 }}</div>
+            </div>
+            <div class="points-card">
+                <div class="points-label">{{ match.team_b.name }}</div>
+                <div class="points-value">{{ total_points.team2 }}</div>
+            </div>
+            <div class="points-card">
+                <div class="points-label">Drawn</div>
+                <div class="points-value">{{ total_points.drawn }}</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Match Bet Tab -->
+    <div id="match-bet" class="tab-content">
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sr.</th>
+                            <th>User</th>
+                            <th>Odds</th>
+                            <th>Stake</th>
+                            <th>Bettype</th>
+                            <th>Team</th>
+                            <th>Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if match_bets %}
+                            {% for bet in match_bets %}
+                            <tr>
+                                <td>{{ bet.sr }}</td>
+                                <td>{{ bet.user }}</td>
+                                <td>{{ bet.odds }}</td>
+                                <td>₹{{ bet.stake|floatformat:2 }}</td>
+                                <td>{{ bet.bettype }}</td>
+                                <td>{{ bet.team }}</td>
+                                <td>{{ bet.data }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="empty-state">No match bets found</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Session Tab -->
+    <div id="session" class="tab-content">
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sr.</th>
+                            <th>User</th>
+                            <th>Odds</th>
+                            <th>Stake</th>
+                            <th>Bettype</th>
+                            <th>Team</th>
+                            <th>Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if session_data %}
+                            {% for session in session_data %}
+                            <tr>
+                                <td>{{ session.sr }}</td>
+                                <td>{{ session.user }}</td>
+                                <td>{{ session.odds }}</td>
+                                <td>₹{{ session.stake|floatformat:2 }}</td>
+                                <td>{{ session.bettype }}</td>
+                                <td>{{ session.team }}</td>
+                                <td>{{ session.data }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="empty-state">No session data found</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showTab(tabName) {
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Remove active class from all tab buttons
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected tab content
+    document.getElementById(tabName).classList.add('active');
+    
+    // Add active class to clicked button
+    event.target.classList.add('active');
+}
+</script>
+{% endblock %}
+

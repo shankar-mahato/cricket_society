@@ -2748,3 +2748,103 @@ def dl_match_book(request):
         'show_completed': show_completed,
     }
     return render(request, 'core/dl/match_book.html', context)
+
+@login_required
+def dl_match_detail(request, match_id):
+    """DL user match detail page with tabs for odds, points, bets, and sessions"""
+    from accounts.models import UserProfile
+    from django.db.models import Q, Sum, Count, F
+    
+    # Check if user is DL
+    if not hasattr(request.user, 'profile') or request.user.profile.user_type != 'dl':
+        messages.error(request, "Access denied. You are not a DL user.")
+        return redirect('core:home')
+    
+    match = get_object_or_404(Match, id=match_id)
+    
+    # Get end users managed by this DL
+    end_users = User.objects.filter(profile__dl_user=request.user)
+    end_user_ids = list(end_users.values_list('id', flat=True))
+    
+    # Get all betting sessions for this match involving DL's end users
+    sessions = BettingSession.objects.filter(
+        match=match
+    ).filter(
+        Q(better_a_id__in=end_user_ids) | Q(better_b_id__in=end_user_ids)
+    ).select_related('better_a', 'better_b', 'match', 'match__team_a', 'match__team_b')
+    
+    # Match Odds Data (Runner - teams with back/lay odds)
+    # For now, we'll use placeholder data structure
+    match_odds = [
+        {
+            'runner': match.team_a.name,
+            'back_odds': '1.85',  # Placeholder
+            'lay_odds': '1.90',   # Placeholder
+        },
+        {
+            'runner': match.team_b.name,
+            'back_odds': '1.95',  # Placeholder
+            'lay_odds': '2.00',   # Placeholder
+        },
+    ]
+    
+    # Session Details (like "20 overs runs adv" etc)
+    session_details = [
+        {'label': '20 Overs Runs Adv', 'not': '1.85', 'yes': '1.95'},
+        {'label': 'Total Runs Over', 'not': '1.80', 'yes': '2.00'},
+        {'label': 'Total Runs Under', 'not': '1.90', 'yes': '1.85'},
+    ]
+    
+    # Total Points Data
+    total_points = {
+        'team1': Decimal('0.00'),  # Sum of points from sessions for team1
+        'team2': Decimal('0.00'),  # Sum of points from sessions for team2
+        'drawn': Decimal('0.00'),  # Draw points
+    }
+    
+    # Match Bet Data (aggregated bets from sessions)
+    match_bets = []
+    bet_counter = 1
+    for session in sessions:
+        bets = Bet.objects.filter(session=session).select_related('better', 'picked_player', 'picked_player__player', 'picked_player__player__team')
+        for bet in bets:
+            if bet.better_id in end_user_ids:
+                match_bets.append({
+                    'sr': bet_counter,
+                    'user': bet.better.username,
+                    'odds': '1.85',  # Placeholder
+                    'stake': session.fixed_bet_amount,
+                    'bettype': 'Back',  # Placeholder
+                    'team': bet.picked_player.player.team.name,
+                    'data': bet.created_at.strftime('%Y-%m-%d %H:%M'),
+                })
+                bet_counter += 1
+    
+    # Session Data (similar to match bets but organized by session)
+    session_data = []
+    session_counter = 1
+    for session in sessions:
+        bets = Bet.objects.filter(session=session).select_related('better', 'picked_player', 'picked_player__player', 'picked_player__player__team')
+        for bet in bets:
+            if bet.better_id in end_user_ids:
+                session_data.append({
+                    'sr': session_counter,
+                    'user': bet.better.username,
+                    'odds': '1.85',  # Placeholder
+                    'stake': session.fixed_bet_amount,
+                    'bettype': 'Back',  # Placeholder
+                    'team': bet.picked_player.player.team.name,
+                    'data': bet.created_at.strftime('%Y-%m-%d %H:%M'),
+                })
+                session_counter += 1
+    
+    context = {
+        'match': match,
+        'match_odds': match_odds,
+        'session_details': session_details,
+        'total_points': total_points,
+        'match_bets': match_bets,
+        'session_data': session_data,
+        'sessions_count': sessions.count(),
+    }
+    return render(request, 'core/dl/match_detail.html', context)

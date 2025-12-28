@@ -38,11 +38,6 @@
         .sidebar-header:hover {
             background: #f7fafc;
         }
-        a[href*="dl_home"] {
-            text-decoration: none;
-            color: inherit;
-            display: block;
-        }
         .sidebar-logo {
             width: 40px;
             height: 40px;
@@ -73,6 +68,7 @@
             font-weight: 500;
             transition: all 0.2s;
             border-left: 3px solid transparent;
+            width: 100%;
         }
         .nav-item:hover {
             background: #f7fafc;
@@ -92,6 +88,11 @@
             align-items: center;
             justify-content: center;
             font-size: 18px;
+            flex-shrink: 0;
+        }
+        .nav-item span:not(.nav-item-icon) {
+            flex: 1;
+            word-break: break-word;
         }
         .main-content {
             flex: 1;
@@ -109,47 +110,42 @@
             top: 0;
             z-index: 100;
         }
+        .header-title-section {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+        }
+        .header-username-section {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .desktop-username {
+            display: flex;
+        }
+        .username-label {
+            font-size: 13px;
+            color: #2d3748;
+            font-weight: 700;
+        }
+        .header-username {
+            font-size: 14px;
+            color: #48bb78;
+            font-weight: 600;
+        }
         .header-title {
             font-size: 24px;
             font-weight: 700;
             color: #2d3748;
+            margin: 0;
         }
         .header-actions {
             display: flex;
             align-items: center;
             gap: 16px;
-        }
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 8px 16px;
-            background: #f7fafc;
-            border-radius: 8px;
-        }
-        .user-avatar {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-        }
-        .user-info {
-            display: flex;
-            flex-direction: column;
-        }
-        .user-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: #2d3748;
-        }
-        .user-role {
-            font-size: 12px;
-            color: #718096;
+            position: relative;
+            z-index: 1002;
         }
         .logout-btn {
             padding: 8px 16px;
@@ -343,14 +339,28 @@
             .nav-item {
                 padding: 16px 24px;
                 white-space: normal;
+                word-wrap: break-word;
                 border-left: 3px solid transparent;
                 border-bottom: 1px solid #f7fafc;
+                display: flex;
+                align-items: center;
+                width: 100%;
             }
             
             .nav-item.active {
                 border-left-color: #4299e1;
                 border-bottom-color: #f7fafc;
                 background: #ebf4ff;
+            }
+            
+            .nav-item-icon {
+                flex-shrink: 0;
+                margin-right: 12px;
+            }
+            
+            .nav-item span:not(.nav-item-icon) {
+                flex: 1;
+                word-break: break-word;
             }
             
             .main-content {
@@ -367,22 +377,32 @@
                 gap: 12px;
             }
             
-            .header-title {
-                font-size: 20px;
+            .header-title-section {
+                flex: 1;
             }
             
-            .user-profile {
+            .header-title {
+                font-size: 20px;
+                margin: 0;
+            }
+            
+            .desktop-username {
                 display: none !important;
+            }
+            
+            .username-label {
+                font-size: 12px;
+                font-weight: 700;
+            }
+            
+            .header-username {
+                font-size: 13px;
+                color: #48bb78;
             }
             
             .logout-btn {
                 padding: 8px 16px;
                 font-size: 14px;
-                position: relative;
-                z-index: 1002;
-            }
-            
-            .header-actions {
                 position: relative;
                 z-index: 1002;
             }
@@ -414,14 +434,19 @@
                 font-size: 16px;
             }
             .nav-item {
-                padding: 10px 16px;
+                padding: 12px 16px;
                 font-size: 14px;
             }
             .nav-item-icon {
                 width: 20px;
                 height: 20px;
                 font-size: 16px;
-                margin-right: 8px;
+                margin-right: 10px;
+                flex-shrink: 0;
+            }
+            .nav-item span:not(.nav-item-icon) {
+                flex: 1;
+                word-break: break-word;
             }
             .top-header {
                 padding: 12px;
@@ -430,22 +455,12 @@
                 font-size: 18px;
             }
             .header-actions {
-                flex-direction: column;
-                align-items: flex-start;
                 width: 100%;
-            }
-            .user-profile {
-                width: 100%;
-                justify-content: space-between;
-            }
-            .user-avatar {
-                width: 32px;
-                height: 32px;
-                font-size: 14px;
+                justify-content: flex-end;
             }
             .logout-btn {
-                width: 100%;
-                margin-top: 10px;
+                padding: 8px 16px;
+                font-size: 14px;
             }
             .content-area {
                 padding: 12px;
@@ -466,7 +481,7 @@
     
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
-        <a href="{% url 'core:dl_home' %}" style="text-decoration: none; color: inherit;">
+        <a href="{% url 'core:dl_dashboard' %}" style="text-decoration: none; color: inherit;">
             <div class="sidebar-header" style="cursor: pointer;">
                 <div class="sidebar-logo">DL</div>
                 <div class="sidebar-title">DL Panel</div>
@@ -477,21 +492,17 @@
                 <div class="mobile-username-label">Logged in as:</div>
                 <div class="mobile-username">{{ user.username }}</div>
             </div>
-            <a href="{% url 'core:dl_home' %}" class="nav-item {% if request.resolver_match.url_name == 'dl_home' %}active{% endif %}">
-                <span class="nav-item-icon">🏠</span>
-                Home
-            </a>
             <a href="{% url 'core:dl_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'dl_dashboard' or request.resolver_match.url_name == 'dl_add_user' %}active{% endif %}">
                 <span class="nav-item-icon">👥</span>
-                Client List
+                <span>Client List</span>
             </a>
             <a href="{% url 'core:dl_match_book' %}" class="nav-item {% if request.resolver_match.url_name == 'dl_match_book' %}active{% endif %}">
                 <span class="nav-item-icon">📖</span>
-                Match Book
+                <span style="white-space: nowrap;">Match Book</span>
             </a>
             <a href="{% url 'core:dl_reports' %}" class="nav-item {% if request.resolver_match.url_name == 'dl_reports' %}active{% endif %}">
                 <span class="nav-item-icon">📊</span>
-                Reports
+                <span>Reports</span>
             </a>
         </nav>
     </aside>
@@ -502,14 +513,13 @@
                 <span></span>
                 <span></span>
             </button>
-            <div class="header-title">{% block page_title %}DL User Panel{% endblock %}</div>
+            <div class="header-title-section">
+                <h1 class="header-title">{% block page_title %}DL User Panel{% endblock %}</h1>
+            </div>
             <div class="header-actions">
-                <div class="user-profile">
-                    <div class="user-avatar">{{ user.username|first|upper }}</div>
-                    <div class="user-info">
-                        <span class="user-name">{{ user.username }}</span>
-                        <span class="user-role">DL User</span>
-                    </div>
+                <div class="header-username-section desktop-username">
+                    <span class="username-label">Logged in as:</span>
+                    <span class="header-username">{{ user.username }}</span>
                 </div>
                 <form method="post" action="{% url 'logout' %}" style="display: inline;">
                     {% csrf_token %}

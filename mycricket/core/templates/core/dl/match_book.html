@@ -12,6 +12,40 @@
         padding: 24px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         margin-bottom: 24px;
+        border: 1px solid #e2e8f0;
+    }
+    .search-section {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        margin-bottom: 24px;
+        border: 1px solid #e2e8f0;
+    }
+    .search-box {
+        position: relative;
+    }
+    .search-box input {
+        width: 100%;
+        padding: 12px 16px 12px 44px;
+        border: 1px solid #cbd5e0;
+        border-radius: 8px;
+        font-size: 15px;
+        box-sizing: border-box;
+    }
+    .search-box input:focus {
+        outline: none;
+        border-color: #4299e1;
+        box-shadow: 0 0 0 3px rgba(66,153,225,0.1);
+    }
+    .search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #718096;
+        font-size: 18px;
+        pointer-events: none;
     }
     .filter-section h3 {
         margin: 0 0 16px 0;
@@ -152,12 +186,23 @@
     }
     
     @media (max-width: 768px) {
+        .search-section {
+            padding: 20px;
+        }
         .filter-section {
             padding: 20px;
         }
         .filter-section h3 {
             font-size: 16px;
             margin-bottom: 12px;
+        }
+        .search-box input {
+            padding-left: 40px;
+            font-size: 16px; /* Prevents zoom on iOS */
+        }
+        .search-icon {
+            left: 12px;
+            font-size: 16px;
         }
         .filter-checkboxes {
             flex-direction: column;
@@ -194,6 +239,9 @@
     }
     
     @media (max-width: 480px) {
+        .search-section {
+            padding: 16px;
+        }
         .filter-section {
             padding: 16px;
         }
@@ -212,10 +260,33 @@
 {% endblock %}
 
 {% block content %}
+<!-- Search Section -->
+<div class="search-section">
+    <form method="get" id="searchForm">
+        <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" name="search" placeholder="Search matches..." 
+                   value="{{ search_query|default:'' }}" autocomplete="off">
+            {% if show_running %}
+                <input type="hidden" name="running" value="true">
+            {% endif %}
+            {% if show_suspended %}
+                <input type="hidden" name="suspended" value="true">
+            {% endif %}
+            {% if show_completed %}
+                <input type="hidden" name="completed" value="true">
+            {% endif %}
+        </div>
+    </form>
+</div>
+
 <!-- Filter Section -->
 <div class="filter-section">
     <h3>Filter Matches</h3>
     <form method="get" id="filterForm">
+        {% if search_query %}
+            <input type="hidden" name="search" value="{{ search_query }}">
+        {% endif %}
         <div class="filter-checkboxes">
             <div class="filter-checkbox">
                 <input type="checkbox" id="running" name="running" value="true" 
@@ -259,11 +330,13 @@
                 {% for data in match_data %}
                 <tr>
                     <td>
-                        <div class="match-info">
-                            <div class="match-teams">{{ data.match.team_a.name }} vs {{ data.match.team_b.name }}</div>
-                            <div class="match-title">{{ data.match.match_title }}</div>
-                            <div class="match-date">{{ data.match.match_date|date:"M d, Y H:i" }}</div>
-                        </div>
+                        <a href="{% url 'core:dl_match_detail' data.match.id %}" style="text-decoration: none; color: inherit;">
+                            <div class="match-info">
+                                <div class="match-teams">{{ data.match.team_a.name }} vs {{ data.match.team_b.name }}</div>
+                                <div class="match-title">{{ data.match.match_title }}</div>
+                                <div class="match-date">{{ data.match.match_date|date:"M d, Y H:i" }}</div>
+                            </div>
+                        </a>
                     </td>
                     <td>
                         <span class="amount-neutral">₹{{ data.open_rate|floatformat:2 }}</span>

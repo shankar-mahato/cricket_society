@@ -59,14 +59,24 @@
     .search-box {
         flex: 1;
         min-width: 250px;
+        position: relative;
     }
     .search-box input {
         width: 100%;
-        padding: 12px 16px;
+        padding: 12px 16px 12px 44px;
         border: 1px solid #cbd5e0;
         border-radius: 8px;
         font-size: 15px;
         box-sizing: border-box;
+    }
+    .search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #718096;
+        font-size: 18px;
+        pointer-events: none;
     }
     .search-box input:focus {
         outline: none;
@@ -90,6 +100,9 @@
         color: #4a5568;
         text-decoration: none;
         display: inline-block;
+        min-width: 100px;
+        text-align: center;
+        white-space: nowrap;
     }
     .filter-btn:hover {
         background: #f7fafc;
@@ -350,11 +363,109 @@
         border-bottom: 1px solid #e2e8f0;
     }
     #statementModal #statementContent {
-        padding: 30px;
+        padding: 0;
         max-height: calc(95vh - 100px);
         overflow-y: auto;
         flex: 1;
         -webkit-overflow-scrolling: touch;
+    }
+    
+    #statementModal #statementContent .summary-cards-grid {
+        padding: 20px;
+        padding-bottom: 0;
+    }
+    
+    #statementModal #statementContent .filter-section {
+        margin: 20px;
+        margin-bottom: 20px;
+    }
+    
+    #statementModal #statementContent .table-container {
+        margin: 0;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+    }
+    
+    #statementModal #statementContent .table-header {
+        padding: 20px 24px;
+    }
+    
+    #statementModal #statementContent .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    #statementModal #statementContent table {
+        min-width: 800px;
+    }
+    
+    #statementModal #statementContent th,
+    #statementModal #statementContent td {
+        padding: 12px 16px;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+    
+    #statementModal #statementContent th {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    #statementModal #statementContent td.text-center,
+    #statementModal #statementContent th.text-center {
+        text-align: center !important;
+    }
+    
+    #statementModal #statementContent td.text-right,
+    #statementModal #statementContent th.text-right {
+        text-align: right !important;
+    }
+    
+    @media (max-width: 768px) {
+        #statementModal .modal-content {
+            width: 100%;
+            max-width: 100%;
+            max-height: 100vh;
+            border-radius: 0;
+        }
+        
+        #statementModal #statementContent {
+            max-height: calc(100vh - 80px);
+        }
+        
+        #statementModal #statementContent .summary-cards-grid {
+            padding: 16px;
+            padding-bottom: 0;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        #statementModal #statementContent .filter-section {
+            margin: 16px;
+            padding: 16px;
+        }
+        
+        #statementModal #statementContent .filter-buttons {
+            flex-direction: column;
+        }
+        
+        #statementModal #statementContent .filter-btn {
+            width: 100%;
+        }
+        
+        #statementModal #statementContent table {
+            min-width: 700px;
+        }
+        
+        #statementModal #statementContent th,
+        #statementModal #statementContent td {
+            padding: 10px 12px;
+            font-size: 12px;
+        }
     }
     .modal-header {
         display: flex;
@@ -470,6 +581,15 @@
         .filter-btn {
             flex: 1;
             text-align: center;
+            min-width: 0;
+        }
+        .search-box input {
+            padding-left: 40px;
+            font-size: 16px; /* Prevents zoom on iOS */
+        }
+        .search-icon {
+            left: 12px;
+            font-size: 16px;
         }
         .table-container {
             border-radius: 8px;
@@ -585,6 +705,7 @@
     <form method="get" action="{% url 'core:dl_dashboard' %}">
         <div class="search-filter-row">
             <div class="search-box">
+                <span class="search-icon">🔍</span>
                 <input type="text" name="search" placeholder="Search by username or email..." 
                        value="{{ search_query }}" autocomplete="off">
             </div>

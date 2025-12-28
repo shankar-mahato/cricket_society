@@ -49,6 +49,7 @@ urlpatterns = [
     path('dl/add-user/', views.dl_add_user, name='dl_add_user'),
     path('dl/edit-user/<int:end_user_id>/', views.dl_edit_user, name='dl_edit_user'),
     path('dl/match-book/', views.dl_match_book, name='dl_match_book'),
+    path('dl/match/<int:match_id>/', views.dl_match_detail, name='dl_match_detail'),
     path('dl/reports/', views.dl_reports, name='dl_reports'),
     path('dl/approve-deposit/<int:request_id>/', views.approve_deposit_request, name='approve_deposit'),
     path('dl/reject-deposit/<int:request_id>/', views.reject_deposit_request, name='reject_deposit'),
