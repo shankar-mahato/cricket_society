@@ -1,4 +1,4 @@
-{% extends 'core/dl/base.html' %}
+{% extends 'core/master_dl/base.html' %}
 
 {% block title %}Reports{% endblock %}
 
@@ -131,7 +131,7 @@
         background: #d4edda;
         color: #155724;
     }
-    .type-withdraw {
+    .type-debit {
         background: #f8d7da;
         color: #721c24;
     }
@@ -184,14 +184,14 @@
 {% block content %}
 <!-- Filter Section -->
 <div class="filter-section">
-    <form method="get" action="{% url 'core:dl_reports' %}">
+    <form method="get" action="{% url 'core:master_dl_reports' %}">
         <div class="filter-row">
             <div class="filter-group">
                 <label for="type">Transaction Type</label>
                 <select name="type" id="type">
                     <option value="">All Types</option>
                     <option value="credit" {% if transaction_type_filter == 'credit' %}selected{% endif %}>Credit</option>
-                    <option value="withdraw" {% if transaction_type_filter == 'withdraw' %}selected{% endif %}>Withdraw</option>
+                    <option value="debit" {% if transaction_type_filter == 'debit' %}selected{% endif %}>Debit</option>
                 </select>
             </div>
             <div class="filter-group">
@@ -212,14 +212,14 @@
 <!-- Reports Table -->
 <div class="table-container">
     <div class="table-header">
-        <h2>Transaction Reports</h2>
+        <h2>DL Transaction Reports</h2>
     </div>
     {% if transactions %}
     <div class="table-wrapper">
         <table>
             <thead>
                 <tr>
-                    <th>Username</th>
+                    <th>DL User</th>
                     <th>Date</th>
                     <th class="text-center">Type</th>
                     <th class="text-center">Ref ID</th>
@@ -231,16 +231,16 @@
             <tbody>
                 {% for transaction in transactions %}
                 <tr>
-                    <td><strong>{{ transaction.user.username }}</strong></td>
+                    <td><strong>{{ transaction.dl_user.username }}</strong></td>
                     <td>{{ transaction.created_at|date:"M d, Y H:i" }}</td>
                     <td class="text-center">
-                        <span class="type-badge {% if transaction.transaction_type in 'deposit,bet_won,refund' %}type-credit{% else %}type-withdraw{% endif %}">
-                            {% if transaction.transaction_type in 'deposit,bet_won,refund' %}Credit{% else %}Withdraw{% endif %}
+                        <span class="type-badge {% if transaction.transaction_type == 'credit' %}type-credit{% else %}type-debit{% endif %}">
+                            {{ transaction.transaction_type|title }}
                         </span>
                     </td>
                     <td class="text-center ref-id">#{{ transaction.id }}</td>
-                    <td class="text-right {% if transaction.transaction_type in 'deposit,bet_won,refund' %}amount-positive{% else %}amount-negative{% endif %}">
-                        {% if transaction.transaction_type in 'deposit,bet_won,refund' %}+{% else %}-{% endif %}₹{{ transaction.amount|floatformat:2 }}
+                    <td class="text-right {% if transaction.transaction_type == 'credit' %}amount-positive{% else %}amount-negative{% endif %}">
+                        {% if transaction.transaction_type == 'credit' %}+{% else %}-{% endif %}₹{{ transaction.amount|floatformat:2 }}
                     </td>
                     <td class="text-right">₹{{ transaction.balance_after|floatformat:2 }}</td>
                     <td>{{ transaction.description|default:"-" }}</td>

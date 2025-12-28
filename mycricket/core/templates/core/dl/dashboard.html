@@ -172,6 +172,12 @@
         border-bottom: 2px solid #e2e8f0;
         white-space: nowrap;
     }
+    th.text-center {
+        text-align: center;
+    }
+    th.text-right {
+        text-align: right;
+    }
     td {
         padding: 16px 12px;
         border-bottom: 1px solid #e2e8f0;
@@ -182,10 +188,18 @@
         background: #f7fafc;
     }
     .text-center {
-        text-align: center;
+        text-align: center !important;
     }
     .text-right {
-        text-align: right;
+        text-align: right !important;
+    }
+    td.text-center,
+    th.text-center {
+        text-align: center !important;
+    }
+    td.text-right,
+    th.text-right {
+        text-align: right !important;
     }
     .username-cell {
         font-weight: 600;
@@ -463,15 +477,20 @@
         .table-header {
             flex-direction: column;
             gap: 16px;
-            align-items: flex-start;
+            align-items: stretch;
             padding: 20px;
         }
         .table-header h2 {
             font-size: 18px;
+            width: 100%;
         }
         .create-btn {
             width: 100%;
             justify-content: center;
+            padding: 14px 20px;
+            font-size: 15px;
+            min-height: 48px;
+            white-space: nowrap;
         }
         .table-wrapper {
             overflow-x: auto;
@@ -520,9 +539,17 @@
         }
         .table-header {
             padding: 16px;
+            gap: 12px;
         }
         .table-header h2 {
             font-size: 16px;
+            margin-bottom: 0;
+        }
+        .create-btn {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 14px;
+            min-height: 44px;
         }
         th, td {
             padding: 10px 6px;
@@ -590,18 +617,18 @@
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th class="text-center">ID</th>
                     <th>Username</th>
                     <th>Password</th>
-                    <th>Credit Limit</th>
-                    <th>Profit/Loss</th>
-                    <th>Balance</th>
-                    <th>Liability</th>
-                    <th>Match Commission</th>
-                    <th>Session Commission</th>
-                    <th>Max Profit</th>
-                    <th>Active</th>
-                    <th>Actions</th>
+                    <th class="text-right">Credit Limit</th>
+                    <th class="text-right">Profit/Loss</th>
+                    <th class="text-right">Balance</th>
+                    <th class="text-right">Liability</th>
+                    <th class="text-center">Match Commission</th>
+                    <th class="text-center">Session Commission</th>
+                    <th class="text-right">Max Profit</th>
+                    <th class="text-center">Active</th>
+                    <th class="text-center">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -636,7 +663,7 @@
                             {% if stat.is_active %}Active{% else %}Inactive{% endif %}
                         </span>
                     </td>
-                    <td>
+                    <td class="text-center">
                         <div class="action-buttons">
                             <button onclick="openStatementModal({{ stat.user.id }}, '{{ stat.user.username }}')" 
                                     class="btn-action btn-statement" title="Statement">

@@ -11,6 +11,7 @@ from django.db import transaction as db_transaction
 from django.db import IntegrityError
 from django.db.models import F
 from django.utils import timezone
+from datetime import timedelta
 from decimal import Decimal
 import json
 
@@ -41,7 +42,15 @@ def home(request):
     
     # Get matches from database (synced from API)
     live_matches = Match.objects.filter(status='live').order_by('-match_date')
-    upcoming_matches = Match.objects.filter(status='upcoming').order_by('match_date')
+    
+    # Get upcoming matches for next 24 hours only
+    now = timezone.now()
+    next_24h = now + timedelta(hours=24)
+    upcoming_matches = Match.objects.filter(
+        status='upcoming',
+        match_date__gte=now,
+        match_date__lte=next_24h
+    ).order_by('match_date')
     
     # Get user's active sessions
     active_sessions = BettingSession.objects.filter(
@@ -1063,6 +1072,62 @@ def search_users(request):
         import traceback
         logger.error(traceback.format_exc())
         return JsonResponse({'users': [], 'error': str(e)}, status=500)
+
+
+@login_required
+def wallet_info_api(request, info_type):
+    """API endpoint to get wallet information (exposure, credit, profit-loss, max-win)"""
+    wallet, _ = Wallet.objects.get_or_create(user=request.user)
+    
+    if info_type == 'credit':
+        # Current wallet balance
+        return JsonResponse({'value': str(wallet.balance)})
+    
+    elif info_type == 'exposure':
+        # Calculate exposure (liability in ongoing sessions)
+        sessions = BettingSession.objects.filter(
+            Q(better_a=request.user) | Q(better_b=request.user),
+            status__in=['picking', 'betting', 'live']
+        ).exclude(status='cancelled')
+        
+        exposure = sessions.aggregate(total=Sum('fixed_bet_amount'))['total'] or Decimal('0.00')
+        return JsonResponse({'value': str(exposure)})
+    
+    elif info_type == 'profit-loss':
+        # Calculate total profit/loss
+        sessions = BettingSession.objects.filter(
+            Q(better_a=request.user) | Q(better_b=request.user)
+        ).exclude(status='cancelled').select_related('match', 'match__team_a', 'match__team_b')
+        
+        total_profit_loss = Decimal('0.00')
+        for session in sessions:
+            is_better_a = session.better_a == request.user
+            
+            if session.status == 'completed':
+                if is_better_a:
+                    winnings = session.better_a_total_winnings
+                else:
+                    winnings = session.better_b_total_winnings
+                profit_loss = winnings - session.fixed_bet_amount
+            else:
+                # For ongoing sessions, subtract the bet amount as potential loss
+                profit_loss = -session.fixed_bet_amount
+            
+            total_profit_loss += profit_loss
+        
+        return JsonResponse({'value': str(total_profit_loss)})
+    
+    elif info_type == 'max-win':
+        # Get max win limit from profile
+        profile = getattr(request.user, 'profile', None)
+        max_win = Decimal('0.00')
+        if profile and profile.max_win_limit:
+            max_win = profile.max_win_limit
+        
+        return JsonResponse({'value': str(max_win)})
+    
+    else:
+        return JsonResponse({'error': 'Invalid info type'}, status=400)
 
 
 @login_required
@@ -2093,10 +2158,17 @@ def dl_home(request):
         messages.error(request, "Access denied. You are not a DL user.")
         return redirect('core:home')
     
-    # Get filter preferences from request (default to all checked)
-    show_completed = request.GET.get('completed', 'true') == 'true'
-    show_ongoing = request.GET.get('ongoing', 'true') == 'true'
-    show_suspended = request.GET.get('suspended', 'false') == 'true'
+    # Get filter preferences from request - only true if explicitly set to 'true'
+    # This allows single checkbox selection
+    show_completed = request.GET.get('completed') == 'true'
+    show_ongoing = request.GET.get('ongoing') == 'true'
+    show_suspended = request.GET.get('suspended') == 'true'
+    
+    # If no filters are selected on first load, default to showing all
+    if not any([show_completed, show_ongoing, show_suspended]) and not request.GET:
+        show_completed = True
+        show_ongoing = True
+        show_suspended = True
     
     # Build match query based on filters using Q objects
     from django.db.models import Q
@@ -2109,9 +2181,9 @@ def dl_home(request):
     if show_suspended:
         status_filters |= Q(status='abandoned')
     
-    # If no filters selected, show all matches
-    if not show_completed and not show_ongoing and not show_suspended:
-        matches = Match.objects.all().order_by('-match_date')
+    # Apply filters - if none selected after user interaction, show nothing
+    if not show_completed and not show_ongoing and not show_suspended and request.GET:
+        matches = Match.objects.none()  # Empty queryset
     else:
         matches = Match.objects.filter(status_filters).order_by('-match_date')
     
@@ -2284,6 +2356,186 @@ def dl_edit_user(request, end_user_id):
     return render(request, 'core/dl/edit_user.html', context)
 
 @login_required
+def account_statement(request):
+    """End user account statement"""
+    wallet, _ = Wallet.objects.get_or_create(user=request.user)
+    transactions = Transaction.objects.filter(user=request.user).order_by('-created_at')
+    
+    # Calculate totals
+    total_credits = Transaction.objects.filter(
+        user=request.user,
+        transaction_type__in=['deposit', 'bet_won', 'refund']
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    
+    total_debits = Transaction.objects.filter(
+        user=request.user,
+        transaction_type__in=['withdrawal', 'bet_placed', 'bet_lost']
+    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    
+    context = {
+        'wallet': wallet,
+        'transactions': transactions,
+        'total_credits': total_credits,
+        'total_debits': total_debits,
+    }
+    return render(request, 'core/account_statement.html', context)
+
+@login_required
+def profit_loss(request):
+    """End user profit & loss report"""
+    # Get all betting sessions for this user
+    sessions = BettingSession.objects.filter(
+        Q(better_a=request.user) | Q(better_b=request.user)
+    ).exclude(status='cancelled').select_related('match', 'match__team_a', 'match__team_b').order_by('-created_at')
+    
+    # Calculate profit/loss for each session
+    session_data = []
+    total_profit_loss = Decimal('0.00')
+    total_bets = Decimal('0.00')
+    total_winnings = Decimal('0.00')
+    
+    for session in sessions:
+        is_better_a = session.better_a == request.user
+        
+        if is_better_a:
+            winnings = session.better_a_total_winnings if session.status == 'completed' else Decimal('0.00')
+        else:
+            winnings = session.better_b_total_winnings if session.status == 'completed' else Decimal('0.00')
+        
+        bet_amount = session.fixed_bet_amount
+        profit_loss = winnings - bet_amount
+        
+        session_data.append({
+            'session': session,
+            'match': session.match,
+            'bet_amount': bet_amount,
+            'winnings': winnings,
+            'profit_loss': profit_loss,
+            'status': session.status,
+        })
+        
+        total_bets += bet_amount
+        total_winnings += winnings
+        total_profit_loss += profit_loss
+    
+    context = {
+        'session_data': session_data,
+        'total_profit_loss': total_profit_loss,
+        'total_bets': total_bets,
+        'total_winnings': total_winnings,
+    }
+    return render(request, 'core/profit_loss.html', context)
+
+@login_required
+def bet_history(request):
+    """End user bet history"""
+    # Get all betting sessions for this user
+    sessions = BettingSession.objects.filter(
+        Q(better_a=request.user) | Q(better_b=request.user)
+    ).select_related('match', 'match__team_a', 'match__team_b', 'better_a', 'better_b').order_by('-created_at')
+    
+    # Get all bets for this user
+    bets = Bet.objects.filter(better=request.user).select_related(
+        'session', 'session__match', 'picked_player', 'picked_player__player'
+    ).order_by('-session__created_at')
+    
+    context = {
+        'sessions': sessions,
+        'bets': bets,
+    }
+    return render(request, 'core/bet_history.html', context)
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def change_password(request):
+    """End user change password"""
+    if request.method == 'POST':
+        old_password = request.POST.get('old_password')
+        new_password = request.POST.get('new_password')
+        confirm_password = request.POST.get('confirm_password')
+        
+        if not old_password or not new_password or not confirm_password:
+            messages.error(request, "All fields are required")
+            return render(request, 'core/change_password.html')
+        
+        if new_password != confirm_password:
+            messages.error(request, "New passwords do not match")
+            return render(request, 'core/change_password.html')
+        
+        if len(new_password) < 8:
+            messages.error(request, "Password must be at least 8 characters long")
+            return render(request, 'core/change_password.html')
+        
+        # Verify old password
+        if not request.user.check_password(old_password):
+            messages.error(request, "Current password is incorrect")
+            return render(request, 'core/change_password.html')
+        
+        # Set new password
+        request.user.set_password(new_password)
+        request.user.save()
+        
+        # Re-authenticate user
+        from django.contrib.auth import update_session_auth_hash
+        update_session_auth_hash(request, request.user)
+        
+        messages.success(request, "Password changed successfully")
+        return redirect('core:home')
+    
+    return render(request, 'core/change_password.html')
+
+@login_required
+def end_user_reports(request):
+    """End user reports - own transactions"""
+    from accounts.models import UserProfile
+    
+    # Check if user is end user (not DL or master DL)
+    if hasattr(request.user, 'profile'):
+        if request.user.profile.user_type == 'dl':
+            return redirect('core:dl_reports')
+        elif request.user.is_superuser or request.user.is_staff:
+            return redirect('core:master_dl_reports')
+    
+    # Get all transactions for this user
+    transactions = Transaction.objects.filter(
+        user=request.user
+    ).order_by('-created_at')
+    
+    # Filter by transaction type if provided
+    transaction_type_filter = request.GET.get('type', '')
+    if transaction_type_filter:
+        if transaction_type_filter == 'credit':
+            transactions = transactions.filter(transaction_type__in=['deposit', 'bet_won', 'refund'])
+        elif transaction_type_filter == 'withdraw':
+            transactions = transactions.filter(transaction_type__in=['withdrawal', 'bet_placed', 'bet_lost'])
+    
+    # Filter by date range if provided
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    if date_from:
+        from django.utils.dateparse import parse_date
+        try:
+            date_from_obj = parse_date(date_from)
+            transactions = transactions.filter(created_at__gte=date_from_obj)
+        except:
+            pass
+    if date_to:
+        from django.utils.dateparse import parse_date
+        try:
+            date_to_obj = parse_date(date_to)
+            transactions = transactions.filter(created_at__lte=date_to_obj)
+        except:
+            pass
+    
+    context = {
+        'transactions': transactions,
+        'transaction_type_filter': transaction_type_filter,
+        'date_from': date_from,
+        'date_to': date_to,
+    }
+    return render(request, 'core/reports.html', context)
+
+@login_required
 def dl_reports(request):
     """DL user reports - all transactions for their clients"""
     from accounts.models import UserProfile
@@ -2335,6 +2587,46 @@ def dl_reports(request):
     }
     return render(request, 'core/dl/reports.html', context)
 
+@user_passes_test(is_master_dl)
+def master_dl_reports(request):
+    """Master DL reports - all DL transactions"""
+    # Get all DL transactions
+    transactions = DLTransaction.objects.all().select_related('dl_user').order_by('-created_at')
+    
+    # Filter by transaction type if provided
+    transaction_type_filter = request.GET.get('type', '')
+    if transaction_type_filter:
+        if transaction_type_filter == 'credit':
+            transactions = transactions.filter(transaction_type='credit')
+        elif transaction_type_filter == 'debit':
+            transactions = transactions.filter(transaction_type='debit')
+    
+    # Filter by date range if provided
+    date_from = request.GET.get('date_from', '')
+    date_to = request.GET.get('date_to', '')
+    if date_from:
+        from django.utils.dateparse import parse_date
+        try:
+            date_from_obj = parse_date(date_from)
+            transactions = transactions.filter(created_at__gte=date_from_obj)
+        except:
+            pass
+    if date_to:
+        from django.utils.dateparse import parse_date
+        try:
+            date_to_obj = parse_date(date_to)
+            transactions = transactions.filter(created_at__lte=date_to_obj)
+        except:
+            pass
+    
+    context = {
+        'transactions': transactions,
+        'transaction_type_filter': transaction_type_filter,
+        'date_from': date_from,
+        'date_to': date_to,
+    }
+    return render(request, 'core/master_dl/reports.html', context)
+
 @login_required
 def dl_match_book(request):
     """DL user match book with betting statistics"""
@@ -2346,10 +2638,17 @@ def dl_match_book(request):
         messages.error(request, "Access denied. You are not a DL user.")
         return redirect('core:home')
     
-    # Get filter preferences from request (default to all checked)
-    show_running = request.GET.get('running', 'true') == 'true'
-    show_suspended = request.GET.get('suspended', 'false') == 'true'
-    show_completed = request.GET.get('completed', 'true') == 'true'
+    # Get filter preferences from request - only true if explicitly set to 'true'
+    # This allows single checkbox selection
+    show_running = request.GET.get('running') == 'true'
+    show_suspended = request.GET.get('suspended') == 'true'
+    show_completed = request.GET.get('completed') == 'true'
+    
+    # If no filters are selected on first load, default to showing all
+    if not any([show_running, show_suspended, show_completed]) and not request.GET:
+        show_running = True
+        show_suspended = True
+        show_completed = True
     
     # Get end users managed by this DL
     end_users = User.objects.filter(profile__dl_user=request.user)
@@ -2366,9 +2665,9 @@ def dl_match_book(request):
     if show_completed:
         status_filters |= Q(status='completed')
     
-    # If no filters selected, show all matches
-    if not show_running and not show_suspended and not show_completed:
-        matches = Match.objects.none()
+    # Apply filters - if none selected after user interaction, show nothing
+    if not show_running and not show_suspended and not show_completed and request.GET:
+        matches = Match.objects.none()  # Empty queryset
     else:
         matches = Match.objects.filter(status_filters).order_by('-match_date')
     

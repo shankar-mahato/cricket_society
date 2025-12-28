@@ -33,6 +33,15 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            transition: background 0.2s;
+        }
+        .sidebar-header:hover {
+            background: #f7fafc;
+        }
+        a[href*="master_dl_dashboard"] {
+            text-decoration: none;
+            color: inherit;
+            display: block;
         }
         .sidebar-logo {
             width: 40px;
@@ -284,18 +293,24 @@
 <body>
     <!-- Sidebar -->
     <aside class="sidebar">
-        <div class="sidebar-header">
-            <div class="sidebar-logo">MD</div>
-            <div class="sidebar-title">Master DL</div>
-        </div>
+        <a href="{% url 'core:master_dl_dashboard' %}" style="text-decoration: none; color: inherit;">
+            <div class="sidebar-header" style="cursor: pointer;">
+                <div class="sidebar-logo">MD</div>
+                <div class="sidebar-title">Master DL</div>
+            </div>
+        </a>
         <nav class="sidebar-nav">
             <a href="{% url 'core:master_dl_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'master_dl_dashboard' %}active{% endif %}">
                 <span class="nav-item-icon">🏠</span>
                 <span>Home</span>
             </a>
-            <a href="{% url 'core:master_dl_dashboard' %}#dl-users" class="nav-item {% if 'dl' in request.resolver_match.url_name %}active{% endif %}">
+            <a href="{% url 'core:master_dl_dashboard' %}#dl-users" class="nav-item {% if 'dl' in request.resolver_match.url_name and request.resolver_match.url_name != 'master_dl_reports' %}active{% endif %}">
                 <span class="nav-item-icon">👥</span>
                 <span>DL Users</span>
+            </a>
+            <a href="{% url 'core:master_dl_reports' %}" class="nav-item {% if request.resolver_match.url_name == 'master_dl_reports' %}active{% endif %}">
+                <span class="nav-item-icon">📊</span>
+                <span>Reports</span>
             </a>
         </nav>
     </aside>

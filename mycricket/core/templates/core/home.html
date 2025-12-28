@@ -8,18 +8,7 @@
     <p>Challenge your friends in fantasy cricket betting. Pick players, place bets, and win based on player performance.</p>
 </div>
 
-{% if user.is_authenticated %}
-<div class="card" style="background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); color: white; border: none;">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-        <div>
-            <h3 style="margin: 0 0 8px 0; color: white;">Your Wallet Balance</h3>
-            <p style="margin: 0; font-size: 32px; font-weight: 600;">₹{{ user.wallet.balance|default:"0.00" }}</p>
-        </div>
-        <a href="{% url 'core:wallet' %}" class="btn" style="background: white; color: #4299e1;">Add Money</a>
-    </div>
-</div>
-
-{% if pending_invites_count > 0 %}
+{% if user.is_authenticated and pending_invites_count > 0 %}
 <div class="card" style="background: #fffaf0; border-color: #ed8936; border-left: 4px solid #ed8936;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
         <div>
@@ -30,90 +19,118 @@
     </div>
 </div>
 {% endif %}
-{% endif %}
 
-<div class="card">
-    <div class="card-header">
-        <h2>Live Matches</h2>
+<div class="card" style="padding: 0; overflow: hidden;">
+    <!-- Tabs -->
+    <div style="display: flex; gap: 0; border-bottom: 2px solid #e2e8f0;">
+        <button onclick="showTab('inplay')" id="tab-inplay" class="match-tab active" style="flex: 1; padding: 16px 24px; background: #4299e1; color: white; border: none; cursor: pointer; font-weight: 600; font-size: 15px; transition: all 0.2s;">
+            In Play
+        </button>
+        <button onclick="showTab('upcoming')" id="tab-upcoming" class="match-tab" style="flex: 1; padding: 16px 24px; background: #e2e8f0; color: #4a5568; border: none; cursor: pointer; font-weight: 600; font-size: 15px; transition: all 0.2s;">
+            Upcoming Matches
+        </button>
     </div>
-    {% if live_matches %}
-        <div class="grid">
-            {% for match in live_matches %}
-                <div class="card" style="padding: 20px;">
-                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                        {% if match.team_a.logo %}
-                            <img src="{{ match.team_a.logo.url }}" alt="{{ match.team_a.name }}" style="width: 40px; height: 40px; object-fit: contain;">
-                        {% elif match.team_a.logo_url %}
-                            <img src="{{ match.team_a.logo_url }}" alt="{{ match.team_a.name }}" style="width: 40px; height: 40px; object-fit: contain;">
-                        {% else %}
-                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-weight: 600;">
-                                {{ match.team_a.name|first|upper }}
-                            </div>
-                        {% endif %}
-                        <span style="color: #718096; font-weight: 500;">vs</span>
-                        {% if match.team_b.logo %}
-                            <img src="{{ match.team_b.logo.url }}" alt="{{ match.team_b.name }}" style="width: 40px; height: 40px; object-fit: contain;">
-                        {% elif match.team_b.logo_url %}
-                            <img src="{{ match.team_b.logo_url }}" alt="{{ match.team_b.name }}" style="width: 40px; height: 40px; object-fit: contain;">
-                        {% else %}
-                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-weight: 600;">
-                                {{ match.team_b.name|first|upper }}
-                            </div>
-                        {% endif %}
-                    </div>
-                    <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">{{ match.team_a.name }} vs {{ match.team_b.name }}</h3>
-                    <p style="margin: 0 0 8px 0; color: #718096; font-size: 13px;">{{ match.match_title }}</p>
-                    <p style="margin: 0 0 12px 0; color: #718096; font-size: 12px;">{{ match.venue }}</p>
-                    <span class="status-badge status-live">Live</span>
-                    <a href="{% url 'core:match_detail' match.id %}" class="btn" style="width: 100%; margin-top: 12px; display: block; text-align: center;">View Match</a>
-                </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <p style="color: #718096; text-align: center; padding: 40px 0;">No live matches at the moment.</p>
-    {% endif %}
-</div>
 
-<div class="card">
-    <div class="card-header">
-        <h2>Upcoming Matches</h2>
-    </div>
-    {% if upcoming_matches %}
-        <div class="grid">
-            {% for match in upcoming_matches %}
-                <div class="card" style="padding: 20px;">
-                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                        {% if match.team_a.logo %}
-                            <img src="{{ match.team_a.logo.url }}" alt="{{ match.team_a.name }}" style="width: 40px; height: 40px; object-fit: contain;">
-                        {% elif match.team_a.logo_url %}
-                            <img src="{{ match.team_a.logo_url }}" alt="{{ match.team_a.name }}" style="width: 40px; height: 40px; object-fit: contain;">
-                        {% else %}
-                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-weight: 600;">
-                                {{ match.team_a.name|first|upper }}
+    <!-- In Play Tab Content -->
+    <div id="tab-content-inplay" class="tab-content" style="padding: 24px;">
+        {% if live_matches %}
+            <div class="match-list-container">
+                {% for match in live_matches %}
+                    <div class="match-card-item">
+                        <!-- Teams Section -->
+                        <div class="match-teams-section">
+                            <!-- Team A -->
+                            <div class="team-section team-a">
+                                {% if match.team_a.logo %}
+                                    <img src="{{ match.team_a.logo.url }}" alt="{{ match.team_a.name }}" class="team-logo-img">
+                                {% elif match.team_a.logo_url %}
+                                    <img src="{{ match.team_a.logo_url }}" alt="{{ match.team_a.name }}" class="team-logo-img">
+                                {% else %}
+                                    <div class="team-logo-placeholder team-a-placeholder">
+                                        {{ match.team_a.name|first|upper }}
+                                    </div>
+                                {% endif %}
+                                <div class="team-name">{{ match.team_a.name }}</div>
                             </div>
-                        {% endif %}
-                        <span style="color: #718096; font-weight: 500;">vs</span>
-                        {% if match.team_b.logo %}
-                            <img src="{{ match.team_b.logo.url }}" alt="{{ match.team_b.name }}" style="width: 40px; height: 40px; object-fit: contain;">
-                        {% elif match.team_b.logo_url %}
-                            <img src="{{ match.team_b.logo_url }}" alt="{{ match.team_b.name }}" style="width: 40px; height: 40px; object-fit: contain;">
-                        {% else %}
-                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-weight: 600;">
-                                {{ match.team_b.name|first|upper }}
+                            
+                            <!-- VS Divider -->
+                            <div class="vs-divider">
+                                <span>VS</span>
                             </div>
-                        {% endif %}
+                            
+                            <!-- Team B -->
+                            <div class="team-section team-b">
+                                {% if match.team_b.logo %}
+                                    <img src="{{ match.team_b.logo.url }}" alt="{{ match.team_b.name }}" class="team-logo-img">
+                                {% elif match.team_b.logo_url %}
+                                    <img src="{{ match.team_b.logo_url }}" alt="{{ match.team_b.name }}" class="team-logo-img">
+                                {% else %}
+                                    <div class="team-logo-placeholder team-b-placeholder">
+                                        {{ match.team_b.name|first|upper }}
+                                    </div>
+                                {% endif %}
+                                <div class="team-name">{{ match.team_b.name }}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Info and Action Section -->
+                        <div class="match-info-section">
+                            <div class="venue-info">
+                                <span class="venue-icon">📍</span>
+                                <span class="venue-text">{{ match.venue }}</span>
+                            </div>
+                            <div class="match-actions">
+                                <span class="live-badge">● Live</span>
+                                <a href="{% url 'core:match_detail' match.id %}" class="view-match-btn">View Match</a>
+                            </div>
+                        </div>
                     </div>
-                    <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">{{ match.team_a.name }} vs {{ match.team_b.name }}</h3>
-                    <p style="margin: 0 0 8px 0; color: #718096; font-size: 13px;">{{ match.match_title }}</p>
-                    <p style="margin: 0 0 12px 0; color: #718096; font-size: 12px;">{{ match.venue }} • {{ match.match_date|date:"M d, Y H:i" }}</p>
-                    <span class="status-badge status-upcoming">Upcoming</span>
-                    <a href="{% url 'core:match_detail' match.id %}" class="btn" style="width: 100%; margin-top: 12px; display: block; text-align: center;">View Match</a>
-                </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <p style="color: #718096; text-align: center; padding: 40px 0;">No upcoming matches.</p>
-    {% endif %}
+                {% endfor %}
+            </div>
+        {% else %}
+            <p style="color: #718096; text-align: center; padding: 40px 0;">No live matches at the moment.</p>
+        {% endif %}
+    </div>
+
+    <!-- Upcoming Matches Tab Content -->
+    <div id="tab-content-upcoming" class="tab-content" style="display: none; padding: 24px;">
+        {% if upcoming_matches %}
+            <div class="grid">
+                {% for match in upcoming_matches %}
+                    <div class="card" style="padding: 20px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                            {% if match.team_a.logo %}
+                                <img src="{{ match.team_a.logo.url }}" alt="{{ match.team_a.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                            {% elif match.team_a.logo_url %}
+                                <img src="{{ match.team_a.logo_url }}" alt="{{ match.team_a.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                            {% else %}
+                                <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-weight: 600;">
+                                    {{ match.team_a.name|first|upper }}
+                                </div>
+                            {% endif %}
+                            <span style="color: #718096; font-weight: 500;">vs</span>
+                            {% if match.team_b.logo %}
+                                <img src="{{ match.team_b.logo.url }}" alt="{{ match.team_b.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                            {% elif match.team_b.logo_url %}
+                                <img src="{{ match.team_b.logo_url }}" alt="{{ match.team_b.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                            {% else %}
+                                <div style="width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #4a5568; font-weight: 600;">
+                                    {{ match.team_b.name|first|upper }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">{{ match.team_a.name }} vs {{ match.team_b.name }}</h3>
+                        <p style="margin: 0 0 8px 0; color: #718096; font-size: 13px;">{{ match.match_title }}</p>
+                        <p style="margin: 0 0 12px 0; color: #718096; font-size: 12px;">{{ match.venue }} • {{ match.match_date|date:"M d, Y H:i" }}</p>
+                        <span class="status-badge status-upcoming">Upcoming</span>
+                        <a href="{% url 'core:match_detail' match.id %}" class="btn" style="width: 100%; margin-top: 12px; display: block; text-align: center;">View Match</a>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p style="color: #718096; text-align: center; padding: 40px 0;">No upcoming matches in the next 24 hours.</p>
+        {% endif %}
+    </div>
 </div>
 
 {% if active_sessions %}
@@ -159,4 +176,337 @@
     </div>
 </div>
 {% endif %}
+
+<style>
+.match-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.match-card-item {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.match-card-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #ef4444 0%, #f59e0b 100%);
+}
+
+.match-card-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    border-color: #4299e1;
+}
+
+.match-teams-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.team-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 120px;
+    max-width: 200px;
+}
+
+.team-logo-img {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    border-radius: 50%;
+    background: #f7fafc;
+    padding: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+}
+
+.match-card-item:hover .team-logo-img {
+    transform: scale(1.1);
+}
+
+.team-logo-placeholder {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s ease;
+}
+
+.team-a-placeholder {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.team-b-placeholder {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.match-card-item:hover .team-logo-placeholder {
+    transform: scale(1.1);
+}
+
+.team-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a202c;
+    text-align: center;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.vs-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    flex-shrink: 0;
+}
+
+.vs-divider span {
+    font-size: 14px;
+    font-weight: 700;
+    color: #718096;
+    letter-spacing: 1px;
+    padding: 8px 16px;
+    background: #f7fafc;
+    border-radius: 20px;
+    border: 2px solid #e2e8f0;
+}
+
+.match-info-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.venue-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 200px;
+}
+
+.venue-icon {
+    font-size: 16px;
+}
+
+.venue-text {
+    font-size: 14px;
+    color: #4a5568;
+    font-weight: 500;
+}
+
+.match-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.live-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    background: #fee2e2;
+    color: #dc2626;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+}
+
+.view-match-btn {
+    display: inline-block;
+    padding: 10px 24px;
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(66, 153, 225, 0.3);
+}
+
+.view-match-btn:hover {
+    background: linear-gradient(135deg, #3182ce 0%, #2c5aa0 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(66, 153, 225, 0.4);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .match-card-item {
+        padding: 20px;
+    }
+    
+    .match-teams-section {
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+    
+    .team-section {
+        min-width: 100px;
+        max-width: 140px;
+    }
+    
+    .team-logo-img,
+    .team-logo-placeholder {
+        width: 56px;
+        height: 56px;
+    }
+    
+    .team-logo-placeholder {
+        font-size: 20px;
+    }
+    
+    .team-name {
+        font-size: 14px;
+    }
+    
+    .vs-divider {
+        padding: 0 12px;
+    }
+    
+    .vs-divider span {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+    
+    .match-info-section {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    
+    .venue-info {
+        min-width: auto;
+        justify-content: center;
+    }
+    
+    .match-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 10px;
+    }
+    
+    .live-badge {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .view-match-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .match-card-item {
+        padding: 16px;
+    }
+    
+    .team-section {
+        min-width: 80px;
+        max-width: 120px;
+    }
+    
+    .team-logo-img,
+    .team-logo-placeholder {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .team-logo-placeholder {
+        font-size: 18px;
+    }
+    
+    .team-name {
+        font-size: 13px;
+    }
+    
+    .vs-divider span {
+        font-size: 11px;
+        padding: 5px 10px;
+    }
+}
+</style>
+
+<script>
+function showTab(tabName) {
+    // Hide all tab contents
+    document.getElementById('tab-content-inplay').style.display = 'none';
+    document.getElementById('tab-content-upcoming').style.display = 'none';
+    
+    // Remove active class from all tabs
+    document.getElementById('tab-inplay').classList.remove('active');
+    document.getElementById('tab-upcoming').classList.remove('active');
+    document.getElementById('tab-inplay').style.background = '#e2e8f0';
+    document.getElementById('tab-inplay').style.color = '#4a5568';
+    document.getElementById('tab-upcoming').style.background = '#e2e8f0';
+    document.getElementById('tab-upcoming').style.color = '#4a5568';
+    
+    // Show selected tab content
+    if (tabName === 'inplay') {
+        document.getElementById('tab-content-inplay').style.display = 'block';
+        document.getElementById('tab-inplay').classList.add('active');
+        document.getElementById('tab-inplay').style.background = '#4299e1';
+        document.getElementById('tab-inplay').style.color = 'white';
+    } else if (tabName === 'upcoming') {
+        document.getElementById('tab-content-upcoming').style.display = 'block';
+        document.getElementById('tab-upcoming').classList.add('active');
+        document.getElementById('tab-upcoming').style.background = '#4299e1';
+        document.getElementById('tab-upcoming').style.color = 'white';
+    }
+}
+</script>
+
+<style>
+.match-tab.active {
+    background: #4299e1 !important;
+    color: white !important;
+}
+.match-tab:hover:not(.active) {
+    background: #cbd5e0 !important;
+}
+@media (max-width: 768px) {
+    .match-tab {
+        padding: 12px 16px !important;
+        font-size: 14px !important;
+    }
+}
+</style>
 {% endblock %}

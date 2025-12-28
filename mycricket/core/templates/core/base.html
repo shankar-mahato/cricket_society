@@ -101,22 +101,191 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            position: relative;
         }
-        .wallet-badge {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        .username-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .username-trigger {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            min-width: 120px;
+            min-height: 40px;
+            justify-content: space-between;
+            box-sizing: border-box;
         }
-        .wallet-badge::before {
-            content: '💰';
-            font-size: 16px;
+        .username-trigger:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+        .username-trigger::after {
+            content: '▼';
+            font-size: 10px;
+            margin-left: 4px;
+            transition: transform 0.2s;
+        }
+        .username-dropdown.active .username-trigger::after {
+            transform: rotate(180deg);
+        }
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 200px;
+            z-index: 1000;
+            overflow: hidden;
+        }
+        .username-dropdown.active .dropdown-menu {
+            display: block;
+            animation: fadeInDown 0.2s ease-out;
+        }
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .dropdown-item {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.2s;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+        .dropdown-item:hover {
+            background: #f7fafc;
+            color: #4299e1;
+        }
+        .dropdown-item.logout {
+            color: #f56565;
+            border-top: 1px solid #e2e8f0;
+        }
+        .dropdown-item.logout:hover {
+            background: #fff5f5;
+            color: #e53e3e;
+        }
+        .desktop-logout {
+            display: inline-block;
+        }
+        .mobile-logout {
+            display: none;
+        }
+        .logout-btn-desktop:hover {
+            background: #e53e3e !important;
+            border-color: #e53e3e !important;
+        }
+        @media (max-width: 768px) {
+            .desktop-logout {
+                display: none;
+            }
+            .mobile-logout {
+                display: block;
+                width: 100%;
+            }
+            .logout-btn-mobile:hover {
+                background: #e53e3e;
+                border-color: #e53e3e;
+            }
+        }
+        .wallet-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .wallet-trigger {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            min-width: 120px;
+            min-height: 40px;
+            justify-content: space-between;
+            box-sizing: border-box;
+        }
+        .wallet-trigger:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+        .wallet-trigger::after {
+            content: '▼';
+            font-size: 10px;
+            margin-left: 4px;
+            transition: transform 0.2s;
+        }
+        .wallet-dropdown.active .wallet-trigger::after {
+            transform: rotate(180deg);
+        }
+        .wallet-dropdown.active .wallet-menu {
+            display: block;
+            animation: fadeInDown 0.2s ease-out;
+        }
+        .wallet-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 200px;
+            z-index: 1000;
+            overflow: hidden;
+        }
+        .wallet-menu-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            color: #2d3748;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.2s;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+        }
+        .wallet-menu-item:last-child {
+            border-bottom: none;
+        }
+        .wallet-menu-item:hover {
+            background: #f7fafc;
+            color: #4299e1;
+        }
+        .wallet-value {
+            font-weight: 600;
+            color: #10b981;
+            margin-left: 8px;
+            flex-shrink: 0;
         }
         .user-avatar {
             width: 40px;
@@ -481,27 +650,94 @@
             .navbar-container {
                 flex-wrap: wrap;
                 height: auto;
-                padding: 16px 20px;
+                padding: 12px 16px;
             }
             .navbar-brand {
-                font-size: 20px;
+                font-size: 18px;
             }
             .navbar-nav {
-                flex-wrap: wrap;
+                display: flex;
                 width: 100%;
                 margin-top: 12px;
                 gap: 8px;
+                order: 2;
+            }
+            .navbar-nav li {
+                display: inline-block;
             }
             .navbar-nav a {
-                padding: 8px 14px;
+                padding: 10px 14px;
                 font-size: 14px;
+            }
+            /* Hide Invites and Profile on mobile */
+            .navbar-nav li:nth-child(n+3) {
+                display: none;
             }
             .user-menu {
                 width: 100%;
-                justify-content: space-between;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
                 margin-top: 12px;
                 padding-top: 12px;
                 border-top: 1px solid rgba(255, 255, 255, 0.2);
+                order: 3;
+            }
+            .wallet-dropdown {
+                width: 100%;
+            }
+            .wallet-trigger {
+                width: 100%;
+                justify-content: space-between;
+                padding: 12px 16px;
+                font-size: 14px;
+                min-height: 44px;
+                box-sizing: border-box;
+            }
+            .wallet-menu {
+                position: absolute;
+                right: 0;
+                left: 0;
+                width: 100%;
+                min-width: auto;
+                margin-top: 4px;
+            }
+            .username-dropdown {
+                width: 100%;
+            }
+            .username-trigger {
+                width: 100%;
+                justify-content: space-between;
+                padding: 12px 16px;
+                font-size: 14px;
+                min-height: 44px;
+                box-sizing: border-box;
+            }
+            .dropdown-menu {
+                position: absolute;
+                right: 0;
+                left: 0;
+                width: 100%;
+                min-width: auto;
+                margin-top: 4px;
+            }
+            .wallet-menu-item,
+            .dropdown-item {
+                padding: 14px 16px;
+                font-size: 14px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .wallet-value {
+                font-weight: 600;
+                font-size: 14px;
+            }
+            .desktop-logout {
+                display: none; /* Hide logout button on mobile, use dropdown instead */
+            }
+            .username-dropdown .dropdown-menu .dropdown-item.logout {
+                display: block; /* Show logout in dropdown on mobile */
             }
             .container {
                 padding: 16px;
@@ -541,23 +777,57 @@
             </a>
             <ul class="navbar-nav">
                 <li><a href="{% url 'core:home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">Home</a></li>
-                <li><a href="{% url 'core:wallet' %}" class="{% if request.resolver_match.url_name == 'wallet' %}active{% endif %}">Wallet</a></li>
                 {% if user.is_authenticated %}
                     <li><a href="{% url 'core:my_invites' %}" class="{% if request.resolver_match.url_name == 'my_invites' %}active{% endif %}">Invites</a></li>
-                    <li><a href="{% url 'profile' %}">Profile</a></li>
                 {% endif %}
             </ul>
             <div class="user-menu">
                 {% if user.is_authenticated %}
-                    <span class="wallet-badge">₹{{ user.wallet.balance|default:"0.00" }}</span>
-                    {% if user.profile.profile_picture %}
-                        <img src="{{ user.profile.profile_picture.url }}" alt="{{ user.username }}" class="user-avatar">
-                    {% else %}
-                        <div class="user-avatar-placeholder">{{ user.username|first|upper }}</div>
-                    {% endif %}
-                    <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                    <div class="wallet-dropdown" id="walletDropdown">
+                        <div class="wallet-trigger" onclick="toggleWalletMenu()">
+                            <span>💰 ₹{{ user.wallet.balance|default:"0.00" }}</span>
+                        </div>
+                        <div class="wallet-menu">
+                            <a href="#" class="wallet-menu-item" onclick="showWalletInfo('exposure'); return false;">
+                                📊 Exposure
+                                <span class="wallet-value" id="wallet-exposure">Loading...</span>
+                            </a>
+                            <a href="#" class="wallet-menu-item" onclick="showWalletInfo('credit'); return false;">
+                                💳 Credit
+                                <span class="wallet-value" id="wallet-credit">₹{{ user.wallet.balance|default:"0.00" }}</span>
+                            </a>
+                            <a href="#" class="wallet-menu-item" onclick="showWalletInfo('profit-loss'); return false;">
+                                📈 Profit & Loss
+                                <span class="wallet-value" id="wallet-profit-loss">Loading...</span>
+                            </a>
+                            <a href="#" class="wallet-menu-item" onclick="showWalletInfo('max-win'); return false;">
+                                🎯 Max Win
+                                <span class="wallet-value" id="wallet-max-win">Loading...</span>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="username-dropdown" id="usernameDropdown">
+                        <div class="username-trigger" onclick="toggleUserMenu()">
+                            <span>{{ user.username }}</span>
+                        </div>
+                        <div class="dropdown-menu">
+                            <a href="{% url 'core:account_statement' %}" class="dropdown-item">📊 Account Statement</a>
+                            <a href="{% url 'core:profit_loss' %}" class="dropdown-item">📈 Profit & Loss</a>
+                            <a href="{% url 'core:bet_history' %}" class="dropdown-item">🎲 Bet History</a>
+                            <a href="{% url 'core:change_password' %}" class="dropdown-item">🔒 Change Password</a>
+                            <form method="post" action="{% url 'logout' %}" style="margin: 0;">
+                                {% csrf_token %}
+                                <button type="submit" class="dropdown-item logout" style="width: 100%; text-align: left; border: none; background: none; cursor: pointer; font-size: 14px; padding: 12px 16px;">🚪 Logout</button>
+                            </form>
+                        </div>
+                    </div>
+                    <form method="post" action="{% url 'logout' %}" style="display: inline;" class="desktop-logout">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-outline" style="padding: 8px 16px; font-size: 14px; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); color: white;">Logout</button>
+                        <button type="submit" class="btn btn-outline logout-btn-desktop" style="padding: 8px 16px; font-size: 14px; background: #f56565; border: 1px solid #f56565; color: white; min-width: 120px; min-height: 40px; box-sizing: border-box;">Logout</button>
+                    </form>
+                    <form method="post" action="{% url 'logout' %}" style="display: none;" class="mobile-logout">
+                        {% csrf_token %}
+                        <button type="submit" class="btn logout-btn-mobile" style="width: 100%; padding: 12px 16px; font-size: 14px; background: #f56565; border: 1px solid #f56565; color: white; min-height: 44px; box-sizing: border-box; border-radius: 8px;">Logout</button>
                     </form>
                 {% else %}
                     <a href="{% url 'login' %}" class="btn btn-outline" style="padding: 8px 16px; font-size: 14px; background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); color: white;">Login</a>
@@ -582,5 +852,167 @@
     </div>
 
     {% block extra_js %}{% endblock %}
+    <script>
+        function toggleUserMenu() {
+            const dropdown = document.getElementById('usernameDropdown');
+            dropdown.classList.toggle('active');
+            // Close wallet dropdown if open
+            const walletDropdown = document.getElementById('walletDropdown');
+            if (walletDropdown) {
+                walletDropdown.classList.remove('active');
+            }
+        }
+        
+        function toggleWalletMenu() {
+            const dropdown = document.getElementById('walletDropdown');
+            dropdown.classList.toggle('active');
+            // Close username dropdown if open
+            const usernameDropdown = document.getElementById('usernameDropdown');
+            if (usernameDropdown) {
+                usernameDropdown.classList.remove('active');
+            }
+            // Load wallet info if opening
+            if (dropdown.classList.contains('active')) {
+                loadWalletInfo();
+            }
+        }
+        
+        function loadWalletInfo() {
+            // Load exposure
+            fetch('/api/wallet-info/exposure/')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('wallet-exposure').textContent = '₹' + parseFloat(data.value).toFixed(2);
+                })
+                .catch(error => {
+                    document.getElementById('wallet-exposure').textContent = '₹0.00';
+                });
+            
+            // Load profit & loss
+            fetch('/api/wallet-info/profit-loss/')
+                .then(response => response.json())
+                .then(data => {
+                    const value = parseFloat(data.value);
+                    const element = document.getElementById('wallet-profit-loss');
+                    element.textContent = (value >= 0 ? '+' : '') + '₹' + value.toFixed(2);
+                    element.style.color = value >= 0 ? '#10b981' : '#f56565';
+                })
+                .catch(error => {
+                    document.getElementById('wallet-profit-loss').textContent = '₹0.00';
+                });
+            
+            // Load max win
+            fetch('/api/wallet-info/max-win/')
+                .then(response => response.json())
+                .then(data => {
+                    const element = document.getElementById('wallet-max-win');
+                    if (parseFloat(data.value) > 0) {
+                        element.textContent = '₹' + parseFloat(data.value).toFixed(2);
+                    } else {
+                        element.textContent = 'Unlimited';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('wallet-max-win').textContent = 'Unlimited';
+                });
+        }
+        
+        function showWalletInfo(type) {
+            const modal = document.getElementById('walletInfoModal');
+            const modalTitle = document.getElementById('walletInfoModalTitle');
+            const modalContent = document.getElementById('walletInfoModalContent');
+            
+            // Set title based on type
+            const titles = {
+                'exposure': 'Exposure',
+                'credit': 'Credit',
+                'profit-loss': 'Profit & Loss',
+                'max-win': 'Max Win'
+            };
+            modalTitle.textContent = titles[type] || 'Wallet Information';
+            
+            // Show loading
+            modalContent.innerHTML = '<p style="text-align: center; padding: 20px;">Loading...</p>';
+            modal.style.display = 'block';
+            
+            // Fetch data
+            fetch('/api/wallet-info/' + type + '/')
+                .then(response => response.json())
+                .then(data => {
+                    let content = '<div style="padding: 20px;">';
+                    if (type === 'credit') {
+                        content += '<div style="text-align: center;"><h2 style="font-size: 32px; color: #10b981; margin: 20px 0;">₹' + parseFloat(data.value).toFixed(2) + '</h2><p style="color: #718096;">Current Wallet Balance</p></div>';
+                    } else if (type === 'exposure') {
+                        content += '<div style="text-align: center;"><h2 style="font-size: 32px; color: #4299e1; margin: 20px 0;">₹' + parseFloat(data.value).toFixed(2) + '</h2><p style="color: #718096;">Total Exposure (Liability in Ongoing Sessions)</p></div>';
+                    } else if (type === 'profit-loss') {
+                        const value = parseFloat(data.value);
+                        content += '<div style="text-align: center;"><h2 style="font-size: 32px; color: ' + (value >= 0 ? '#10b981' : '#f56565') + '; margin: 20px 0;">' + (value >= 0 ? '+' : '') + '₹' + value.toFixed(2) + '</h2><p style="color: #718096;">Total Profit & Loss</p></div>';
+                    } else if (type === 'max-win') {
+                        const value = parseFloat(data.value);
+                        content += '<div style="text-align: center;"><h2 style="font-size: 32px; color: #ed8936; margin: 20px 0;">' + (value > 0 ? '₹' + value.toFixed(2) : 'Unlimited') + '</h2><p style="color: #718096;">Maximum Win Limit</p></div>';
+                    }
+                    content += '</div>';
+                    modalContent.innerHTML = content;
+                })
+                .catch(error => {
+                    modalContent.innerHTML = '<p style="text-align: center; padding: 20px; color: #f56565;">Error loading information</p>';
+                });
+        }
+        
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            const usernameDropdown = document.getElementById('usernameDropdown');
+            const walletDropdown = document.getElementById('walletDropdown');
+            
+            if (usernameDropdown && !usernameDropdown.contains(event.target)) {
+                usernameDropdown.classList.remove('active');
+            }
+            if (walletDropdown && !walletDropdown.contains(event.target)) {
+                walletDropdown.classList.remove('active');
+            }
+        });
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('walletInfoModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // Close dropdown on mobile when item is clicked
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.dropdown-item, .wallet-menu-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const usernameDropdown = document.getElementById('usernameDropdown');
+                    const walletDropdown = document.getElementById('walletDropdown');
+                    if (window.innerWidth <= 768) {
+                        setTimeout(() => {
+                            if (usernameDropdown) usernameDropdown.classList.remove('active');
+                            if (walletDropdown) walletDropdown.classList.remove('active');
+                        }, 100);
+                    }
+                });
+            });
+        });
+    </script>
+    
+    <!-- Wallet Info Modal -->
+    <div id="walletInfoModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 id="walletInfoModalTitle">Wallet Information</h3>
+                <span onclick="document.getElementById('walletInfoModal').style.display='none'" style="float: right; font-size: 28px; font-weight: bold; cursor: pointer; color: #999;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="walletInfoModalContent">
+                    <p style="text-align: center; padding: 20px;">Loading...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="document.getElementById('walletInfoModal').style.display='none'" class="btn" style="width: 100%;">Close</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

@@ -19,12 +19,18 @@ urlpatterns = [
     path('session/<int:session_id>/withdraw-winnings/', views.withdraw_winnings, name='withdraw_winnings'),
     path('wallet/', views.wallet_view, name='wallet'),
     path('wallet/deposit/', views.deposit_wallet, name='deposit_wallet'),
+    path('account-statement/', views.account_statement, name='account_statement'),
+    path('profit-loss/', views.profit_loss, name='profit_loss'),
+    path('bet-history/', views.bet_history, name='bet_history'),
+    path('change-password/', views.change_password, name='change_password'),
+    path('reports/', views.end_user_reports, name='end_user_reports'),
     # Invite endpoints
     path('session/<int:session_id>/invite/', views.send_invite, name='send_invite'),
     path('session/<int:session_id>/invite/<str:invite_code>/', views.accept_invite, name='accept_invite'),
     path('invites/', views.my_invites, name='my_invites'),
     path('invite/<int:invite_id>/decline/', views.decline_invite, name='decline_invite'),
     path('api/search-users/', views.search_users, name='search_users'),
+    path('api/wallet-info/<str:info_type>/', views.wallet_info_api, name='wallet_info_api'),
     # Job endpoint (to prevent 404 errors from polling)
     path('job/check_for_completed_jobs/', job_views.check_for_completed_jobs, name='check_for_completed_jobs'),
     # Distributor/Dealer System URLs
@@ -37,6 +43,7 @@ urlpatterns = [
     path('master-dl/subtract-points/<int:dl_user_id>/', views.master_dl_subtract_points, name='master_dl_subtract_points'),
     path('master-dl/statement/', views.master_dl_statement, name='master_dl_statement'),
     path('master-dl/user/<int:dl_user_id>/statement/', views.master_dl_user_statement, name='master_dl_user_statement'),
+    path('master-dl/reports/', views.master_dl_reports, name='master_dl_reports'),
     path('dl/home/', views.dl_home, name='dl_home'),
     path('dl/dashboard/', views.dl_dashboard, name='dl_dashboard'),
     path('dl/add-user/', views.dl_add_user, name='dl_add_user'),

@@ -81,32 +81,32 @@
             <thead>
                 <tr>
                     <th>Date</th>
-                    <th>Type</th>
+                    <th class="text-center">Type</th>
                     <th>Description</th>
-                    <th>Credit</th>
-                    <th>Debit</th>
-                    <th>Balance</th>
-                    <th>Bets</th>
+                    <th class="text-right">Credit</th>
+                    <th class="text-right">Debit</th>
+                    <th class="text-right">Balance</th>
+                    <th class="text-right">Bets</th>
                 </tr>
             </thead>
             <tbody>
                 {% for entry in statement_entries %}
                 <tr class="entry-{{ entry.entry_type }}">
                     <td>{{ entry.date|date:"M d, Y H:i" }}</td>
-                    <td>
+                    <td class="text-center">
                         <span class="type-badge type-{{ entry.entry_type }}">
                             {{ entry.type }}
                         </span>
                     </td>
                     <td>{{ entry.description }}</td>
-                    <td class="amount credit">
+                    <td class="text-right amount credit">
                         {% if entry.credit > 0 %}₹{{ entry.credit|floatformat:2 }}{% else %}-{% endif %}
                     </td>
-                    <td class="amount debit">
+                    <td class="text-right amount debit">
                         {% if entry.debit > 0 %}₹{{ entry.debit|floatformat:2 }}{% else %}-{% endif %}
                     </td>
-                    <td class="amount balance">₹{{ entry.balance|floatformat:2 }}</td>
-                    <td class="amount bets">
+                    <td class="text-right amount balance">₹{{ entry.balance|floatformat:2 }}</td>
+                    <td class="text-right amount bets">
                         {% if entry.bets > 0 %}₹{{ entry.bets|floatformat:2 }}{% else %}-{% endif %}
                     </td>
                 </tr>
@@ -278,6 +278,12 @@
         border-bottom: 2px solid #e2e8f0;
         white-space: nowrap;
     }
+    th.text-center {
+        text-align: center;
+    }
+    th.text-right {
+        text-align: right;
+    }
     td {
         padding: 12px 16px;
         border-bottom: 1px solid #e2e8f0;
@@ -305,6 +311,14 @@
     .amount {
         font-weight: 600;
         text-align: right;
+    }
+    td.text-center,
+    th.text-center {
+        text-align: center !important;
+    }
+    td.text-right,
+    th.text-right {
+        text-align: right !important;
     }
     .amount.credit {
         color: #48bb78;

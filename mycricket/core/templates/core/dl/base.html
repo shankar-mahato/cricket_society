@@ -33,6 +33,15 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            transition: background 0.2s;
+        }
+        .sidebar-header:hover {
+            background: #f7fafc;
+        }
+        a[href*="dl_home"] {
+            text-decoration: none;
+            color: inherit;
+            display: block;
         }
         .sidebar-logo {
             width: 40px;
@@ -334,10 +343,12 @@
 </head>
 <body>
     <div class="sidebar">
-        <div class="sidebar-header">
-            <div class="sidebar-logo">DL</div>
-            <div class="sidebar-title">DL Panel</div>
-        </div>
+        <a href="{% url 'core:dl_home' %}" style="text-decoration: none; color: inherit;">
+            <div class="sidebar-header" style="cursor: pointer;">
+                <div class="sidebar-logo">DL</div>
+                <div class="sidebar-title">DL Panel</div>
+            </div>
+        </a>
         <nav class="sidebar-nav">
             <a href="{% url 'core:dl_home' %}" class="nav-item {% if request.resolver_match.url_name == 'dl_home' %}active{% endif %}">
                 <span class="nav-item-icon">🏠</span>

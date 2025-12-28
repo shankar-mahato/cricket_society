@@ -1,0 +1,83 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Reports</h1>
+    <p>View your transaction history and reports</p>
+</div>
+
+<!-- Filter Section -->
+<div class="card">
+    <form method="get" action="{% url 'core:end_user_reports' %}">
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+            <div style="flex: 1; min-width: 200px;">
+                <label for="type" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748; font-size: 14px;">Transaction Type</label>
+                <select name="type" id="type" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; box-sizing: border-box;">
+                    <option value="">All Types</option>
+                    <option value="credit" {% if transaction_type_filter == 'credit' %}selected{% endif %}>Credit</option>
+                    <option value="withdraw" {% if transaction_type_filter == 'withdraw' %}selected{% endif %}>Withdraw</option>
+                </select>
+            </div>
+            <div style="flex: 1; min-width: 200px;">
+                <label for="date_from" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748; font-size: 14px;">Date From</label>
+                <input type="date" name="date_from" id="date_from" value="{{ date_from }}" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; box-sizing: border-box;">
+            </div>
+            <div style="flex: 1; min-width: 200px;">
+                <label for="date_to" style="display: block; margin-bottom: 8px; font-weight: 600; color: #2d3748; font-size: 14px;">Date To</label>
+                <input type="date" name="date_to" id="date_to" value="{{ date_to }}" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 15px; box-sizing: border-box;">
+            </div>
+            <div>
+                <button type="submit" class="btn" style="min-height: 40px;">🔍 Filter</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Reports Table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div style="padding: 24px; border-bottom: 2px solid #e2e8f0; background: #f7fafc;">
+        <h2 style="margin: 0; color: #2d3748; font-size: 20px; font-weight: 700;">Transaction Reports</h2>
+    </div>
+    {% if transactions %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th class="text-center">Type</th>
+                    <th class="text-center">Ref ID</th>
+                    <th class="text-right">Amount</th>
+                    <th class="text-right">Balance After</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.created_at|date:"M d, Y H:i" }}</td>
+                    <td class="text-center">
+                        <span class="badge {% if transaction.transaction_type in 'deposit,bet_won,refund' %}badge-success{% else %}badge-warning{% endif %}">
+                            {% if transaction.transaction_type in 'deposit,bet_won,refund' %}Credit{% else %}Withdraw{% endif %}
+                        </span>
+                    </td>
+                    <td class="text-center" style="font-family: monospace; font-size: 12px; color: #718096;">#{{ transaction.id }}</td>
+                    <td class="text-right" style="font-weight: 600; {% if transaction.transaction_type in 'deposit,bet_won,refund' %}color: #48bb78;{% else %}color: #f56565;{% endif %}">
+                        {% if transaction.transaction_type in 'deposit,bet_won,refund' %}+{% else %}-{% endif %}₹{{ transaction.amount|floatformat:2 }}
+                    </td>
+                    <td class="text-right">₹{{ transaction.balance_after|floatformat:2 }}</td>
+                    <td>{{ transaction.description|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="padding: 60px; text-align: center; color: #718096;">
+        <p>No transactions found</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
