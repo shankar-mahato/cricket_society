@@ -165,9 +165,88 @@
         .logout-btn:hover {
             background: #e53e3e;
         }
+        
+        /* Hamburger Menu Styles */
+        .hamburger-menu {
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            width: 28px;
+            height: 22px;
+            cursor: pointer;
+            padding: 4px;
+            z-index: 1001;
+            background: none;
+            border: none;
+            outline: none;
+            position: relative;
+            flex-shrink: 0;
+        }
+        
+        .hamburger-menu span {
+            display: block;
+            width: 100%;
+            height: 3px;
+            background: #2d3748;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        
+        .hamburger-menu.active span:nth-child(1) {
+            transform: rotate(45deg) translate(6px, 6px);
+        }
+        
+        .hamburger-menu.active span:nth-child(2) {
+            opacity: 0;
+            transform: translateX(-10px);
+        }
+        
+        .hamburger-menu.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(6px, -6px);
+        }
+        
+        .mobile-menu-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        
+        .mobile-menu-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
         .content-area {
             padding: 32px;
         }
+        
+        /* Mobile Username Section */
+        .mobile-username-section {
+            display: none;
+            padding: 16px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f7fafc;
+        }
+        .mobile-username-label {
+            font-size: 12px;
+            color: #2d3748;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .mobile-username {
+            font-size: 15px;
+            color: #48bb78;
+            font-weight: 600;
+        }
+        
         .page-header {
             margin-bottom: 32px;
         }
@@ -217,66 +296,106 @@
         @media (max-width: 768px) {
             body {
                 flex-direction: column;
-            }
-            .sidebar {
-                width: 100%;
-                height: auto;
+                overflow-y: auto;
                 position: relative;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                height: 100%;
             }
+            
+            .hamburger-menu {
+                display: flex;
+            }
+            
+            .sidebar {
+                position: fixed;
+                left: -100%;
+                top: 0;
+                width: 280px;
+                height: 100vh;
+                transition: left 0.3s ease;
+                z-index: 1000;
+                box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+            }
+            
+            .sidebar.active {
+                left: 0;
+            }
+            
+            .mobile-menu-overlay {
+                display: block;
+            }
+            
             .sidebar-header {
                 padding: 16px;
+                border-bottom: 1px solid #e2e8f0;
             }
+            
             .sidebar-nav {
-                display: flex;
+                display: block;
                 padding: 0;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
+                overflow-y: auto;
+                height: calc(100vh - 80px);
             }
+            
+            .mobile-username-section {
+                display: block !important;
+            }
+            
             .nav-item {
-                padding: 12px 20px;
-                white-space: nowrap;
-                border-left: none;
-                border-bottom: 3px solid transparent;
+                padding: 16px 24px;
+                white-space: normal;
+                border-left: 3px solid transparent;
+                border-bottom: 1px solid #f7fafc;
             }
+            
             .nav-item.active {
-                border-left: none;
-                border-bottom-color: #4299e1;
+                border-left-color: #4299e1;
+                border-bottom-color: #f7fafc;
+                background: #ebf4ff;
             }
+            
             .main-content {
                 margin-left: 0;
+                width: 100%;
+                height: 100vh;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
             }
+            
             .top-header {
                 padding: 16px;
-                flex-wrap: wrap;
+                flex-wrap: nowrap;
                 gap: 12px;
             }
+            
             .header-title {
                 font-size: 20px;
             }
-            .header-actions {
-                width: 100%;
-                justify-content: space-between;
-            }
+            
             .user-profile {
-                padding: 6px 12px;
+                display: none !important;
             }
-            .user-name {
-                font-size: 13px;
-            }
-            .user-role {
-                font-size: 11px;
-            }
+            
             .logout-btn {
-                padding: 6px 12px;
-                font-size: 13px;
+                padding: 8px 16px;
+                font-size: 14px;
+                position: relative;
+                z-index: 1002;
             }
+            
+            .header-actions {
+                position: relative;
+                z-index: 1002;
+            }
+            
             .content-area {
                 padding: 16px;
+                -webkit-overflow-scrolling: touch;
             }
+            
             .page-header h1 {
                 font-size: 24px;
             }
+            
             .page-header p {
                 font-size: 14px;
             }
@@ -342,7 +461,11 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <div class="sidebar">
+    <!-- Mobile Menu Overlay -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+    
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
         <a href="{% url 'core:dl_home' %}" style="text-decoration: none; color: inherit;">
             <div class="sidebar-header" style="cursor: pointer;">
                 <div class="sidebar-logo">DL</div>
@@ -350,6 +473,10 @@
             </div>
         </a>
         <nav class="sidebar-nav">
+            <div class="mobile-username-section">
+                <div class="mobile-username-label">Logged in as:</div>
+                <div class="mobile-username">{{ user.username }}</div>
+            </div>
             <a href="{% url 'core:dl_home' %}" class="nav-item {% if request.resolver_match.url_name == 'dl_home' %}active{% endif %}">
                 <span class="nav-item-icon">🏠</span>
                 Home
@@ -367,9 +494,14 @@
                 Reports
             </a>
         </nav>
-    </div>
+    </aside>
     <div class="main-content">
         <header class="top-header">
+            <button class="hamburger-menu" id="hamburgerMenu" type="button" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
             <div class="header-title">{% block page_title %}DL User Panel{% endblock %}</div>
             <div class="header-actions">
                 <div class="user-profile">
@@ -381,7 +513,7 @@
                 </div>
                 <form method="post" action="{% url 'logout' %}" style="display: inline;">
                     {% csrf_token %}
-                    <button type="submit" class="logout-btn">Logout</button>
+                    <button type="submit" class="logout-btn" id="logoutBtn">Logout</button>
                 </form>
             </div>
         </header>
@@ -399,6 +531,171 @@
         </div>
     </div>
     {% block extra_js %}{% endblock %}
+    <script>
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const hamburger = document.getElementById('hamburgerMenu');
+            const overlay = document.getElementById('mobileMenuOverlay');
+            
+            if (sidebar && hamburger && overlay) {
+                sidebar.classList.toggle('active');
+                hamburger.classList.toggle('active');
+                overlay.classList.toggle('active');
+                
+                // Prevent body scroll when menu is open (only on mobile)
+                if (window.innerWidth <= 768) {
+                    if (sidebar.classList.contains('active')) {
+                        document.body.style.overflow = 'hidden';
+                        document.body.style.position = 'fixed';
+                        document.body.style.width = '100%';
+                        document.body.style.top = `-${window.scrollY}px`;
+                    } else {
+                        const scrollY = document.body.style.top;
+                        document.body.style.overflow = '';
+                        document.body.style.position = '';
+                        document.body.style.width = '';
+                        document.body.style.top = '';
+                        if (scrollY) {
+                            window.scrollTo(0, parseInt(scrollY || '0') * -1);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Initialize menu functionality
+        (function() {
+            'use strict';
+            
+            function initMobileMenu() {
+                const hamburger = document.getElementById('hamburgerMenu');
+                const sidebar = document.getElementById('sidebar');
+                const overlay = document.getElementById('mobileMenuOverlay');
+                const logoutBtn = document.getElementById('logoutBtn');
+                
+                if (!hamburger || !sidebar || !overlay) {
+                    setTimeout(initMobileMenu, 100);
+                    return;
+                }
+                
+                // Handle logout button FIRST - prevent it from triggering anything
+                if (logoutBtn) {
+                    // Use capture phase to catch the event before anything else
+                    logoutBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        // Allow form submission to proceed normally
+                    }, true);
+                    
+                    // Also handle in bubble phase as backup
+                    logoutBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                    }, false);
+                }
+                
+                // Handle logout form to prevent clicks on form from triggering overlay
+                const logoutForm = logoutBtn ? logoutBtn.closest('form') : null;
+                if (logoutForm) {
+                    logoutForm.addEventListener('click', function(e) {
+                        // Stop propagation for any clicks on the form
+                        e.stopPropagation();
+                    }, true);
+                    
+                    logoutForm.addEventListener('submit', function(e) {
+                        // Allow form submission, but stop propagation
+                        e.stopPropagation();
+                    }, true);
+                }
+                
+                // Hamburger click handler - ONLY for hamburger button
+                hamburger.addEventListener('click', function(e) {
+                    const target = e.target;
+                    
+                    // Only toggle if clicking hamburger button itself or its span children
+                    if (target === hamburger || (target.tagName === 'SPAN' && target.parentElement === hamburger)) {
+                        // Double check it's not logout button
+                        if (logoutBtn && (target === logoutBtn || target.closest && target.closest('#logoutBtn'))) {
+                            return;
+                        }
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleMobileMenu();
+                    }
+                });
+                
+                // Overlay click handler - but check it's not logout button
+                overlay.addEventListener('click', function(e) {
+                    const target = e.target;
+                    
+                    // CRITICAL: If clicking on logout button or form, do NOTHING - let logout work
+                    // Check multiple ways to ensure we catch it
+                    if (logoutBtn && (
+                        target === logoutBtn || 
+                        target.id === 'logoutBtn' || 
+                        target.closest('#logoutBtn') ||
+                        (target.closest && target.closest('#logoutBtn'))
+                    )) {
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        return false; // Don't close menu, don't do anything - let logout proceed
+                    }
+                    
+                    if (logoutForm && (
+                        target === logoutForm || 
+                        target.closest('form[action*="logout"]') ||
+                        (target.closest && target.closest('form[action*="logout"]'))
+                    )) {
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        return false; // Don't close menu, let logout proceed
+                    }
+                    
+                    // Only close menu if clicking directly on overlay background (not on any child elements)
+                    // Also check that overlay is actually active/visible
+                    if (target === overlay && overlay.classList.contains('active')) {
+                        toggleMobileMenu();
+                    }
+                }, false);
+                
+                // Close menu when clicking on a nav item (mobile)
+                const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
+                navItems.forEach(item => {
+                    item.addEventListener('click', function() {
+                        if (window.innerWidth <= 768) {
+                            setTimeout(function() {
+                                toggleMobileMenu();
+                            }, 100);
+                        }
+                    });
+                });
+                
+                // Close menu on window resize if it's desktop size
+                let resizeTimer;
+                window.addEventListener('resize', function() {
+                    clearTimeout(resizeTimer);
+                    resizeTimer = setTimeout(function() {
+                        if (window.innerWidth > 768) {
+                            if (sidebar && sidebar.classList.contains('active')) {
+                                toggleMobileMenu();
+                            }
+                            document.body.style.overflow = '';
+                            document.body.style.position = '';
+                            document.body.style.width = '';
+                            document.body.style.top = '';
+                        }
+                    }, 150);
+                });
+            }
+            
+            // Initialize when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initMobileMenu);
+            } else {
+                initMobileMenu();
+            }
+        })();
+    </script>
 </body>
 </html>
 
