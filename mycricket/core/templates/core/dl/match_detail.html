@@ -139,8 +139,9 @@
     .stake-info {
         font-size: 14px;
         font-weight: 600;
-        display: inline-block;
+        display: block;
         margin-top: 4px;
+        line-height: 1.4;
     }
     .stake-info.lay-stake {
         color: #f56565;
@@ -150,6 +151,9 @@
     }
     .stake-info.hidden {
         display: none;
+    }
+    .odds-cell-wrapper {
+        position: relative;
     }
     .odds-cell {
         display: flex;
@@ -162,6 +166,100 @@
     }
     .odds-cell:hover {
         opacity: 0.8;
+    }
+    .bet-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        min-width: 320px;
+        max-width: 400px;
+        margin-top: 8px;
+        display: none !important;
+        visibility: hidden;
+        opacity: 0;
+        border: 1px solid #e2e8f0;
+    }
+    .bet-dropdown.show {
+        display: flex !important;
+        visibility: visible;
+        opacity: 1;
+        animation: slideDown 0.2s ease-out;
+    }
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    }
+    .bet-dropdown-header {
+        padding: 12px 16px;
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 8px 8px 0 0;
+        font-weight: 600;
+        font-size: 14px;
+        position: relative;
+        z-index: 1;
+        flex-shrink: 0;
+    }
+    .bet-dropdown-header.back-header {
+        background: #4299e1;
+    }
+    .bet-dropdown-header.lay-header {
+        background: #ec4899;
+    }
+    .close-dropdown {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        line-height: 1;
+        z-index: 10001;
+        position: relative;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+    .close-dropdown:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+    .close-dropdown:active {
+        background: rgba(255, 255, 255, 0.4);
+    }
+    .bet-dropdown-body {
+        padding: 16px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .bet-dropdown-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+        flex-shrink: 0;
+    }
+    .bet-submit-btn, .bet-cancel-btn {
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        position: relative;
+        z-index: 1;
     }
     .odds-value {
         font-size: 18px;
@@ -447,6 +545,74 @@
             grid-template-columns: 2fr 1fr 1fr;
             padding: 10px 0;
         }
+        .bet-dropdown {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            top: auto;
+            width: 100%;
+            max-width: 100%;
+            min-width: 100%;
+            margin: 0;
+            border-radius: 12px 12px 0 0;
+            z-index: 10000;
+            max-height: 90vh;
+            overflow: hidden;
+            transform: none;
+            animation: slideUpFromBottom 0.3s ease-out;
+            display: flex;
+            flex-direction: column;
+        }
+        .bet-dropdown.show {
+            display: flex !important;
+            visibility: visible;
+            opacity: 1;
+            animation: slideUpFromBottom 0.3s ease-out;
+        }
+        @keyframes slideUpFromBottom {
+            from {
+                transform: translateY(100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+        .bet-dropdown-header {
+            padding: 16px 20px;
+            font-size: 16px;
+        }
+        .bet-dropdown-body {
+            padding: 12px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            flex: 1;
+            min-height: 0;
+            max-height: calc(90vh - 60px);
+            touch-action: pan-y;
+            overscroll-behavior: contain;
+        }
+        .close-dropdown {
+            width: 36px;
+            height: 36px;
+            font-size: 22px;
+        }
+        .quick-stake-buttons {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+        }
+        .quick-stake-btn {
+            padding: 10px 6px;
+            font-size: 12px;
+        }
+        .bet-dropdown-actions {
+            margin-top: 20px;
+        }
+        .bet-submit-btn, .bet-cancel-btn {
+            padding: 14px 16px;
+            font-size: 14px;
+        }
         .odds-value {
             font-size: 14px;
             white-space: nowrap;
@@ -524,11 +690,93 @@
                             {{ odds.runner }}
                             <span class="stake-info hidden" id="stake-{{ forloop.counter0 }}"></span>
                         </div>
-                        <div class="odds-cell" style="text-align: center; cursor: pointer;" onclick="event.stopPropagation(); placeBet('{{ odds.runner }}', 'back', '{{ odds.back_odds }}');">
-                            <span class="odds-back">{{ odds.back_odds }}</span>
+                        <div class="odds-cell-wrapper">
+                            <div class="odds-cell" style="text-align: center; cursor: pointer;" 
+                                 data-selection="{{ odds.runner|escapejs }}" 
+                                 data-type="back" 
+                                 data-odds="{{ odds.back_odds }}"
+                                 onclick="event.stopPropagation(); toggleBetDropdown(this);">
+                                <span class="odds-back">{{ odds.back_odds }}</span>
+                            </div>
+                            <div class="bet-dropdown" id="dropdown-{{ forloop.counter0 }}-back">
+                                <div class="bet-dropdown-header back-header">
+                                    <span>BACK - {{ odds.runner }}</span>
+                                    <button class="close-dropdown" onclick="closeBetDropdown(this.closest('.bet-dropdown')); return false;" type="button">×</button>
+                                </div>
+                                <div class="bet-dropdown-body">
+                                    <div class="bet-input-row">
+                                        <div class="bet-input-label back-label">Odds</div>
+                                        <div class="odds-control">
+                                            <button class="odds-btn back-btn minus" onclick="adjustOddsDropdown(this, -0.01)">-</button>
+                                            <input type="number" class="odds-input-dropdown" step="0.01" min="1.01" value="{{ odds.back_odds }}" readonly>
+                                            <button class="odds-btn back-btn plus" onclick="adjustOddsDropdown(this, 0.01)">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="bet-input-row">
+                                        <div class="bet-input-label back-label">Stake</div>
+                                        <div class="stake-control">
+                                            <input type="number" class="stake-input-dropdown" min="100" step="100" placeholder="0">
+                                            <span class="stake-display-dropdown">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="quick-stake-buttons">
+                                        <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 1000)">+1000</button>
+                                        <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 5000)">+5000</button>
+                                        <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 10000)">+10000</button>
+                                        <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 25000)">+25000</button>
+                                        <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 50000)">+50000</button>
+                                        <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 100000)">+100000</button>
+                                    </div>
+                                    <div class="bet-dropdown-actions">
+                                        <button class="bet-cancel-btn" onclick="event.stopPropagation(); event.preventDefault(); closeBetDropdown(this.closest('.bet-dropdown'));" type="button">CANCEL</button>
+                                        <button class="bet-submit-btn" onclick="event.stopPropagation(); event.preventDefault(); submitBetDropdown(this);" type="button">PLACE BET</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="odds-cell" style="text-align: center; cursor: pointer;" onclick="event.stopPropagation(); placeBet('{{ odds.runner }}', 'lay', '{{ odds.lay_odds }}');">
-                            <span class="odds-lay">{{ odds.lay_odds }}</span>
+                        <div class="odds-cell-wrapper">
+                            <div class="odds-cell" style="text-align: center; cursor: pointer;" 
+                                 data-selection="{{ odds.runner|escapejs }}" 
+                                 data-type="lay" 
+                                 data-odds="{{ odds.lay_odds }}"
+                                 onclick="event.stopPropagation(); toggleBetDropdown(this);">
+                                <span class="odds-lay">{{ odds.lay_odds }}</span>
+                            </div>
+                            <div class="bet-dropdown" id="dropdown-{{ forloop.counter0 }}-lay">
+                                <div class="bet-dropdown-header lay-header">
+                                    <span>LAY - {{ odds.runner }}</span>
+                                    <button class="close-dropdown" onclick="closeBetDropdown(this.closest('.bet-dropdown')); return false;" type="button">×</button>
+                                </div>
+                                <div class="bet-dropdown-body">
+                                    <div class="bet-input-row">
+                                        <div class="bet-input-label lay-label">Odds</div>
+                                        <div class="odds-control">
+                                            <button class="odds-btn lay-btn minus" onclick="adjustOddsDropdown(this, -0.01)">-</button>
+                                            <input type="number" class="odds-input-dropdown" step="0.01" min="1.01" value="{{ odds.lay_odds }}" readonly>
+                                            <button class="odds-btn lay-btn plus" onclick="adjustOddsDropdown(this, 0.01)">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="bet-input-row">
+                                        <div class="bet-input-label lay-label">Stake</div>
+                                        <div class="stake-control">
+                                            <input type="number" class="stake-input-dropdown" min="100" step="100" placeholder="0">
+                                            <span class="stake-display-dropdown">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="quick-stake-buttons">
+                                        <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 1000)">+1000</button>
+                                        <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 5000)">+5000</button>
+                                        <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 10000)">+10000</button>
+                                        <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 25000)">+25000</button>
+                                        <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 50000)">+50000</button>
+                                        <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 100000)">+100000</button>
+                                    </div>
+                                    <div class="bet-dropdown-actions">
+                                        <button class="bet-cancel-btn" onclick="event.stopPropagation(); event.preventDefault(); closeBetDropdown(this.closest('.bet-dropdown'));" type="button">CANCEL</button>
+                                        <button class="bet-submit-btn" onclick="event.stopPropagation(); event.preventDefault(); submitBetDropdown(this);" type="button">PLACE BET</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     {% endfor %}
@@ -545,11 +793,93 @@
                     {% for detail in session_details %}
                     <div class="session-detail-row">
                         <div class="session-detail-label">{{ detail.label }}</div>
-                        <div class="odds-cell" style="text-align: center; cursor: pointer;" onclick="event.stopPropagation(); placeBet('{{ detail.label }}', 'not', '{{ detail.not }}');">
-                            <span class="odds-back">{{ detail.not }}</span>
+                        <div class="odds-cell-wrapper">
+                            <div class="odds-cell" style="text-align: center; cursor: pointer;" 
+                                 data-selection="{{ detail.label|escapejs }}" 
+                                 data-type="not" 
+                                 data-odds="{{ detail.not }}"
+                                 onclick="event.stopPropagation(); toggleBetDropdown(this);">
+                                <span class="odds-back">{{ detail.not }}</span>
+                            </div>
+                            <div class="bet-dropdown" id="dropdown-session-{{ forloop.counter0 }}-not">
+                                <div class="bet-dropdown-header back-header">
+                                    <span>NOT - {{ detail.label }}</span>
+                                    <button class="close-dropdown" onclick="closeBetDropdown(this.closest('.bet-dropdown')); return false;" type="button">×</button>
+                                </div>
+                                <div class="bet-dropdown-body">
+                                    <div class="bet-input-row">
+                                        <div class="bet-input-label back-label">Odds</div>
+                                        <div class="odds-control">
+                                            <button class="odds-btn back-btn minus" onclick="adjustOddsDropdown(this, -0.01)">-</button>
+                                            <input type="number" class="odds-input-dropdown" step="0.01" min="1.01" value="{{ detail.not }}" readonly>
+                                            <button class="odds-btn back-btn plus" onclick="adjustOddsDropdown(this, 0.01)">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="bet-input-row">
+                                        <div class="bet-input-label back-label">Stake</div>
+                                        <div class="stake-control">
+                                            <input type="number" class="stake-input-dropdown" min="100" step="100" placeholder="0">
+                                            <span class="stake-display-dropdown">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="quick-stake-buttons">
+                                        <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 1000)">+1000</button>
+                                        <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 5000)">+5000</button>
+                                        <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 10000)">+10000</button>
+                                        <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 25000)">+25000</button>
+                                        <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 50000)">+50000</button>
+                                        <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 100000)">+100000</button>
+                                    </div>
+                                    <div class="bet-dropdown-actions">
+                                        <button class="bet-cancel-btn" onclick="event.stopPropagation(); event.preventDefault(); closeBetDropdown(this.closest('.bet-dropdown'));" type="button">CANCEL</button>
+                                        <button class="bet-submit-btn" onclick="event.stopPropagation(); event.preventDefault(); submitBetDropdown(this);" type="button">PLACE BET</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="odds-cell" style="text-align: center; cursor: pointer;" onclick="event.stopPropagation(); placeBet('{{ detail.label }}', 'yes', '{{ detail.yes }}');">
-                            <span class="odds-lay">{{ detail.yes }}</span>
+                        <div class="odds-cell-wrapper">
+                            <div class="odds-cell" style="text-align: center; cursor: pointer;" 
+                                 data-selection="{{ detail.label|escapejs }}" 
+                                 data-type="yes" 
+                                 data-odds="{{ detail.yes }}"
+                                 onclick="event.stopPropagation(); toggleBetDropdown(this);">
+                                <span class="odds-lay">{{ detail.yes }}</span>
+                            </div>
+                            <div class="bet-dropdown" id="dropdown-session-{{ forloop.counter0 }}-yes">
+                                <div class="bet-dropdown-header lay-header">
+                                    <span>YES - {{ detail.label }}</span>
+                                    <button class="close-dropdown" onclick="closeBetDropdown(this.closest('.bet-dropdown')); return false;" type="button">×</button>
+                                </div>
+                                <div class="bet-dropdown-body">
+                                    <div class="bet-input-row">
+                                        <div class="bet-input-label lay-label">Odds</div>
+                                        <div class="odds-control">
+                                            <button class="odds-btn lay-btn minus" onclick="adjustOddsDropdown(this, -0.01)">-</button>
+                                            <input type="number" class="odds-input-dropdown" step="0.01" min="1.01" value="{{ detail.yes }}" readonly>
+                                            <button class="odds-btn lay-btn plus" onclick="adjustOddsDropdown(this, 0.01)">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="bet-input-row">
+                                        <div class="bet-input-label lay-label">Stake</div>
+                                        <div class="stake-control">
+                                            <input type="number" class="stake-input-dropdown" min="100" step="100" placeholder="0">
+                                            <span class="stake-display-dropdown">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="quick-stake-buttons">
+                                        <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 1000)">+1000</button>
+                                        <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 5000)">+5000</button>
+                                        <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 10000)">+10000</button>
+                                        <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 25000)">+25000</button>
+                                        <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 50000)">+50000</button>
+                                        <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 100000)">+100000</button>
+                                    </div>
+                                    <div class="bet-dropdown-actions">
+                                        <button class="bet-cancel-btn" onclick="event.stopPropagation(); event.preventDefault(); closeBetDropdown(this.closest('.bet-dropdown'));" type="button">CANCEL</button>
+                                        <button class="bet-submit-btn" onclick="event.stopPropagation(); event.preventDefault(); submitBetDropdown(this);" type="button">PLACE BET</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     {% endfor %}
@@ -692,11 +1022,153 @@ function toggleAccordion(id) {
 }
 
 let currentBetData = null;
+let openDropdown = null;
 
-function placeBet(selection, type, odds) {
-    // Always allow clicking - just update modal with new selection
-    openBetModal(selection, type, odds);
+function toggleBetDropdown(element) {
+    // Get data from element attributes
+    const selection = element.getAttribute('data-selection');
+    const type = element.getAttribute('data-type');
+    const odds = element.getAttribute('data-odds');
+    
+    if (!selection || !type || !odds) {
+        console.error('Missing data attributes on odds cell');
+        return;
+    }
+    
+    // Find the dropdown
+    const dropdown = element.nextElementSibling;
+    
+    if (!dropdown || !dropdown.classList.contains('bet-dropdown')) {
+        return;
+    }
+    
+    // Close any open dropdown first
+    if (openDropdown && openDropdown !== dropdown) {
+        closeBetDropdown(openDropdown);
+    }
+    
+    // Toggle dropdown
+    if (dropdown.classList.contains('show')) {
+        closeBetDropdown(dropdown);
+    } else {
+        // Close any other open dropdown
+        document.querySelectorAll('.bet-dropdown.show').forEach(d => {
+            if (d !== dropdown) {
+                closeBetDropdown(d);
+            }
+        });
+        
+        // Show dropdown
+        dropdown.classList.add('show');
+        dropdown.style.display = 'flex';
+        dropdown.style.visibility = 'visible';
+        dropdown.style.opacity = '1';
+        openDropdown = dropdown;
+        
+        // On mobile, prevent body scroll but allow dropdown to scroll
+        if (window.innerWidth <= 768) {
+            // Store current scroll position
+            const scrollY = window.scrollY;
+            dropdown.dataset.scrollY = scrollY;
+            
+            // Prevent body scroll
+            document.body.style.overflow = 'hidden';
+            document.body.style.position = 'fixed';
+            document.body.style.width = '100%';
+            document.body.style.top = `-${scrollY}px`;
+            
+            // Ensure dropdown body is scrollable with touch support
+            const dropdownBody = dropdown.querySelector('.bet-dropdown-body');
+            if (dropdownBody) {
+                dropdownBody.style.overflowY = 'auto';
+                dropdownBody.style.webkitOverflowScrolling = 'touch';
+                dropdownBody.style.touchAction = 'pan-y';
+                dropdownBody.style.overscrollBehavior = 'contain';
+            }
+        }
+        
+        // Initialize dropdown data
+        const oddsInput = dropdown.querySelector('.odds-input-dropdown');
+        const stakeInput = dropdown.querySelector('.stake-input-dropdown');
+        const stakeDisplay = dropdown.querySelector('.stake-display-dropdown');
+        
+        if (oddsInput) oddsInput.value = odds;
+        if (stakeInput) {
+            stakeInput.value = '';
+            // Remove existing listeners and add new one
+            const newStakeInput = stakeInput.cloneNode(true);
+            stakeInput.parentNode.replaceChild(newStakeInput, stakeInput);
+            newStakeInput.addEventListener('input', function() {
+                updateStakeDisplayDropdown(this, dropdown.querySelector('.stake-display-dropdown'));
+            });
+        }
+        if (stakeDisplay) stakeDisplay.textContent = '0';
+        
+        // Store selection and type in dropdown for submit function
+        dropdown.setAttribute('data-selection', selection);
+        dropdown.setAttribute('data-type', type);
+        
+        // Focus on stake input
+        setTimeout(() => {
+            const focusInput = dropdown.querySelector('.stake-input-dropdown');
+            if (focusInput) focusInput.focus();
+        }, 100);
+    }
 }
+
+function closeBetDropdown(dropdownElement) {
+    let dropdown = null;
+    
+    if (typeof dropdownElement === 'object' && dropdownElement.closest) {
+        // If it's a button, find the dropdown
+        dropdown = dropdownElement.closest('.bet-dropdown');
+    } else if (dropdownElement && dropdownElement.classList) {
+        // If it's the dropdown itself
+        dropdown = dropdownElement;
+    }
+    
+    if (dropdown) {
+        // Remove show class
+        dropdown.classList.remove('show');
+        
+        // Force hide
+        dropdown.style.display = 'none';
+        dropdown.style.visibility = 'hidden';
+        dropdown.style.opacity = '0';
+        
+        if (openDropdown === dropdown) {
+            openDropdown = null;
+        }
+        
+        // Restore body scroll on mobile
+        if (window.innerWidth <= 768) {
+            const scrollY = dropdown.dataset.scrollY || 0;
+            // Reset body styles
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.width = '';
+            document.body.style.top = '';
+            // Restore scroll position
+            setTimeout(() => {
+                window.scrollTo(0, parseInt(scrollY) || 0);
+            }, 10);
+        } else {
+            document.body.style.overflow = 'auto';
+        }
+    }
+}
+
+// Close dropdown when clicking outside (desktop only)
+document.addEventListener('click', function(e) {
+    if (openDropdown && window.innerWidth > 768) {
+        if (!openDropdown.contains(e.target)) {
+            const oddsCell = e.target.closest('.odds-cell');
+            if (!oddsCell || oddsCell.nextElementSibling !== openDropdown) {
+                closeBetDropdown(openDropdown);
+            }
+        }
+    }
+});
 
 function openBetModal(selection, type, odds) {
     currentBetData = {
@@ -757,8 +1229,13 @@ function openBetModal(selection, type, odds) {
     }, 100);
 }
 
-function adjustOdds(change) {
-    const oddsInput = document.getElementById('betOdds');
+function adjustOddsDropdown(button, change) {
+    const dropdown = button.closest('.bet-dropdown');
+    if (!dropdown) return;
+    
+    const oddsInput = dropdown.querySelector('.odds-input-dropdown');
+    if (!oddsInput) return;
+    
     let currentOdds = parseFloat(oddsInput.value) || 1.01;
     let newOdds = currentOdds + change;
     
@@ -771,27 +1248,32 @@ function adjustOdds(change) {
     newOdds = Math.round(newOdds * 100) / 100;
     oddsInput.value = newOdds.toFixed(2);
     
-    if (currentBetData) {
-        currentBetData.odds = newOdds;
-        const stakeInput = document.getElementById('betAmount');
-        const stakeAmount = parseFloat(stakeInput ? stakeInput.value : 0) || 0;
-        if (stakeAmount > 0) {
-            updateStakeInfo(currentBetData.selection, currentBetData.type, newOdds, stakeAmount);
-        }
+    // Update stake display if stake is entered
+    const stakeInput = dropdown.querySelector('.stake-input-dropdown');
+    const stakeAmount = parseFloat(stakeInput ? stakeInput.value : 0) || 0;
+    if (stakeAmount > 0) {
+        updateStakeDisplayDropdown(stakeInput, dropdown.querySelector('.stake-display-dropdown'));
     }
 }
 
-function addStake(amount) {
-    const stakeInput = document.getElementById('betAmount');
+function addStakeDropdown(button, amount) {
+    const dropdown = button.closest('.bet-dropdown');
+    if (!dropdown) return;
+    
+    const stakeInput = dropdown.querySelector('.stake-input-dropdown');
+    if (!stakeInput) return;
+    
     const currentStake = parseFloat(stakeInput.value) || 0;
     const newStake = currentStake + amount;
     stakeInput.value = newStake;
-    updateStakeDisplay(newStake);
+    updateStakeDisplayDropdown(stakeInput, dropdown.querySelector('.stake-display-dropdown'));
+}
+
+function updateStakeDisplayDropdown(stakeInput, stakeDisplay) {
+    if (!stakeInput || !stakeDisplay) return;
     
-    // Update stake info below team names
-    if (currentBetData) {
-        updateStakeInfo(currentBetData.selection, currentBetData.type, currentBetData.odds, newStake);
-    }
+    const amount = parseFloat(stakeInput.value) || 0;
+    stakeDisplay.textContent = amount.toLocaleString('en-IN');
 }
 
 function updateStakeDisplay(amount) {
@@ -1069,46 +1551,176 @@ function closeBetModal() {
     // Keep stake info visible after modal closes - don't hide it
 }
 
-function submitBet() {
-    const amountInput = document.getElementById('betAmount');
-    const amount = parseFloat(amountInput.value);
-    const odds = parseFloat(document.getElementById('betOdds').value);
+function submitBetDropdown(button) {
+    const dropdown = button.closest('.bet-dropdown');
+    if (!dropdown) return;
+    
+    // Get selection and type from dropdown data attributes
+    const selection = dropdown.getAttribute('data-selection');
+    const type = dropdown.getAttribute('data-type');
+    
+    if (!selection || !type) {
+        console.error('Missing data attributes on dropdown');
+        return;
+    }
+    
+    const stakeInput = dropdown.querySelector('.stake-input-dropdown');
+    const oddsInput = dropdown.querySelector('.odds-input-dropdown');
+    
+    if (!stakeInput || !oddsInput) return;
+    
+    const amount = parseFloat(stakeInput.value);
+    const odds = parseFloat(oddsInput.value);
     
     if (!amount || amount < 100) {
         alert('Please enter a valid amount (minimum ₹100)');
         return;
     }
     
-    if (!currentBetData) {
-        return;
-    }
-    
-    // Update current bet data with latest odds
-    currentBetData.odds = odds;
-    
-    // Place bet directly - close modal without confirmation
+    // Place bet
     console.log('Placing bet:', {
-        selection: currentBetData.selection,
-        type: currentBetData.type,
+        selection: selection,
+        type: type,
         odds: odds,
         amount: amount
     });
     
-    // TODO: Integrate with backend API when ready
-    // For now, just close the modal
-    closeBetModal();
+    // Display bet info below team name
+    displayBetInfo(selection, type, odds, amount);
+    
+    // Close the dropdown after a short delay to show the bet info
+    setTimeout(() => {
+        closeBetDropdown(dropdown);
+    }, 100);
 }
 
-// Close modal on Escape key
+function displayBetInfo(selection, type, odds, amount) {
+    // Find the runner row that matches the selection
+    const runnerRows = document.querySelectorAll('.runner-row[data-runner]');
+    let targetRow = null;
+    let rowIndex = -1;
+    
+    runnerRows.forEach((row, index) => {
+        if (row.getAttribute('data-runner') === selection) {
+            targetRow = row;
+            rowIndex = index;
+        }
+    });
+    
+    if (!targetRow) {
+        // Try session details
+        const sessionRows = document.querySelectorAll('.session-detail-row');
+        sessionRows.forEach((row, index) => {
+            const label = row.querySelector('.session-detail-label');
+            if (label && label.textContent.trim() === selection) {
+                targetRow = row;
+                rowIndex = index;
+            }
+        });
+    }
+    
+    if (!targetRow) return;
+    
+    // Find the stake info element (it should already exist in the HTML)
+    let stakeInfo = targetRow.querySelector('.stake-info');
+    
+    if (!stakeInfo) {
+        // If it doesn't exist, create it
+        const runnerName = targetRow.querySelector('.runner-name, .session-detail-label');
+        if (runnerName) {
+            stakeInfo = document.createElement('span');
+            stakeInfo.className = 'stake-info';
+            runnerName.appendChild(stakeInfo);
+        }
+    }
+    
+    if (stakeInfo) {
+        // Format the display text: "BACK @ 1.85 - ₹1,000" or "LAY @ 1.90 - ₹1,000"
+        const displayText = `${type.toUpperCase()} @ ${odds} - ₹${amount.toLocaleString('en-IN')}`;
+        stakeInfo.textContent = displayText;
+        
+        // Set color based on type (green for back/not, red for lay/yes)
+        if (type === 'back' || type === 'not') {
+            stakeInfo.className = 'stake-info back-stake';
+            stakeInfo.style.color = '#48bb78';
+        } else {
+            stakeInfo.className = 'stake-info lay-stake';
+            stakeInfo.style.color = '#f56565';
+        }
+        
+        // Make sure it's visible
+        stakeInfo.classList.remove('hidden');
+        stakeInfo.style.display = 'block';
+    }
+}
+
+// Close dropdown on Escape key
 document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeBetModal();
+    if (e.key === 'Escape' && openDropdown) {
+        closeBetDropdown(openDropdown);
     }
 });
+
+// Add swipe down to close on mobile
+let touchStartY = 0;
+let touchStartTime = 0;
+
+document.addEventListener('touchstart', function(e) {
+    if (openDropdown && window.innerWidth <= 768) {
+        const header = openDropdown.querySelector('.bet-dropdown-header');
+        if (header && header.contains(e.target)) {
+            touchStartY = e.touches[0].clientY;
+            touchStartTime = Date.now();
+        }
+    }
+}, { passive: true });
+
+document.addEventListener('touchmove', function(e) {
+    if (openDropdown && window.innerWidth <= 768) {
+        const header = openDropdown.querySelector('.bet-dropdown-header');
+        if (header && header.contains(e.target)) {
+            const touchY = e.touches[0].clientY;
+            const deltaY = touchY - touchStartY;
+            
+            // If swiping down more than 50px, allow it
+            if (deltaY > 50) {
+                e.preventDefault();
+                openDropdown.style.transform = `translateY(${deltaY}px)`;
+            }
+        }
+    }
+}, { passive: false });
+
+document.addEventListener('touchend', function(e) {
+    if (openDropdown && window.innerWidth <= 768) {
+        const header = openDropdown.querySelector('.bet-dropdown-header');
+        if (header && header.contains(e.target)) {
+            const touchY = e.changedTouches[0].clientY;
+            const deltaY = touchY - touchStartY;
+            const deltaTime = Date.now() - touchStartTime;
+            
+            // Reset transform
+            openDropdown.style.transform = '';
+            
+            // If swiped down more than 100px or fast swipe down, close
+            if (deltaY > 100 || (deltaY > 50 && deltaTime < 300)) {
+                closeBetDropdown(openDropdown);
+            }
+        }
+    }
+}, { passive: true });
 
 // Load stake data when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadStakeData();
+    
+    // Ensure all dropdowns are hidden on page load
+    document.querySelectorAll('.bet-dropdown').forEach(dropdown => {
+        dropdown.classList.remove('show');
+        dropdown.style.display = 'none';
+        dropdown.style.visibility = 'hidden';
+        dropdown.style.opacity = '0';
+    });
 });
 </script>
 
@@ -1169,7 +1781,8 @@ document.addEventListener('DOMContentLoaded', function() {
         width: 100%;
         height: 100%;
         z-index: 10000;
-        display: none;
+        display: none !important;
+        visibility: hidden;
     }
     .bet-modal.show {
         display: flex !important;
@@ -1284,6 +1897,36 @@ document.addEventListener('DOMContentLoaded', function() {
         color: #ec4899;
         font-size: 16px;
         text-transform: uppercase;
+    }
+    .odds-input-dropdown {
+        width: 80px;
+        padding: 8px 12px;
+        border: 2px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 600;
+        text-align: center;
+        background: #f7fafc;
+        color: #2d3748;
+    }
+    .stake-input-dropdown {
+        width: 120px;
+        padding: 10px 12px;
+        border: 2px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 16px;
+        text-align: center;
+        transition: all 0.2s;
+    }
+    .stake-input-dropdown:focus {
+        outline: none;
+        border-color: #4299e1;
+        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+    .stake-display-dropdown {
+        font-size: 16px;
+        color: #718096;
+        min-width: 40px;
     }
     .odds-control {
         display: flex;
