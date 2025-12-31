@@ -43,6 +43,8 @@
         display: flex;
         flex-direction: column;
         gap: 16px;
+        position: relative;
+        z-index: 1;
     }
     .accordion-item {
         background: white;
@@ -101,6 +103,7 @@
     /* Betting Interface Styles */
     .betting-market {
         margin-bottom: 24px;
+        position: relative;
     }
     .betting-market:last-child {
         margin-bottom: 0;
@@ -129,6 +132,24 @@
         font-size: 16px;
         color: #2d3748;
         padding: 8px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .stake-info {
+        font-size: 14px;
+        font-weight: 600;
+        display: inline-block;
+        margin-top: 4px;
+    }
+    .stake-info.lay-stake {
+        color: #f56565;
+    }
+    .stake-info.back-stake {
+        color: #48bb78;
+    }
+    .stake-info.hidden {
+        display: none;
     }
     .odds-cell {
         display: flex;
@@ -138,10 +159,33 @@
     .odds-value {
         font-size: 18px;
         font-weight: 700;
-        color: #2d3748;
         text-align: center;
         padding: 8px;
         white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+    .odds-back {
+        color: #ffffff;
+        background: #48bb78;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-weight: 700;
+        min-width: 50px;
+        display: inline-block;
+        text-align: center;
+    }
+    .odds-lay {
+        color: #ffffff;
+        background: #f56565;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-weight: 700;
+        min-width: 50px;
+        display: inline-block;
+        text-align: center;
     }
     .bet-buttons {
         display: flex;
@@ -157,6 +201,7 @@
         cursor: pointer;
         transition: all 0.2s;
         text-align: center;
+        position: relative;
     }
     .bet-btn.back {
         background: #48bb78;
@@ -322,9 +367,33 @@
         .runner-name {
             font-size: 15px;
         }
+        .stake-info {
+            font-size: 13px;
+            margin-top: 3px;
+            gap: 4px;
+        }
+        .stake-control-icon {
+            width: 18px;
+            height: 18px;
+            font-size: 14px;
+        }
         .odds-value {
             font-size: 16px;
             white-space: nowrap;
+        }
+        .odds-back {
+            color: #ffffff;
+            background: #48bb78;
+            padding: 5px 8px;
+            border-radius: 4px;
+            min-width: 45px;
+        }
+        .odds-lay {
+            color: #ffffff;
+            background: #f56565;
+            padding: 5px 8px;
+            border-radius: 4px;
+            min-width: 45px;
         }
         .bet-btn {
             padding: 10px 12px;
@@ -375,12 +444,30 @@
             font-size: 14px;
             white-space: nowrap;
         }
+        .odds-back {
+            color: #ffffff;
+            background: #48bb78;
+            padding: 5px 8px;
+            border-radius: 4px;
+            min-width: 45px;
+        }
+        .odds-lay {
+            color: #ffffff;
+            background: #f56565;
+            padding: 5px 8px;
+            border-radius: 4px;
+            min-width: 45px;
+        }
         .bet-btn {
             padding: 8px 10px;
             font-size: 12px;
         }
         .runner-name, .session-detail-label {
             font-size: 14px;
+        }
+        .stake-info {
+            font-size: 12px;
+            margin-top: 2px;
         }
         table {
             min-width: 600px;
@@ -395,7 +482,7 @@
 
 {% block content %}
 <!-- Match Header -->
-<div class="match-header">
+<div class="match-header" data-match-id="{{ match.id }}">
     <div class="match-info">
         <div class="match-teams">{{ match.team_a.name }} vs {{ match.team_b.name }}</div>
         <div class="match-meta">
@@ -425,14 +512,19 @@
                         <div style="text-align: center;">ACTION</div>
                     </div>
                     {% for odds in match_odds %}
-                    <div class="runner-row">
-                        <div class="runner-name">{{ odds.runner }}</div>
+                    <div class="runner-row" data-runner="{{ odds.runner }}" data-back-odds="{{ odds.back_odds }}" data-lay-odds="{{ odds.lay_odds }}">
+                        <div class="runner-name">
+                            {{ odds.runner }}
+                            <span class="stake-info hidden" id="stake-{{ forloop.counter0 }}"></span>
+                        </div>
                         <div class="odds-cell">
-                            <div class="odds-value">{{ odds.back_odds }} / {{ odds.lay_odds }}</div>
+                            <div class="odds-value">
+                                <span class="odds-back">{{ odds.back_odds }}</span> / <span class="odds-lay">{{ odds.lay_odds }}</span>
+                            </div>
                         </div>
                         <div class="bet-buttons">
-                            <button class="bet-btn back" onclick="placeBet('{{ odds.runner }}', 'back', '{{ odds.back_odds }}')">Back</button>
-                            <button class="bet-btn lay" onclick="placeBet('{{ odds.runner }}', 'lay', '{{ odds.lay_odds }}')">Lay</button>
+                            <button class="bet-btn back" onclick="event.stopPropagation(); placeBet('{{ odds.runner }}', 'back', '{{ odds.back_odds }}');">Back</button>
+                            <button class="bet-btn lay" onclick="event.stopPropagation(); placeBet('{{ odds.runner }}', 'lay', '{{ odds.lay_odds }}');">Lay</button>
                         </div>
                     </div>
                     {% endfor %}
@@ -450,11 +542,13 @@
                     <div class="session-detail-row">
                         <div class="session-detail-label">{{ detail.label }}</div>
                         <div class="odds-cell">
-                            <div class="odds-value">{{ detail.not }} / {{ detail.yes }}</div>
+                            <div class="odds-value">
+                                <span class="odds-back">{{ detail.not }}</span> / <span class="odds-lay">{{ detail.yes }}</span>
+                            </div>
                         </div>
                         <div class="bet-buttons">
-                            <button class="bet-btn back" onclick="placeBet('{{ detail.label }}', 'not', '{{ detail.not }}')">Not</button>
-                            <button class="bet-btn lay" onclick="placeBet('{{ detail.label }}', 'yes', '{{ detail.yes }}')">Yes</button>
+                            <button class="bet-btn back" onclick="event.stopPropagation(); placeBet('{{ detail.label }}', 'not', '{{ detail.not }}');">Not</button>
+                            <button class="bet-btn lay" onclick="event.stopPropagation(); placeBet('{{ detail.label }}', 'yes', '{{ detail.yes }}');">Yes</button>
                         </div>
                     </div>
                     {% endfor %}
@@ -599,68 +693,408 @@ function toggleAccordion(id) {
 let currentBetData = null;
 
 function placeBet(selection, type, odds) {
+    // Always allow clicking - just update modal with new selection
+    openBetModal(selection, type, odds);
+}
+
+function openBetModal(selection, type, odds) {
     currentBetData = {
         selection: selection,
         type: type,
-        odds: odds
+        odds: parseFloat(odds)
     };
     
     // Update modal content
-    document.getElementById('betSelection').textContent = selection;
-    document.getElementById('betType').textContent = type.toUpperCase();
-    document.getElementById('betOdds').textContent = odds;
-    document.getElementById('betAmount').value = '';
+    const modalTitle = document.getElementById('betModalTitle');
+    const modalHeader = document.querySelector('.bet-modal-header');
+    const oddsBtns = document.querySelectorAll('.odds-btn');
+    const stakeBtns = document.querySelectorAll('.quick-stake-btn');
+    const inputLabels = document.querySelectorAll('.bet-input-label');
     
-    // Show modal
-    document.getElementById('betModal').style.display = 'flex';
+    modalTitle.textContent = type.toUpperCase();
+    modalHeader.className = 'bet-modal-header ' + type.toLowerCase() + '-header';
+    
+    // Update label colors
+    inputLabels.forEach(label => {
+        label.className = 'bet-input-label ' + type.toLowerCase() + '-label';
+    });
+    
+    // Update odds button colors
+    oddsBtns.forEach(btn => {
+        btn.className = 'odds-btn ' + type.toLowerCase() + '-btn';
+        if (btn.textContent === '-') {
+            btn.classList.add('minus');
+        } else {
+            btn.classList.add('plus');
+        }
+    });
+    
+    // Update quick stake button colors
+    stakeBtns.forEach(btn => {
+        btn.className = 'quick-stake-btn ' + type.toLowerCase() + '-stake';
+    });
+    
+    document.getElementById('betSelection').textContent = selection;
+    document.getElementById('betOdds').value = odds;
+    document.getElementById('betAmount').value = '';
+    document.querySelector('.stake-display').textContent = '0';
+    
+    // Show modal at bottom
+    const modal = document.getElementById('betModal');
+    modal.classList.add('show');
     document.body.style.overflow = 'hidden';
     
-    // Focus on input
+    // Initialize stake input listener
+    initStakeInput();
+    
+    // Update stake info display below team names (will show when stake is entered)
+    // Note: updateStakeInfo will be called when stake amount changes
+    
+    // Focus on stake input
     setTimeout(() => {
         document.getElementById('betAmount').focus();
     }, 100);
 }
 
+function adjustOdds(change) {
+    const oddsInput = document.getElementById('betOdds');
+    let currentOdds = parseFloat(oddsInput.value) || 1.01;
+    let newOdds = currentOdds + change;
+    
+    // Ensure minimum odds of 1.01
+    if (newOdds < 1.01) {
+        newOdds = 1.01;
+    }
+    
+    // Round to 2 decimal places
+    newOdds = Math.round(newOdds * 100) / 100;
+    oddsInput.value = newOdds.toFixed(2);
+    
+    if (currentBetData) {
+        currentBetData.odds = newOdds;
+        const stakeInput = document.getElementById('betAmount');
+        const stakeAmount = parseFloat(stakeInput ? stakeInput.value : 0) || 0;
+        if (stakeAmount > 0) {
+            updateStakeInfo(currentBetData.selection, currentBetData.type, newOdds, stakeAmount);
+        }
+    }
+}
+
+function addStake(amount) {
+    const stakeInput = document.getElementById('betAmount');
+    const currentStake = parseFloat(stakeInput.value) || 0;
+    const newStake = currentStake + amount;
+    stakeInput.value = newStake;
+    updateStakeDisplay(newStake);
+    
+    // Update stake info below team names
+    if (currentBetData) {
+        updateStakeInfo(currentBetData.selection, currentBetData.type, currentBetData.odds, newStake);
+    }
+}
+
+function updateStakeDisplay(amount) {
+    document.querySelector('.stake-display').textContent = amount || '0';
+}
+
+// Update stake display on input change (will be initialized when modal opens)
+function initStakeInput() {
+    const stakeInput = document.getElementById('betAmount');
+    if (stakeInput) {
+        // Remove existing listener if any
+        stakeInput.removeEventListener('input', handleStakeInput);
+        stakeInput.addEventListener('input', handleStakeInput);
+    }
+}
+
+function handleStakeInput() {
+    const stake = parseFloat(this.value) || 0;
+    updateStakeDisplay(stake);
+    
+    // Update stake info below team names when stake changes
+    if (currentBetData) {
+        updateStakeInfo(currentBetData.selection, currentBetData.type, currentBetData.odds, stake);
+    }
+}
+
+// Store stake data for each runner row
+let stakeDataMap = {};
+
+// Get match ID from the page (we'll need to add a data attribute or use match.id if available)
+function getMatchId() {
+    // Try to get from a data attribute or URL
+    const matchHeader = document.querySelector('.match-header');
+    if (matchHeader && matchHeader.dataset.matchId) {
+        return matchHeader.dataset.matchId;
+    }
+    // Fallback: try to extract from URL
+    const pathParts = window.location.pathname.split('/');
+    const matchIdIndex = pathParts.indexOf('match') + 1;
+    return matchIdIndex > 0 ? pathParts[matchIdIndex] : null;
+}
+
+// Load persisted stake data from localStorage
+function loadStakeData() {
+    const matchId = getMatchId();
+    if (!matchId) return;
+    
+    const key = `match_${matchId}_stakes`;
+    const savedData = localStorage.getItem(key);
+    if (savedData) {
+        try {
+            stakeDataMap = JSON.parse(savedData);
+            // Restore display for all saved stakes
+            Object.keys(stakeDataMap).forEach(index => {
+                const data = stakeDataMap[index];
+                updateStakeDisplayFromData(parseInt(index), data);
+            });
+        } catch (e) {
+            console.error('Error loading stake data:', e);
+        }
+    }
+}
+
+// Save stake data to localStorage
+function saveStakeData() {
+    const matchId = getMatchId();
+    if (!matchId) return;
+    
+    const key = `match_${matchId}_stakes`;
+    localStorage.setItem(key, JSON.stringify(stakeDataMap));
+}
+
+// Update stake display from saved data
+function updateStakeDisplayFromData(rowIndex, data) {
+    const runnerRows = document.querySelectorAll('.runner-row[data-runner]');
+    if (rowIndex >= runnerRows.length) return;
+    
+    const row = runnerRows[rowIndex];
+    const stakeElement = row.querySelector('.stake-info');
+    if (!stakeElement) return;
+    
+    // Create the display text
+    const displayText = data.value > 0 ? `+${data.value}` : `${data.value}`;
+    stakeElement.textContent = displayText;
+    stakeElement.className = `stake-info ${data.type === 'lay' || data.type === 'yes' ? 'lay-stake' : 'back-stake'}`;
+    stakeElement.classList.remove('hidden');
+}
+
+function updateStakeInfo(selection, type, odds, stakeAmount = null) {
+    // Get stake amount from input if not provided
+    if (stakeAmount === null) {
+        const stakeInput = document.getElementById('betAmount');
+        stakeAmount = parseFloat(stakeInput ? stakeInput.value : 0) || 0;
+    }
+    
+    if (stakeAmount <= 0) {
+        return;
+    }
+    
+    // Find all runner rows
+    const runnerRows = document.querySelectorAll('.runner-row[data-runner]');
+    let selectedRow = null;
+    let otherRow = null;
+    let selectedIndex = -1;
+    let otherIndex = -1;
+    
+    runnerRows.forEach((row, index) => {
+        if (row.getAttribute('data-runner') === selection) {
+            selectedRow = row;
+            selectedIndex = index;
+        } else {
+            otherRow = row;
+            otherIndex = index;
+        }
+    });
+    
+    if (!selectedRow || !otherRow) return;
+    
+    // Get odds for both teams
+    const selectedLayOdds = parseFloat(selectedRow.getAttribute('data-lay-odds'));
+    const selectedBackOdds = parseFloat(selectedRow.getAttribute('data-back-odds'));
+    const otherLayOdds = parseFloat(otherRow.getAttribute('data-lay-odds'));
+    const otherBackOdds = parseFloat(otherRow.getAttribute('data-back-odds'));
+    
+    // Calculate stake display values based on type
+    if (type === 'lay' || type === 'yes') {
+        // For lay: show stake amount in red for selected team (what you receive/lose)
+        // For other team: show stake amount in green (profit if selected team loses)
+        const selectedStakeElement = selectedRow.querySelector('.stake-info');
+        const otherStakeElement = otherRow.querySelector('.stake-info');
+        
+        // Based on user example: lay at 1.95 with stake 100 shows "90" in red
+        // This appears to be: stake - (lay_odds - back_odds) * stake
+        // Or simplified: stake * (1 - (lay_odds - back_odds))
+        // For 1.90/1.95 with stake 100: 100 * (1 - 0.05) = 95... still not 90
+        
+        // Let me try: stake - (lay_odds - 1) * stake / 10 = 100 - 95/10 = 90.5 ≈ 90
+        // Or: stake * back_odds / lay_odds * 100 = 100 * 1.90 / 1.95 * 100 = 9743... no
+        
+        // Actually, maybe it's: stake * (back_odds - 1) = 100 * 0.90 = 90! That matches!
+        // So for lay, show: stake * (back_odds - 1) in red
+        let selectedValue = Math.round(stakeAmount * (selectedBackOdds - 1));
+        let otherValue = Math.round(stakeAmount);
+        
+        // If there are existing stakes, add/subtract accordingly
+        if (existingSelectedData) {
+            selectedValue = existingSelectedData.value + selectedValue;
+        }
+        if (existingOtherData) {
+            otherValue = existingOtherData.value + otherValue;
+        }
+        
+        if (selectedStakeElement) {
+            // Format: +value or -value as text
+            const displayText = selectedValue > 0 ? `+${selectedValue}` : `${selectedValue}`;
+            selectedStakeElement.textContent = displayText;
+            selectedStakeElement.className = 'stake-info lay-stake';
+            selectedStakeElement.classList.remove('hidden');
+            // Store/update stake data for this row (accumulate if exists)
+            const existingAmount = existingSelectedData ? existingSelectedData.stakeAmount : 0;
+            stakeDataMap[selectedIndex] = {
+                selection: selection,
+                type: type,
+                odds: odds,
+                stakeAmount: existingAmount + stakeAmount,
+                value: selectedValue
+            };
+        }
+        
+        if (otherStakeElement) {
+            // Format: +value or -value as text
+            const displayText = otherValue > 0 ? `+${otherValue}` : `${otherValue}`;
+            otherStakeElement.textContent = displayText;
+            otherStakeElement.className = 'stake-info back-stake';
+            otherStakeElement.classList.remove('hidden');
+            // Store/update stake data for this row (accumulate if exists)
+            const existingOtherAmount = existingOtherData ? existingOtherData.stakeAmount : 0;
+            stakeDataMap[otherIndex] = {
+                selection: otherRow.getAttribute('data-runner'),
+                type: 'back',
+                odds: otherBackOdds,
+                stakeAmount: existingOtherAmount + stakeAmount,
+                value: otherValue
+            };
+        }
+        
+        // Save to localStorage
+        saveStakeData();
+    } else if (type === 'back' || type === 'not') {
+        // For back: show profit (what you win) in green for selected team
+        // For other team: show stake amount in red (liability)
+        const selectedStakeElement = selectedRow.querySelector('.stake-info');
+        const otherStakeElement = otherRow.querySelector('.stake-info');
+        
+        // Profit for back: (odds - 1) * stake
+        let profit = Math.round((selectedBackOdds - 1) * stakeAmount);
+        let liability = Math.round(stakeAmount);
+        
+        // If there are existing stakes, add/subtract accordingly
+        if (existingSelectedData) {
+            profit = existingSelectedData.value + profit;
+        }
+        if (existingOtherData) {
+            liability = existingOtherData.value + liability;
+        }
+        
+        if (selectedStakeElement) {
+            // Format: +value or -value as text
+            const displayText = profit > 0 ? `+${profit}` : `${profit}`;
+            selectedStakeElement.textContent = displayText;
+            selectedStakeElement.className = 'stake-info back-stake';
+            selectedStakeElement.classList.remove('hidden');
+            // Store/update stake data for this row (accumulate if exists)
+            const existingAmount = existingSelectedData ? existingSelectedData.stakeAmount : 0;
+            stakeDataMap[selectedIndex] = {
+                selection: selection,
+                type: type,
+                odds: odds,
+                stakeAmount: existingAmount + stakeAmount,
+                value: profit
+            };
+        }
+        
+        if (otherStakeElement) {
+            // Format: +value or -value as text
+            const displayText = liability > 0 ? `+${liability}` : `${liability}`;
+            otherStakeElement.textContent = displayText;
+            otherStakeElement.className = 'stake-info lay-stake';
+            otherStakeElement.classList.remove('hidden');
+            // Store/update stake data for this row (accumulate if exists)
+            const existingOtherAmount = existingOtherData ? existingOtherData.stakeAmount : 0;
+            stakeDataMap[otherIndex] = {
+                selection: otherRow.getAttribute('data-runner'),
+                type: 'lay',
+                odds: otherLayOdds,
+                stakeAmount: existingOtherAmount + stakeAmount,
+                value: liability
+            };
+        }
+        
+        // Save to localStorage
+        saveStakeData();
+    }
+}
+
+function adjustStakeFromRow(rowIndex, change) {
+    event.stopPropagation();
+    const stakeData = stakeDataMap[rowIndex];
+    if (!stakeData) return;
+    
+    // Calculate new stake amount based on the stored data
+    const newStakeAmount = Math.max(100, stakeData.stakeAmount + change);
+    
+    // Update the stake info with new amount
+    updateStakeInfo(stakeData.selection, stakeData.type, stakeData.odds, newStakeAmount);
+    
+    // If modal is open, update the stake input
+    const modal = document.getElementById('betModal');
+    if (modal && modal.classList.contains('show')) {
+        const stakeInput = document.getElementById('betAmount');
+        if (stakeInput) {
+            stakeInput.value = newStakeAmount;
+            updateStakeDisplay(newStakeAmount);
+        }
+    }
+}
+
 function closeBetModal() {
-    document.getElementById('betModal').style.display = 'none';
+    const modal = document.getElementById('betModal');
+    modal.classList.remove('show');
+    modal.style.display = 'none';
     document.body.style.overflow = 'auto';
     currentBetData = null;
+    
+    // Keep stake info visible after modal closes - don't hide it
 }
 
 function submitBet() {
-    const amount = document.getElementById('betAmount').value;
+    const amountInput = document.getElementById('betAmount');
+    const amount = parseFloat(amountInput.value);
+    const odds = parseFloat(document.getElementById('betOdds').value);
     
-    if (!amount || parseFloat(amount) <= 0) {
-        alert('Please enter a valid amount');
+    if (!amount || amount < 100) {
+        alert('Please enter a valid amount (minimum ₹100)');
         return;
     }
     
     if (!currentBetData) {
-        alert('Bet data not found');
         return;
     }
     
-    // Here you can integrate with your betting API
+    // Update current bet data with latest odds
+    currentBetData.odds = odds;
+    
+    // Place bet directly - close modal without confirmation
     console.log('Placing bet:', {
         selection: currentBetData.selection,
         type: currentBetData.type,
-        odds: currentBetData.odds,
-        amount: parseFloat(amount)
+        odds: odds,
+        amount: amount
     });
     
-    // Example: You can make an AJAX call here
-    // fetch('/api/place-bet/', {
-    //     method: 'POST',
-    //     headers: {'Content-Type': 'application/json'},
-    //     body: JSON.stringify({
-    //         selection: currentBetData.selection,
-    //         type: currentBetData.type,
-    //         odds: currentBetData.odds,
-    //         amount: parseFloat(amount)
-    //     })
-    // })
-    
-    alert(`Bet placed: ${currentBetData.type.toUpperCase()} on ${currentBetData.selection} at odds ${currentBetData.odds} for ₹${amount}`);
+    // TODO: Integrate with backend API when ready
+    // For now, just close the modal
     closeBetModal();
 }
 
@@ -670,29 +1104,56 @@ document.addEventListener('keydown', function(e) {
         closeBetModal();
     }
 });
+
+// Load stake data when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadStakeData();
+});
 </script>
 
 <!-- Bet Modal -->
-<div id="betModal" class="bet-modal" style="display: none;">
+<div id="betModal" class="bet-modal">
     <div class="bet-modal-overlay" onclick="closeBetModal()"></div>
     <div class="bet-modal-content">
-        <div class="bet-modal-header">
-            <h3 id="betModalTitle">Place Bet</h3>
-            <button class="bet-modal-close" onclick="closeBetModal()">×</button>
+        <div class="bet-modal-header lay-header">
+            <h3 id="betModalTitle" class="bet-type-header">LAY</h3>
         </div>
         <div class="bet-modal-body">
-            <div class="bet-info">
-                <p><strong>Selection:</strong> <span id="betSelection"></span></p>
-                <p><strong>Type:</strong> <span id="betType"></span></p>
-                <p><strong>Odds:</strong> <span id="betOdds"></span></p>
+            <div class="bet-selection-info">
+                <div class="bet-team-name" id="betSelection"></div>
             </div>
-            <div class="bet-amount-input">
-                <label for="betAmount">Enter Amount (₹)</label>
-                <input type="number" id="betAmount" min="1" step="0.01" placeholder="Enter amount" autofocus>
+            
+            <div class="bet-input-section">
+                <div class="bet-input-row">
+                    <div class="bet-input-label">Odds</div>
+                    <div class="odds-control">
+                        <button class="odds-btn minus" onclick="adjustOdds(-0.01)">-</button>
+                        <input type="number" id="betOdds" step="0.01" min="1.01" value="1.01" class="odds-input" readonly>
+                        <button class="odds-btn plus" onclick="adjustOdds(0.01)">+</button>
+                    </div>
+                </div>
+                
+                <div class="bet-input-row">
+                    <div class="bet-input-label">Stake</div>
+                    <div class="stake-control">
+                        <input type="number" id="betAmount" min="100" step="100" placeholder="0" class="stake-input" autofocus>
+                        <span class="stake-display">0</span>
+                    </div>
+                </div>
             </div>
+            
+            <div class="quick-stake-buttons">
+                <button class="quick-stake-btn" onclick="addStake(1000)">+1000</button>
+                <button class="quick-stake-btn" onclick="addStake(5000)">+5000</button>
+                <button class="quick-stake-btn" onclick="addStake(10000)">+10000</button>
+                <button class="quick-stake-btn" onclick="addStake(25000)">+25000</button>
+                <button class="quick-stake-btn" onclick="addStake(50000)">+50000</button>
+                <button class="quick-stake-btn" onclick="addStake(100000)">+100000</button>
+            </div>
+            
             <div class="bet-modal-actions">
-                <button class="bet-submit-btn" onclick="submitBet()">Place Bet</button>
-                <button class="bet-cancel-btn" onclick="closeBetModal()">Cancel</button>
+                <button class="bet-cancel-btn" onclick="closeBetModal()">CANCEL</button>
+                <button class="bet-submit-btn" onclick="submitBet()">PLACE BET</button>
             </div>
         </div>
     </div>
@@ -701,13 +1162,17 @@ document.addEventListener('keydown', function(e) {
 <style>
     .bet-modal {
         position: fixed;
-        top: 0;
+        bottom: 0;
         left: 0;
+        right: 0;
         width: 100%;
         height: 100%;
         z-index: 10000;
-        display: flex;
-        align-items: center;
+        display: none;
+    }
+    .bet-modal.show {
+        display: flex !important;
+        align-items: flex-end;
         justify-content: center;
     }
     .bet-modal-overlay {
@@ -716,101 +1181,188 @@ document.addEventListener('keydown', function(e) {
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgba(0, 0, 0, 0.6);
         backdrop-filter: blur(4px);
+        z-index: 10000;
+        pointer-events: auto;
     }
     .bet-modal-content {
         position: relative;
         background: white;
-        border-radius: 12px;
-        width: 90%;
+        border-radius: 12px 12px 0 0;
+        width: 100%;
         max-width: 500px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
         z-index: 10001;
-        animation: slideUp 0.3s ease-out;
+        animation: slideUpFromBottom 0.3s ease-out;
+        max-height: 90vh;
+        overflow-y: auto;
     }
-    @keyframes slideUp {
+    @keyframes slideUpFromBottom {
         from {
-            transform: translateY(50px);
-            opacity: 0;
+            transform: translateY(100%);
         }
         to {
             transform: translateY(0);
-            opacity: 1;
         }
     }
     .bet-modal-header {
-        padding: 20px 24px;
+        padding: 16px 20px;
+        color: white;
+    }
+    .bet-modal-header.back-header {
+        background: #4299e1;
+    }
+    .bet-modal-header.lay-header {
+        background: #ec4899;
+    }
+    .bet-type-header {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+    .bet-input-label.back-label {
+        color: #4299e1;
+    }
+    .bet-input-label.lay-label {
+        color: #ec4899;
+    }
+    .odds-btn.back-btn {
+        border-color: #4299e1;
+        color: #4299e1;
+    }
+    .odds-btn.back-btn:hover {
+        background: #4299e1;
+        color: white;
+    }
+    .odds-btn.lay-btn {
+        border-color: #ec4899;
+        color: #ec4899;
+    }
+    .odds-btn.lay-btn:hover {
+        background: #ec4899;
+        color: white;
+    }
+    .quick-stake-btn.back-stake {
+        background: #4299e1;
+    }
+    .quick-stake-btn.back-stake:hover {
+        background: #3182ce;
+    }
+    .quick-stake-btn.lay-stake {
+        background: #ec4899;
+    }
+    .quick-stake-btn.lay-stake:hover {
+        background: #db2777;
+    }
+    .bet-modal-body {
+        padding: 20px;
+    }
+    .bet-selection-info {
+        margin-bottom: 20px;
+        padding-bottom: 16px;
         border-bottom: 1px solid #e2e8f0;
+    }
+    .bet-team-name {
+        font-size: 18px;
+        font-weight: 600;
+        color: #2d3748;
+    }
+    .bet-input-section {
+        margin-bottom: 20px;
+    }
+    .bet-input-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        margin-bottom: 16px;
     }
-    .bet-modal-header h3 {
-        margin: 0;
+    .bet-input-label {
+        font-weight: 600;
+        color: #ec4899;
+        font-size: 16px;
+        text-transform: uppercase;
+    }
+    .odds-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .odds-btn {
+        width: 36px;
+        height: 36px;
+        border: 2px solid #ec4899;
+        background: white;
+        color: #ec4899;
+        border-radius: 6px;
         font-size: 20px;
         font-weight: 700;
-        color: #2d3748;
-    }
-    .bet-modal-close {
-        background: none;
-        border: none;
-        font-size: 28px;
-        color: #718096;
         cursor: pointer;
-        padding: 0;
-        width: 32px;
-        height: 32px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 6px;
         transition: all 0.2s;
     }
-    .bet-modal-close:hover {
+    .odds-btn:hover {
+        background: #ec4899;
+        color: white;
+    }
+    .odds-input {
+        width: 80px;
+        padding: 8px 12px;
+        border: 2px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 600;
+        text-align: center;
         background: #f7fafc;
         color: #2d3748;
     }
-    .bet-modal-body {
-        padding: 24px;
+    .stake-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
-    .bet-info {
-        background: #f7fafc;
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 20px;
+    .stake-input {
+        width: 120px;
+        padding: 10px 12px;
+        border: 2px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 16px;
+        text-align: center;
+        transition: all 0.2s;
     }
-    .bet-info p {
-        margin: 8px 0;
-        color: #4a5568;
-        font-size: 15px;
+    .stake-input:focus {
+        outline: none;
+        border-color: #ec4899;
+        box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
     }
-    .bet-info strong {
-        color: #2d3748;
+    .stake-display {
+        font-size: 16px;
+        color: #718096;
+        min-width: 40px;
     }
-    .bet-amount-input {
+    .quick-stake-buttons {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
         margin-bottom: 24px;
     }
-    .bet-amount-input label {
-        display: block;
-        margin-bottom: 8px;
+    .quick-stake-btn {
+        padding: 12px 8px;
+        border: none;
+        border-radius: 6px;
+        background: #ec4899;
+        color: white;
         font-weight: 600;
-        color: #2d3748;
         font-size: 14px;
-    }
-    .bet-amount-input input {
-        width: 100%;
-        padding: 12px 16px;
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
-        font-size: 16px;
+        cursor: pointer;
         transition: all 0.2s;
-        box-sizing: border-box;
     }
-    .bet-amount-input input:focus {
-        outline: none;
-        border-color: #4299e1;
-        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    .quick-stake-btn:hover {
+        background: #db2777;
+        transform: translateY(-1px);
     }
     .bet-modal-actions {
         display: flex;
@@ -818,47 +1370,55 @@ document.addEventListener('keydown', function(e) {
     }
     .bet-submit-btn, .bet-cancel-btn {
         flex: 1;
-        padding: 14px 20px;
+        padding: 16px 20px;
         border: none;
         border-radius: 8px;
-        font-weight: 600;
-        font-size: 15px;
+        font-weight: 700;
+        font-size: 16px;
         cursor: pointer;
         transition: all 0.2s;
+        text-transform: uppercase;
     }
     .bet-submit-btn {
-        background: #4299e1;
+        background: #48bb78;
         color: white;
     }
     .bet-submit-btn:hover {
-        background: #3182ce;
+        background: #38a169;
         transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(66, 153, 225, 0.3);
+        box-shadow: 0 4px 8px rgba(72, 187, 120, 0.3);
     }
     .bet-cancel-btn {
-        background: #e2e8f0;
-        color: #4a5568;
+        background: #f56565;
+        color: white;
     }
     .bet-cancel-btn:hover {
-        background: #cbd5e0;
+        background: #e53e3e;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(245, 101, 101, 0.3);
     }
     
     @media (max-width: 480px) {
         .bet-modal-content {
-            width: 95%;
-            margin: 20px;
+            max-height: 95vh;
         }
         .bet-modal-header {
-            padding: 16px 20px;
+            padding: 14px 16px;
         }
         .bet-modal-body {
-            padding: 20px;
+            padding: 16px;
         }
-        .bet-modal-actions {
-            flex-direction: column;
+        .quick-stake-buttons {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+        .quick-stake-btn {
+            padding: 10px 6px;
+            font-size: 12px;
         }
         .bet-submit-btn, .bet-cancel-btn {
-            width: 100%;
+            padding: 14px 16px;
+            font-size: 14px;
         }
     }
 </style>
