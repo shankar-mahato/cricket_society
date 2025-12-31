@@ -118,7 +118,7 @@
     }
     .runner-row {
         display: grid;
-        grid-template-columns: 2fr 1fr 2fr;
+        grid-template-columns: 2fr 1fr 1fr;
         gap: 8px;
         padding: 12px 0;
         border-bottom: 1px solid #e2e8f0;
@@ -155,6 +155,13 @@
         display: flex;
         flex-direction: column;
         gap: 4px;
+        justify-content: center;
+        align-items: center;
+        padding: 8px;
+        transition: opacity 0.2s;
+    }
+    .odds-cell:hover {
+        opacity: 0.8;
     }
     .odds-value {
         font-size: 18px;
@@ -226,7 +233,7 @@
         cursor: not-allowed;
     }
     .header-row {
-        grid-template-columns: 2fr 1fr 2fr !important;
+        grid-template-columns: 2fr 1fr 1fr !important;
         margin-bottom: 8px;
         padding: 8px 0;
         border-bottom: 2px solid #e2e8f0;
@@ -246,7 +253,7 @@
     }
     .session-detail-row {
         display: grid;
-        grid-template-columns: 2fr 1fr 2fr;
+        grid-template-columns: 2fr 1fr 1fr;
         gap: 8px;
         padding: 12px 0;
         border-bottom: 1px solid #e2e8f0;
@@ -360,7 +367,7 @@
             padding: 20px;
         }
         .runner-row {
-            grid-template-columns: 2fr 1fr 2fr;
+            grid-template-columns: 2fr 1fr 1fr;
             gap: 8px;
             padding: 12px 0;
         }
@@ -400,7 +407,7 @@
             font-size: 13px;
         }
         .session-detail-row {
-            grid-template-columns: 2fr 1fr 2fr;
+            grid-template-columns: 2fr 1fr 1fr;
             gap: 8px;
             padding: 12px 0;
         }
@@ -433,11 +440,11 @@
             padding: 16px;
         }
         .runner-row {
-            grid-template-columns: 2fr 1fr 2fr;
+            grid-template-columns: 2fr 1fr 1fr;
             padding: 10px 0;
         }
         .session-detail-row {
-            grid-template-columns: 2fr 1fr 2fr;
+            grid-template-columns: 2fr 1fr 1fr;
             padding: 10px 0;
         }
         .odds-value {
@@ -508,8 +515,8 @@
                     <div class="market-title">Runner</div>
                     <div class="runner-row header-row">
                         <div>TEAM</div>
-                        <div style="text-align: center;">ODDS</div>
-                        <div style="text-align: center;">ACTION</div>
+                        <div style="text-align: center;">BACK</div>
+                        <div style="text-align: center;">LAY</div>
                     </div>
                     {% for odds in match_odds %}
                     <div class="runner-row" data-runner="{{ odds.runner }}" data-back-odds="{{ odds.back_odds }}" data-lay-odds="{{ odds.lay_odds }}">
@@ -517,14 +524,11 @@
                             {{ odds.runner }}
                             <span class="stake-info hidden" id="stake-{{ forloop.counter0 }}"></span>
                         </div>
-                        <div class="odds-cell">
-                            <div class="odds-value">
-                                <span class="odds-back">{{ odds.back_odds }}</span> / <span class="odds-lay">{{ odds.lay_odds }}</span>
-                            </div>
+                        <div class="odds-cell" style="text-align: center; cursor: pointer;" onclick="event.stopPropagation(); placeBet('{{ odds.runner }}', 'back', '{{ odds.back_odds }}');">
+                            <span class="odds-back">{{ odds.back_odds }}</span>
                         </div>
-                        <div class="bet-buttons">
-                            <button class="bet-btn back" onclick="event.stopPropagation(); placeBet('{{ odds.runner }}', 'back', '{{ odds.back_odds }}');">Back</button>
-                            <button class="bet-btn lay" onclick="event.stopPropagation(); placeBet('{{ odds.runner }}', 'lay', '{{ odds.lay_odds }}');">Lay</button>
+                        <div class="odds-cell" style="text-align: center; cursor: pointer;" onclick="event.stopPropagation(); placeBet('{{ odds.runner }}', 'lay', '{{ odds.lay_odds }}');">
+                            <span class="odds-lay">{{ odds.lay_odds }}</span>
                         </div>
                     </div>
                     {% endfor %}
@@ -535,20 +539,17 @@
                     <div class="market-title">Session Details</div>
                     <div class="session-detail-row header-row">
                         <div>SESSION</div>
-                        <div style="text-align: center;">ODDS</div>
-                        <div style="text-align: center;">ACTION</div>
+                        <div style="text-align: center;">BACK</div>
+                        <div style="text-align: center;">LAY</div>
                     </div>
                     {% for detail in session_details %}
                     <div class="session-detail-row">
                         <div class="session-detail-label">{{ detail.label }}</div>
-                        <div class="odds-cell">
-                            <div class="odds-value">
-                                <span class="odds-back">{{ detail.not }}</span> / <span class="odds-lay">{{ detail.yes }}</span>
-                            </div>
+                        <div class="odds-cell" style="text-align: center; cursor: pointer;" onclick="event.stopPropagation(); placeBet('{{ detail.label }}', 'not', '{{ detail.not }}');">
+                            <span class="odds-back">{{ detail.not }}</span>
                         </div>
-                        <div class="bet-buttons">
-                            <button class="bet-btn back" onclick="event.stopPropagation(); placeBet('{{ detail.label }}', 'not', '{{ detail.not }}');">Not</button>
-                            <button class="bet-btn lay" onclick="event.stopPropagation(); placeBet('{{ detail.label }}', 'yes', '{{ detail.yes }}');">Yes</button>
+                        <div class="odds-cell" style="text-align: center; cursor: pointer;" onclick="event.stopPropagation(); placeBet('{{ detail.label }}', 'yes', '{{ detail.yes }}');">
+                            <span class="odds-lay">{{ detail.yes }}</span>
                         </div>
                     </div>
                     {% endfor %}
