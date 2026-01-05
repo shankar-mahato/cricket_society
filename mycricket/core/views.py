@@ -118,12 +118,36 @@ def match_detail(request, match_id):
         better_b=F('better_a')  # better_b is placeholder (same as better_a)
     ).exclude(better_a=request.user)
     
+    # Match Odds Data (Runner - teams with back/lay odds)
+    # For now, we'll use placeholder data structure (same as DL view)
+    match_odds = [
+        {
+            'runner': match.team_a.name,
+            'back_odds': '1.85',  # Placeholder
+            'lay_odds': '1.90',   # Placeholder
+        },
+        {
+            'runner': match.team_b.name,
+            'back_odds': '1.95',  # Placeholder
+            'lay_odds': '2.00',   # Placeholder
+        },
+    ]
+    
+    # Session Details (like "20 overs runs adv" etc)
+    session_details = [
+        {'label': '20 Overs Runs Adv', 'not': '1.85', 'yes': '1.95'},
+        {'label': 'Total Runs Over', 'not': '1.80', 'yes': '2.00'},
+        {'label': 'Total Runs Under', 'not': '1.90', 'yes': '1.85'},
+    ]
+    
     context = {
         'match': match,
         'team_a_players': team_a_players,
         'team_b_players': team_b_players,
         'existing_session': existing_session,
         'available_sessions': available_sessions,
+        'match_odds': match_odds,
+        'session_details': session_details,
     }
     return render(request, 'core/match_detail.html', context)
 
