@@ -674,3 +674,54 @@ class Bet(models.Model):
         if self.total_payout < threshold_payout:
             return True
         return False
+
+
+class MatchBet(models.Model):
+    """Direct bet placed on match odds (for DL match detail page)"""
+    BET_TYPE_CHOICES = [
+        ('back', 'Back'),
+        ('lay', 'Lay'),
+        ('not', 'Not'),
+        ('yes', 'Yes'),
+    ]
+    
+    match = models.ForeignKey(Match, on_delete=models.CASCADE, related_name='match_bets')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='match_bets')
+    selection = models.CharField(max_length=200, help_text="Team name or session label")
+    bet_type = models.CharField(max_length=10, choices=BET_TYPE_CHOICES)
+    odds = models.DecimalField(max_digits=6, decimal_places=2, validators=[MinValueValidator(Decimal('1.01'))])
+    stake = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['match', 'selection', 'bet_type']),
+            models.Index(fields=['user', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.bet_type.upper()} {self.selection} @ {self.odds} - ₹{self.stake}"
+
+
+class MatchBetBalance(models.Model):
+    """Track running balance/profit for each team/user combination in a match"""
+    match = models.ForeignKey(Match, on_delete=models.CASCADE, related_name='bet_balances')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bet_balances')
+    selection = models.CharField(max_length=200, help_text="Team name or session label")
+    balance = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'), 
+                                  help_text="Running balance/profit for this selection")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['match', 'user', 'selection']
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['match', 'user']),
+            models.Index(fields=['match', 'selection']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.selection}: ₹{self.balance}"

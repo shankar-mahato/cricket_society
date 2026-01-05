@@ -8,7 +8,7 @@ from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 
-from core.models import Team, Player, Match, Wallet, PlayerMatchStats
+from core.models import Team, Player, Match, Wallet, PlayerMatchStats, MatchBet, MatchBetBalance
 
 
 class Command(BaseCommand):
@@ -24,6 +24,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if options['clear']:
             self.stdout.write(self.style.WARNING('Clearing existing data...'))
+            MatchBetBalance.objects.all().delete()
+            MatchBet.objects.all().delete()
             Match.objects.all().delete()
             Player.objects.all().delete()
             Team.objects.all().delete()
@@ -330,6 +332,71 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f'Created {users_created} users and {wallets_created} wallets.'))
 
+        # Create MatchBet test data
+        self.stdout.write(self.style.SUCCESS('\nCreating MatchBet test data...'))
+        matches = Match.objects.all()[:5]  # Use first 5 matches
+        test_users = User.objects.filter(username__in=['player1', 'player2', 'betuser1', 'betuser2'])
+        
+        bets_created = 0
+        for match in matches:
+            if not test_users.exists():
+                break
+            
+            # Create bets for different users
+            for i, user in enumerate(test_users[:2]):  # Use first 2 users per match
+                # Get teams for this match
+                team_a = match.team_a.name
+                team_b = match.team_b.name
+                
+                # Create BACK bet on team_a
+                bet1 = MatchBet.objects.create(
+                    match=match,
+                    user=user,
+                    selection=team_a,
+                    bet_type='back',
+                    odds=Decimal('1.85') + Decimal(str(i * 0.1)),
+                    stake=Decimal('100.00') * (i + 1)
+                )
+                bets_created += 1
+                
+                # Create LAY bet on team_b
+                bet2 = MatchBet.objects.create(
+                    match=match,
+                    user=user,
+                    selection=team_b,
+                    bet_type='lay',
+                    odds=Decimal('1.95') + Decimal(str(i * 0.1)),
+                    stake=Decimal('150.00') * (i + 1)
+                )
+                bets_created += 1
+                
+                # Calculate and update balances
+                # BACK bet: profit = stake * (odds - 1), selection gets +profit, other gets -stake
+                back_profit = bet1.stake * (bet1.odds - Decimal('1.0'))
+                balance_a, _ = MatchBetBalance.objects.get_or_create(
+                    match=match, user=user, selection=team_a,
+                    defaults={'balance': Decimal('0.00')}
+                )
+                balance_a.balance += back_profit
+                balance_a.save()
+                
+                balance_b, _ = MatchBetBalance.objects.get_or_create(
+                    match=match, user=user, selection=team_b,
+                    defaults={'balance': Decimal('0.00')}
+                )
+                balance_b.balance -= bet1.stake
+                balance_b.save()
+                
+                # LAY bet: liability = stake * (odds - 1), selection gets -liability, other gets +stake
+                lay_liability = bet2.stake * (bet2.odds - Decimal('1.0'))
+                balance_b.balance -= lay_liability
+                balance_b.save()
+                
+                balance_a.balance += bet2.stake
+                balance_a.save()
+        
+        self.stdout.write(self.style.SUCCESS(f'Created {bets_created} MatchBet test records.'))
+
         # Summary
         self.stdout.write(self.style.SUCCESS('\n' + '='*50))
         self.stdout.write(self.style.SUCCESS('Test data populated successfully!'))
@@ -341,12 +408,16 @@ class Command(BaseCommand):
         total_users = User.objects.filter(is_superuser=False).count()
         total_wallets = Wallet.objects.count()
         total_stats = PlayerMatchStats.objects.count()
+        total_match_bets = MatchBet.objects.count()
+        total_match_bet_balances = MatchBetBalance.objects.count()
         
         self.stdout.write(self.style.SUCCESS('\nDatabase Summary:'))
         self.stdout.write(self.style.SUCCESS(f'  Teams: {total_teams}'))
         self.stdout.write(self.style.SUCCESS(f'  Players: {total_players}'))
         self.stdout.write(self.style.SUCCESS(f'  Matches: {total_matches}'))
         self.stdout.write(self.style.SUCCESS(f'  Users: {total_users}'))
+        self.stdout.write(self.style.SUCCESS(f'  Match Bets: {total_match_bets}'))
+        self.stdout.write(self.style.SUCCESS(f'  Match Bet Balances: {total_match_bet_balances}'))
         self.stdout.write(self.style.SUCCESS(f'  Wallets: {total_wallets}'))
         self.stdout.write(self.style.SUCCESS(f'  Player Match Stats: {total_stats}'))
         

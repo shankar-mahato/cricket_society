@@ -152,6 +152,25 @@
     .stake-info.hidden {
         display: none;
     }
+    .balance-display {
+        font-size: 14px;
+        font-weight: 700;
+        margin-top: 4px;
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    .balance-display.balance-positive {
+        color: #48bb78;
+        background: #c6f6d5;
+    }
+    .balance-display.balance-negative {
+        color: #f56565;
+        background: #fed7d7;
+    }
+    .balance-display.hidden {
+        display: none;
+    }
     .odds-cell-wrapper {
         position: relative;
     }
@@ -1058,6 +1077,11 @@ function toggleBetDropdown(element) {
             }
         });
         
+        // Set data attributes on dropdown for submitBetDropdown to use
+        dropdown.setAttribute('data-selection', selection);
+        dropdown.setAttribute('data-type', type);
+        dropdown.setAttribute('data-odds', odds);
+        
         // Show dropdown
         dropdown.classList.add('show');
         dropdown.style.display = 'flex';
@@ -1573,25 +1597,110 @@ function submitBetDropdown(button) {
     const odds = parseFloat(oddsInput.value);
     
     if (!amount || amount < 100) {
-        alert('Please enter a valid amount (minimum ₹100)');
+        // Validation failed - silently return (user can see the error from input field)
         return;
     }
     
-    // Place bet
-    console.log('Placing bet:', {
-        selection: selection,
-        type: type,
-        odds: odds,
-        amount: amount
+    // Get match ID from the page
+    const matchId = {{ match.id }};
+    
+    // Place bet via API
+    fetch(`/dl/match/${matchId}/place-bet/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            selection: selection,
+            bet_type: type,
+            odds: odds,
+            stake: amount
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update balances
+            if (data.balances) {
+                updateBalances(data.balances);
+            }
+            
+            // Close the dropdown
+            closeBetDropdown(dropdown);
+            
+            // Clear input
+            stakeInput.value = '';
+            const stakeDisplay = dropdown.querySelector('.stake-display-dropdown');
+            if (stakeDisplay) stakeDisplay.textContent = '0';
+            
+            // Reload the page to refresh the bets table
+            window.location.reload();
+        } else {
+            // Error occurred - log to console but don't show alert
+            console.error('Error placing bet:', data.error || 'Failed to place bet');
+        }
+    })
+    .catch(error => {
+        console.error('Error placing bet:', error);
+        // Don't show alert on error
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function updateBalances(balances) {
+    // Update balances for each selection
+    Object.keys(balances).forEach(selection => {
+        const balance = balances[selection];
+        updateBalanceDisplay(selection, balance);
+    });
+}
+
+function updateBalanceDisplay(selection, balance) {
+    // Find the runner row that matches the selection
+    const runnerRows = document.querySelectorAll('.runner-row[data-runner]');
+    let targetRow = null;
+    
+    runnerRows.forEach((row) => {
+        if (row.getAttribute('data-runner') === selection) {
+            targetRow = row;
+        }
     });
     
-    // Display bet info below team name
-    displayBetInfo(selection, type, odds, amount);
+    if (!targetRow) return;
     
-    // Close the dropdown after a short delay to show the bet info
-    setTimeout(() => {
-        closeBetDropdown(dropdown);
-    }, 100);
+    // Find or create balance display element
+    let balanceDisplay = targetRow.querySelector('.balance-display');
+    
+    if (!balanceDisplay) {
+        const runnerName = targetRow.querySelector('.runner-name');
+        if (runnerName) {
+            balanceDisplay = document.createElement('div');
+            balanceDisplay.className = 'balance-display';
+            runnerName.appendChild(balanceDisplay);
+        }
+    }
+    
+    if (balanceDisplay) {
+        const formattedBalance = balance >= 0 ? `+${balance.toFixed(0)}` : `${balance.toFixed(0)}`;
+        balanceDisplay.textContent = formattedBalance;
+        balanceDisplay.className = 'balance-display ' + (balance >= 0 ? 'balance-positive' : 'balance-negative');
+        balanceDisplay.classList.remove('hidden');
+    }
 }
 
 function displayBetInfo(selection, type, odds, amount) {

@@ -17,7 +17,8 @@ import json
 
 from .models import (
     Match, Team, Player, Wallet, BettingSession, PickedPlayer, Bet,
-    Transaction, PlayerMatchStats, SessionInvite, DLWallet, DLTransaction, DepositRequest
+    Transaction, PlayerMatchStats, SessionInvite, DLWallet, DLTransaction, DepositRequest,
+    MatchBet, MatchBetBalance
 )
 from .services import cricket_api, entitysport_api
 
@@ -2838,6 +2839,49 @@ def dl_match_detail(request, match_id):
                 })
                 session_counter += 1
     
+    # Get MatchBet data
+    from .models import MatchBet, MatchBetBalance
+    existing_match_bets = MatchBet.objects.filter(match=match).select_related('user').order_by('-created_at')
+    
+    # Get balances for current user
+    user_balances = {}
+    if request.user.is_authenticated:
+        balances = MatchBetBalance.objects.filter(match=match, user=request.user)
+        for balance in balances:
+            user_balances[balance.selection] = float(balance.balance)
+    
+    # Organize bets by selection and bet_type for easy lookup (as JSON for JavaScript)
+    bets_by_selection = {}
+    for bet in existing_match_bets:
+        key = f"{bet.selection}_{bet.bet_type}"
+        if key not in bets_by_selection:
+            bets_by_selection[key] = []
+        bets_by_selection[key].append({
+            'user': bet.user.username,
+            'odds': str(bet.odds),
+            'stake': str(bet.stake),
+            'created_at': bet.created_at.strftime('%Y-%m-%d %H:%M'),
+        })
+    
+    # Convert to JSON for JavaScript
+    bets_by_selection_json = json.dumps(bets_by_selection)
+    user_balances_json = json.dumps(user_balances)
+    
+    # Update match_bets table to include MatchBet data
+    match_bet_counter = len(match_bets) + 1
+    for bet in existing_match_bets:
+        if bet.user_id in end_user_ids or bet.user == request.user:
+            match_bets.append({
+                'sr': match_bet_counter,
+                'user': bet.user.username,
+                'odds': str(bet.odds),
+                'stake': bet.stake,
+                'bettype': bet.bet_type.upper(),
+                'team': bet.selection,
+                'data': bet.created_at.strftime('%Y-%m-%d %H:%M'),
+            })
+            match_bet_counter += 1
+    
     context = {
         'match': match,
         'match_odds': match_odds,
@@ -2846,5 +2890,144 @@ def dl_match_detail(request, match_id):
         'match_bets': match_bets,
         'session_data': session_data,
         'sessions_count': sessions.count(),
+        'bets_by_selection_json': bets_by_selection_json,
+        'user_balances_json': user_balances_json,
+        'match_id': match_id,
     }
     return render(request, 'core/dl/match_detail.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def dl_place_match_bet(request, match_id):
+    """API endpoint to place a match bet from the dropdown"""
+    match = get_object_or_404(Match, id=match_id)
+    
+    # Check if user is DL or end user
+    if hasattr(request.user, 'profile') and request.user.profile.user_type == 'dl':
+        user = request.user
+    else:
+        # End users - check if they belong to a DL
+        if not hasattr(request.user, 'profile') or not request.user.profile.dl_user:
+            return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+        user = request.user
+    
+    try:
+        from .models import MatchBet, MatchBetBalance
+        from django.db.models import F
+        
+        data = json.loads(request.body)
+        selection = data.get('selection', '').strip()
+        bet_type = data.get('bet_type', '').strip().lower()
+        odds = Decimal(str(data.get('odds', 0)))
+        stake = Decimal(str(data.get('stake', 0)))
+        
+        # Validation
+        if not selection:
+            return JsonResponse({'success': False, 'error': 'Selection is required'})
+        
+        if bet_type not in ['back', 'lay', 'not', 'yes']:
+            return JsonResponse({'success': False, 'error': 'Invalid bet type'})
+        
+        if odds < Decimal('1.01'):
+            return JsonResponse({'success': False, 'error': 'Invalid odds'})
+        
+        if stake < Decimal('0.01'):
+            return JsonResponse({'success': False, 'error': 'Invalid stake amount'})
+        
+        # Check wallet balance (for end users)
+        if hasattr(user, 'wallet'):
+            if user.wallet.balance < stake:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Insufficient balance. Required: ₹{stake}, Your balance: ₹{user.wallet.balance}'
+                })
+            
+            # Deduct from wallet
+            user.wallet.withdraw(stake)
+            Transaction.objects.create(
+                user=user,
+                transaction_type='bet_placed',
+                amount=stake,
+                balance_after=user.wallet.balance,
+                description=f'Match bet: {bet_type.upper()} {selection} @ {odds}'
+            )
+        
+        # Calculate balance changes
+        # For LAY: liability = stake * (odds - 1), selection gets -liability, other gets +stake
+        # For BACK: profit = stake * (odds - 1), selection gets +profit, other gets -stake
+        
+        # Get all teams/selections for this match
+        all_selections = [match.team_a.name, match.team_b.name]
+        if selection not in all_selections:
+            # Session bet, handle differently
+            other_selection = None
+        else:
+            other_selection = all_selections[1] if selection == all_selections[0] else all_selections[0]
+        
+        # Calculate balance changes
+        if bet_type == 'lay':
+            liability = stake * (odds - Decimal('1.0'))
+            selection_change = -liability
+            other_change = stake if other_selection else Decimal('0.00')
+        else:  # back, not, yes
+            profit = stake * (odds - Decimal('1.0'))
+            selection_change = profit
+            other_change = -stake if other_selection else Decimal('0.00')
+        
+        # Create the bet
+        match_bet = MatchBet.objects.create(
+            match=match,
+            user=user,
+            selection=selection,
+            bet_type=bet_type,
+            odds=odds,
+            stake=stake
+        )
+        
+        # Update balances - fetch, update, and save (atomic operation)
+        # For selection
+        balance_obj, created = MatchBetBalance.objects.get_or_create(
+            match=match,
+            user=user,
+            selection=selection,
+            defaults={'balance': Decimal('0.00')}
+        )
+        balance_obj.balance += selection_change
+        balance_obj.save()
+        selection_balance = balance_obj.balance
+        
+        # For other selection (if team bet)
+        other_balance_obj = None
+        other_balance_value = None
+        if other_selection:
+            other_balance_obj, created = MatchBetBalance.objects.get_or_create(
+                match=match,
+                user=user,
+                selection=other_selection,
+                defaults={'balance': Decimal('0.00')}
+            )
+            other_balance_obj.balance += other_change
+            other_balance_obj.save()
+            other_balance_value = other_balance_obj.balance
+        
+        # Prepare response balances
+        response_balances = {
+            selection: float(selection_balance)
+        }
+        if other_selection and other_balance_value is not None:
+            response_balances[other_selection] = float(other_balance_value)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Bet placed: {bet_type.upper()} {selection} @ {odds} - ₹{stake}',
+            'bet_id': match_bet.id,
+            'balances': response_balances
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Team, Player, Match, PlayerMatchStats, Wallet, Transaction,
-    BettingSession, PickedPlayer, Bet
+    BettingSession, PickedPlayer, Bet, MatchBet, MatchBetBalance
 )
 
 
@@ -83,3 +83,23 @@ class BetAdmin(admin.ModelAdmin):
     list_filter = ['is_settled', 'insurance_claimed', 'created_at']
     raw_id_fields = ['session', 'better', 'picked_player']
     readonly_fields = ['created_at', 'updated_at']
+
+
+@admin.register(MatchBet)
+class MatchBetAdmin(admin.ModelAdmin):
+    list_display = ['id', 'match', 'user', 'selection', 'bet_type', 'odds', 'stake', 'created_at']
+    search_fields = ['user__username', 'selection', 'match__match_title']
+    list_filter = ['bet_type', 'created_at', 'match']
+    raw_id_fields = ['match', 'user']
+    readonly_fields = ['created_at', 'updated_at']
+    ordering = ['-created_at']
+
+
+@admin.register(MatchBetBalance)
+class MatchBetBalanceAdmin(admin.ModelAdmin):
+    list_display = ['id', 'match', 'user', 'selection', 'balance', 'updated_at']
+    search_fields = ['user__username', 'selection', 'match__match_title']
+    list_filter = ['match', 'updated_at']
+    raw_id_fields = ['match', 'user']
+    readonly_fields = ['created_at', 'updated_at']
+    ordering = ['-updated_at']
