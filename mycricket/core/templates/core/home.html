@@ -20,131 +20,148 @@
 </div>
 {% endif %}
 
-<!-- In Play Matches Section -->
-{% if live_matches %}
-<div class="card">
-    <div class="card-header">
-        <h2 style="margin: 0;">🔥 In Play Matches</h2>
-    </div>
-    <div class="match-list-container">
-        {% for match in live_matches %}
-            <div class="match-card-item">
-                <!-- Teams Section -->
-                <div class="match-teams-section">
-                    <!-- Team A -->
-                    <div class="team-section team-a">
-                        {% if match.team_a.logo %}
-                            <img src="{{ match.team_a.logo.url }}" alt="{{ match.team_a.name }}" class="team-logo-img">
-                        {% elif match.team_a.logo_url %}
-                            <img src="{{ match.team_a.logo_url }}" alt="{{ match.team_a.name }}" class="team-logo-img">
-                        {% else %}
-                            <div class="team-logo-placeholder team-a-placeholder">
-                                {{ match.team_a.name|first|upper }}
-                            </div>
-                        {% endif %}
-                        <div class="team-name">{{ match.team_a.name }}</div>
-                    </div>
-                    
-                    <!-- VS Divider -->
-                    <div class="vs-divider">
-                        <span>VS</span>
-                    </div>
-                    
-                    <!-- Team B -->
-                    <div class="team-section team-b">
-                        {% if match.team_b.logo %}
-                            <img src="{{ match.team_b.logo.url }}" alt="{{ match.team_b.name }}" class="team-logo-img">
-                        {% elif match.team_b.logo_url %}
-                            <img src="{{ match.team_b.logo_url }}" alt="{{ match.team_b.name }}" class="team-logo-img">
-                        {% else %}
-                            <div class="team-logo-placeholder team-b-placeholder">
-                                {{ match.team_b.name|first|upper }}
-                            </div>
-                        {% endif %}
-                        <div class="team-name">{{ match.team_b.name }}</div>
-                    </div>
-                </div>
-                
-                <!-- Info and Action Section -->
-                <div class="match-info-section">
-                    <div class="venue-info">
-                        <span class="venue-icon">📍</span>
-                        <span class="venue-text">{{ match.venue }}</span>
-                    </div>
-                    <div class="match-actions">
-                        <span class="live-badge">● Live</span>
-                        <a href="{% url 'core:match_detail' match.id %}" class="view-match-btn">View Match</a>
-                    </div>
-                </div>
+<!-- Matches Accordion Section -->
+<div class="matches-accordion-container">
+    <!-- In Play Matches Accordion -->
+    {% if live_matches %}
+    <div class="accordion-item accordion-live">
+        <div class="accordion-header accordion-header-live" onclick="toggleAccordion('inplay-matches')">
+            <div class="accordion-title">
+                <span class="accordion-icon-live">🔥</span>
+                <span>In Play Matches</span>
+                <span class="match-count-badge">{{ live_matches.count }}</span>
             </div>
-        {% endfor %}
+            <span class="accordion-arrow" id="arrow-inplay-matches">▼</span>
+        </div>
+        <div id="inplay-matches" class="accordion-content show">
+            <div class="match-list-container">
+                {% for match in live_matches %}
+                    <div class="match-card-item">
+                        <!-- Teams Section -->
+                        <div class="match-teams-section">
+                            <!-- Team A -->
+                            <div class="team-section team-a">
+                                {% if match.team_a.logo %}
+                                    <img src="{{ match.team_a.logo.url }}" alt="{{ match.team_a.name }}" class="team-logo-img">
+                                {% elif match.team_a.logo_url %}
+                                    <img src="{{ match.team_a.logo_url }}" alt="{{ match.team_a.name }}" class="team-logo-img">
+                                {% else %}
+                                    <div class="team-logo-placeholder team-a-placeholder">
+                                        {{ match.team_a.name|first|upper }}
+                                    </div>
+                                {% endif %}
+                                <div class="team-name">{{ match.team_a.name }}</div>
+                            </div>
+                            
+                            <!-- VS Divider -->
+                            <div class="vs-divider">
+                                <span>VS</span>
+                            </div>
+                            
+                            <!-- Team B -->
+                            <div class="team-section team-b">
+                                {% if match.team_b.logo %}
+                                    <img src="{{ match.team_b.logo.url }}" alt="{{ match.team_b.name }}" class="team-logo-img">
+                                {% elif match.team_b.logo_url %}
+                                    <img src="{{ match.team_b.logo_url }}" alt="{{ match.team_b.name }}" class="team-logo-img">
+                                {% else %}
+                                    <div class="team-logo-placeholder team-b-placeholder">
+                                        {{ match.team_b.name|first|upper }}
+                                    </div>
+                                {% endif %}
+                                <div class="team-name">{{ match.team_b.name }}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Info and Action Section -->
+                        <div class="match-info-section">
+                            <div class="venue-info">
+                                <span class="venue-icon">📍</span>
+                                <span class="venue-text">{{ match.venue }}</span>
+                            </div>
+                            <div class="match-actions">
+                                <span class="live-badge">● Live</span>
+                                <a href="{% url 'core:match_detail' match.id %}" class="view-match-btn">View Match</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
-</div>
-{% endif %}
+    {% endif %}
 
-<!-- Upcoming Matches Section -->
-{% if upcoming_matches %}
-<div class="card">
-    <div class="card-header">
-        <h2 style="margin: 0;">📅 Upcoming Matches</h2>
-    </div>
-    <div class="match-list-container">
-        {% for match in upcoming_matches %}
-            <div class="match-card-item match-upcoming">
-                <!-- Teams Section -->
-                <div class="match-teams-section">
-                    <!-- Team A -->
-                    <div class="team-section team-a">
-                        {% if match.team_a.logo %}
-                            <img src="{{ match.team_a.logo.url }}" alt="{{ match.team_a.name }}" class="team-logo-img">
-                        {% elif match.team_a.logo_url %}
-                            <img src="{{ match.team_a.logo_url }}" alt="{{ match.team_a.name }}" class="team-logo-img">
-                        {% else %}
-                            <div class="team-logo-placeholder team-a-placeholder">
-                                {{ match.team_a.name|first|upper }}
-                            </div>
-                        {% endif %}
-                        <div class="team-name">{{ match.team_a.name }}</div>
-                    </div>
-                    
-                    <!-- VS Divider -->
-                    <div class="vs-divider">
-                        <span>VS</span>
-                    </div>
-                    
-                    <!-- Team B -->
-                    <div class="team-section team-b">
-                        {% if match.team_b.logo %}
-                            <img src="{{ match.team_b.logo.url }}" alt="{{ match.team_b.name }}" class="team-logo-img">
-                        {% elif match.team_b.logo_url %}
-                            <img src="{{ match.team_b.logo_url }}" alt="{{ match.team_b.name }}" class="team-logo-img">
-                        {% else %}
-                            <div class="team-logo-placeholder team-b-placeholder">
-                                {{ match.team_b.name|first|upper }}
-                            </div>
-                        {% endif %}
-                        <div class="team-name">{{ match.team_b.name }}</div>
-                    </div>
-                </div>
-                
-                <!-- Info and Action Section -->
-                <div class="match-info-section">
-                    <div class="venue-info">
-                        <span class="venue-icon">📍</span>
-                        <span class="venue-text">{{ match.venue }}</span>
-                        <span class="venue-separator">•</span>
-                        <span class="venue-date">📅 {{ match.match_date|date:"M d, Y H:i" }}</span>
-                    </div>
-                    <div class="match-actions">
-                        <span class="upcoming-badge">Upcoming</span>
-                        <a href="{% url 'core:match_detail' match.id %}" class="view-match-btn">View Match</a>
-                    </div>
-                </div>
+    <!-- Upcoming Matches Accordion -->
+    {% if upcoming_matches %}
+    <div class="accordion-item accordion-upcoming">
+        <div class="accordion-header accordion-header-upcoming" onclick="toggleAccordion('upcoming-matches')">
+            <div class="accordion-title">
+                <span class="accordion-icon-upcoming">📅</span>
+                <span>Upcoming Matches</span>
+                <span class="match-count-badge">{{ upcoming_matches.count }}</span>
             </div>
-        {% endfor %}
+            <span class="accordion-arrow" id="arrow-upcoming-matches">▶</span>
+        </div>
+        <div id="upcoming-matches" class="accordion-content">
+            <div class="match-list-container">
+                {% for match in upcoming_matches %}
+                    <div class="match-card-item match-upcoming">
+                        <!-- Teams Section -->
+                        <div class="match-teams-section">
+                            <!-- Team A -->
+                            <div class="team-section team-a">
+                                {% if match.team_a.logo %}
+                                    <img src="{{ match.team_a.logo.url }}" alt="{{ match.team_a.name }}" class="team-logo-img">
+                                {% elif match.team_a.logo_url %}
+                                    <img src="{{ match.team_a.logo_url }}" alt="{{ match.team_a.name }}" class="team-logo-img">
+                                {% else %}
+                                    <div class="team-logo-placeholder team-a-placeholder">
+                                        {{ match.team_a.name|first|upper }}
+                                    </div>
+                                {% endif %}
+                                <div class="team-name">{{ match.team_a.name }}</div>
+                            </div>
+                            
+                            <!-- VS Divider -->
+                            <div class="vs-divider">
+                                <span>VS</span>
+                            </div>
+                            
+                            <!-- Team B -->
+                            <div class="team-section team-b">
+                                {% if match.team_b.logo %}
+                                    <img src="{{ match.team_b.logo.url }}" alt="{{ match.team_b.name }}" class="team-logo-img">
+                                {% elif match.team_b.logo_url %}
+                                    <img src="{{ match.team_b.logo_url }}" alt="{{ match.team_b.name }}" class="team-logo-img">
+                                {% else %}
+                                    <div class="team-logo-placeholder team-b-placeholder">
+                                        {{ match.team_b.name|first|upper }}
+                                    </div>
+                                {% endif %}
+                                <div class="team-name">{{ match.team_b.name }}</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Info and Action Section -->
+                        <div class="match-info-section">
+                            <div class="venue-info">
+                                <span class="venue-icon">📍</span>
+                                <span class="venue-text">{{ match.venue }}</span>
+                                <span class="venue-separator">•</span>
+                                <span class="venue-date">📅 {{ match.match_date|date:"M d, Y H:i" }}</span>
+                            </div>
+                            <div class="match-actions">
+                                <span class="upcoming-badge">Upcoming</span>
+                                <a href="{% url 'core:match_detail' match.id %}" class="view-match-btn">View Match</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
+    {% endif %}
 </div>
-{% endif %}
 
 {% if not live_matches and not upcoming_matches %}
 <div class="card">
@@ -197,12 +214,103 @@
 {% endif %}
 
 <style>
+/* Accordion Styles */
+.matches-accordion-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.accordion-item {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+.accordion-header {
+    padding: 20px 24px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.accordion-header-live {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    border-bottom: 2px solid #ef4444;
+}
+
+.accordion-header-upcoming {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    border-bottom: 2px solid #4299e1;
+}
+
+.accordion-header:hover {
+    opacity: 0.9;
+}
+
+.accordion-header:active {
+    opacity: 0.8;
+}
+
+.accordion-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a202c;
+}
+
+.accordion-icon-live,
+.accordion-icon-upcoming {
+    font-size: 24px;
+}
+
+.match-count-badge {
+    background: rgba(0, 0, 0, 0.1);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a202c;
+}
+
+.accordion-arrow {
+    font-size: 16px;
+    color: #4a5568;
+    transition: transform 0.3s ease;
+    font-weight: 700;
+}
+
+.accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease, padding 0.3s ease;
+    padding: 0 24px;
+}
+
+.accordion-content.show {
+    max-height: 10000px;
+    padding: 0 24px 24px 24px;
+}
+
+.accordion-content.show ~ .accordion-header .accordion-arrow,
+.accordion-item:has(.accordion-content.show) .accordion-arrow {
+    transform: rotate(180deg);
+}
+
 .match-list-container {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 24px;
-    padding-top: 0;
+    padding-top: 16px;
 }
 
 .match-card-item {
@@ -420,85 +528,64 @@
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
-    .match-card-item {
-        padding: 20px;
-    }
-    
-    .match-teams-section {
-        gap: 16px;
-        margin-bottom: 16px;
-    }
-    
-    .team-section {
-        min-width: 100px;
-        max-width: 140px;
-    }
-    
-    .team-logo-img,
-    .team-logo-placeholder {
-        width: 56px;
-        height: 56px;
-    }
-    
-    .team-logo-placeholder {
-        font-size: 20px;
-    }
-    
-    .team-name {
-        font-size: 14px;
-    }
-    
-    .vs-divider {
-        padding: 0 12px;
-    }
-    
-    .vs-divider span {
-        font-size: 12px;
-        padding: 6px 12px;
-    }
-    
-    .match-info-section {
-        flex-direction: column;
-        align-items: stretch;
+    .matches-accordion-container {
         gap: 12px;
     }
     
-    .venue-info {
-        min-width: auto;
-        justify-content: center;
+    .accordion-item {
+        border-radius: 10px;
     }
     
-    .match-actions {
-        flex-direction: column;
-        width: 100%;
+    .accordion-header {
+        padding: 16px 18px;
+    }
+    
+    .accordion-title {
+        font-size: 16px;
         gap: 10px;
     }
     
-    .live-badge {
-        width: 100%;
-        justify-content: center;
+    .accordion-icon-live,
+    .accordion-icon-upcoming {
+        font-size: 20px;
     }
     
-    .view-match-btn {
-        width: 100%;
-        text-align: center;
+    .match-count-badge {
+        padding: 3px 8px;
+        font-size: 12px;
     }
-}
-
-@media (max-width: 480px) {
+    
+    .accordion-arrow {
+        font-size: 14px;
+    }
+    
+    .accordion-content {
+        padding: 0 18px;
+    }
+    
+    .accordion-content.show {
+        padding: 0 18px 18px 18px;
+    }
+    
     .match-card-item {
         padding: 16px;
+        border-radius: 10px;
+    }
+    
+    .match-teams-section {
+        gap: 12px;
+        margin-bottom: 14px;
     }
     
     .team-section {
-        min-width: 80px;
-        max-width: 120px;
+        min-width: 90px;
+        max-width: 130px;
     }
     
     .team-logo-img,
     .team-logo-placeholder {
-        width: 48px;
-        height: 48px;
+        width: 52px;
+        height: 52px;
     }
     
     .team-logo-placeholder {
@@ -509,55 +596,144 @@
         font-size: 13px;
     }
     
+    .vs-divider {
+        padding: 0 10px;
+    }
+    
     .vs-divider span {
         font-size: 11px;
         padding: 5px 10px;
+    }
+    
+    .match-info-section {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding-top: 16px;
+    }
+    
+    .venue-info {
+        min-width: auto;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .match-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 10px;
+    }
+    
+    .live-badge,
+    .upcoming-badge {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .view-match-btn {
+        width: 100%;
+        text-align: center;
+        padding: 12px 20px;
+    }
+    
+    .venue-text,
+    .venue-date {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .matches-accordion-container {
+        gap: 10px;
+    }
+    
+    .accordion-header {
+        padding: 14px 16px;
+    }
+    
+    .accordion-title {
+        font-size: 15px;
+        gap: 8px;
+    }
+    
+    .accordion-icon-live,
+    .accordion-icon-upcoming {
+        font-size: 18px;
+    }
+    
+    .match-count-badge {
+        padding: 2px 6px;
+        font-size: 11px;
+    }
+    
+    .accordion-content {
+        padding: 0 16px;
+    }
+    
+    .accordion-content.show {
+        padding: 0 16px 16px 16px;
+    }
+    
+    .match-card-item {
+        padding: 14px;
+        border-radius: 8px;
+    }
+    
+    .team-section {
+        min-width: 75px;
+        max-width: 110px;
+    }
+    
+    .team-logo-img,
+    .team-logo-placeholder {
+        width: 46px;
+        height: 46px;
+    }
+    
+    .team-logo-placeholder {
+        font-size: 16px;
+    }
+    
+    .team-name {
+        font-size: 12px;
+    }
+    
+    .vs-divider {
+        padding: 0 8px;
+    }
+    
+    .vs-divider span {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+    
+    .view-match-btn {
+        padding: 10px 18px;
+        font-size: 13px;
     }
 }
 </style>
 
 <script>
-function showTab(tabName) {
-    // Hide all tab contents
-    document.getElementById('tab-content-inplay').style.display = 'none';
-    document.getElementById('tab-content-upcoming').style.display = 'none';
+function toggleAccordion(accordionId) {
+    const accordionContent = document.getElementById(accordionId);
+    const accordionArrow = document.getElementById('arrow-' + accordionId);
     
-    // Remove active class from all tabs
-    document.getElementById('tab-inplay').classList.remove('active');
-    document.getElementById('tab-upcoming').classList.remove('active');
-    document.getElementById('tab-inplay').style.background = '#e2e8f0';
-    document.getElementById('tab-inplay').style.color = '#4a5568';
-    document.getElementById('tab-upcoming').style.background = '#e2e8f0';
-    document.getElementById('tab-upcoming').style.color = '#4a5568';
-    
-    // Show selected tab content
-    if (tabName === 'inplay') {
-        document.getElementById('tab-content-inplay').style.display = 'block';
-        document.getElementById('tab-inplay').classList.add('active');
-        document.getElementById('tab-inplay').style.background = '#4299e1';
-        document.getElementById('tab-inplay').style.color = 'white';
-    } else if (tabName === 'upcoming') {
-        document.getElementById('tab-content-upcoming').style.display = 'block';
-        document.getElementById('tab-upcoming').classList.add('active');
-        document.getElementById('tab-upcoming').style.background = '#4299e1';
-        document.getElementById('tab-upcoming').style.color = 'white';
+    if (accordionContent.classList.contains('show')) {
+        // Close accordion
+        accordionContent.classList.remove('show');
+        if (accordionArrow) {
+            accordionArrow.style.transform = 'rotate(0deg)';
+            accordionArrow.textContent = '▶';
+        }
+    } else {
+        // Open accordion
+        accordionContent.classList.add('show');
+        if (accordionArrow) {
+            accordionArrow.style.transform = 'rotate(90deg)';
+            accordionArrow.textContent = '▼';
+        }
     }
 }
 </script>
-
-<style>
-.match-tab.active {
-    background: #4299e1 !important;
-    color: white !important;
-}
-.match-tab:hover:not(.active) {
-    background: #cbd5e0 !important;
-}
-@media (max-width: 768px) {
-    .match-tab {
-        padding: 12px 16px !important;
-        font-size: 14px !important;
-    }
-}
-</style>
 {% endblock %}
