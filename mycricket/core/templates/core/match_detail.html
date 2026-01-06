@@ -3,6 +3,14 @@
 {% block title %}{{ match }} - Match Details{% endblock %}
 
 {% block content %}
+<!-- Back Button -->
+<div style="margin-bottom: 16px;">
+    <button onclick="window.history.back();" class="back-button" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #4a5568; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s;">
+        <span>←</span>
+        <span>Back</span>
+    </button>
+</div>
+
 <div class="match-detail-header">
     <div class="match-detail-card match-{{ match.status }}">
         <!-- Teams Section -->
@@ -76,19 +84,15 @@
         <a href="{% url 'core:session_detail' existing_session.id %}" class="btn">Go to Session</a>
     </div>
 {% else %}
-    <!-- Betting Options Tabs -->
-    <div class="card" style="padding: 0; overflow: hidden;">
-        <div style="display: flex; gap: 0; border-bottom: 2px solid #e2e8f0;">
-            <button onclick="showBettingOption('direct')" id="bet-option-direct" class="betting-option-tab active" style="flex: 1; padding: 16px 24px; background: #4299e1; color: white; border: none; cursor: pointer; font-weight: 600; font-size: 15px; transition: all 0.2s;">
-                Bet on Match
-            </button>
-            <button onclick="showBettingOption('virtual')" id="bet-option-virtual" class="betting-option-tab" style="flex: 1; padding: 16px 24px; background: #e2e8f0; color: #4a5568; border: none; cursor: pointer; font-weight: 600; font-size: 15px; transition: all 0.2s;">
-                Choose Virtual Batsmen
-            </button>
-        </div>
-
-        <!-- Direct Bet Option - Match Odds -->
-        <div id="betting-content-direct" class="betting-content" style="padding: 24px;">
+    <!-- Betting Options Accordions -->
+    <div class="betting-accordions-container">
+        <!-- Bet on Match Accordion (First - Expanded by default) -->
+        <div class="betting-accordion-item">
+            <div class="betting-accordion-header active" onclick="toggleBettingAccordion('bet-on-match')">
+                <span class="betting-accordion-title">Bet on Match</span>
+                <span class="betting-accordion-arrow" id="arrow-bet-on-match">▼</span>
+            </div>
+            <div id="bet-on-match" class="betting-accordion-content show" style="padding: 24px;">
             <!-- Runner Section -->
             <div class="betting-market">
                 <div class="market-title">Runner</div>
@@ -101,6 +105,18 @@
                 <div class="runner-row" data-runner="{{ odds.runner }}" data-back-odds="{{ odds.back_odds }}" data-lay-odds="{{ odds.lay_odds }}">
                     <div class="runner-name">
                         {{ odds.runner }}
+                        {% for key, balance in user_balances.items %}
+                            {% if key == odds.runner %}
+                            <div class="balance-display {% if balance >= 0 %}balance-positive{% else %}balance-negative{% endif %}" id="balance-{{ odds.runner|slugify }}">
+                                {% if balance >= 0 %}+{% endif %}{{ balance|floatformat:0 }}
+                            </div>
+                            {% endif %}
+                        {% empty %}
+                        <div class="balance-display hidden" id="balance-{{ odds.runner|slugify }}"></div>
+                        {% endfor %}
+                        {% if odds.runner not in user_balances %}
+                        <div class="balance-display hidden" id="balance-{{ odds.runner|slugify }}"></div>
+                        {% endif %}
                         <span class="stake-info hidden" id="stake-{{ forloop.counter0 }}"></span>
                     </div>
                     <div class="odds-cell-wrapper">
@@ -301,34 +317,43 @@
                 </div>
                 {% endfor %}
             </div>
+            </div>
         </div>
 
-        <!-- Virtual Batsmen Option -->
-        <div id="betting-content-virtual" class="betting-content" style="display: none; padding: 24px;">
-            <div class="card-header" style="margin-bottom: 20px;">
-                <h3 style="margin: 0;">Create New Betting Session</h3>
+        <!-- Choose Virtual Batsmen Accordion (Second - Collapsed by default) -->
+        <div class="betting-accordion-item">
+            <div class="betting-accordion-header" onclick="toggleBettingAccordion('choose-virtual')">
+                <span class="betting-accordion-title">Choose Virtual Batsmen</span>
+                <span class="betting-accordion-arrow" id="arrow-choose-virtual">▶</span>
             </div>
-            <p style="margin: 0 0 20px 0; color: #4a5568;">Create a betting session and invite a friend to play. You'll pick players and bet on how many runs they'll score.</p>
-            <form method="post" action="{% url 'core:create_betting_session' match.id %}">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label class="form-label" for="players_per_side">Number of players per side</label>
-                    <input type="number" id="players_per_side" name="players_per_side" value="5" min="1" max="11" required class="form-control">
-                    <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;">You'll pick this many players from each team ({{ match.team_a.name }} and {{ match.team_b.name }})</p>
+            <div id="choose-virtual" class="betting-accordion-content">
+                <div class="virtual-batsmen-content">
+                <div class="card-header" style="margin-bottom: 20px;">
+                    <h3 style="margin: 0;">Create New Betting Session</h3>
                 </div>
-                <div class="form-group" style="margin-top: 16px;">
-                    <label class="form-label" for="fixed_bet_amount">Fixed Bet Amount (₹)</label>
-                    <input type="number" id="fixed_bet_amount" name="fixed_bet_amount" value="100" min="0.01" step="0.01" required class="form-control">
-                    <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;">Fixed bet amount for the entire session. Winner gets both bet amounts (₹<span id="total_pot">200</span>).</p>
+                <p style="margin: 0 0 20px 0; color: #4a5568;">Create a betting session and invite a friend to play. You'll pick players and bet on how many runs they'll score.</p>
+                <form method="post" action="{% url 'core:create_betting_session' match.id %}">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label class="form-label" for="players_per_side">Number of players per side</label>
+                        <input type="number" id="players_per_side" name="players_per_side" value="5" min="1" max="11" required class="form-control">
+                        <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;">You'll pick this many players from each team ({{ match.team_a.name }} and {{ match.team_b.name }})</p>
+                    </div>
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label class="form-label" for="fixed_bet_amount">Fixed Bet Amount (₹)</label>
+                        <input type="number" id="fixed_bet_amount" name="fixed_bet_amount" value="100" min="0.01" step="0.01" required class="form-control">
+                        <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;">Fixed bet amount for the entire session. Winner gets both bet amounts (₹<span id="total_pot">200</span>).</p>
+                    </div>
+                    <button type="submit" class="btn">Create Session</button>
+                </form>
+                <script>
+                    document.getElementById('fixed_bet_amount').addEventListener('input', function() {
+                        const amount = parseFloat(this.value) || 0;
+                        document.getElementById('total_pot').textContent = (amount * 2).toFixed(2);
+                    });
+                </script>
                 </div>
-                <button type="submit" class="btn">Create Session</button>
-            </form>
-            <script>
-                document.getElementById('fixed_bet_amount').addEventListener('input', function() {
-                    const amount = parseFloat(this.value) || 0;
-                    document.getElementById('total_pot').textContent = (amount * 2).toFixed(2);
-                });
-            </script>
+            </div>
         </div>
     </div>
 {% endif %}
@@ -425,34 +450,41 @@
 </div>
 
 <script>
-function showBettingOption(option) {
-    // Hide all betting content
-    document.getElementById('betting-content-direct').style.display = 'none';
-    document.getElementById('betting-content-virtual').style.display = 'none';
+function toggleBettingAccordion(accordionId) {
+    const accordionContent = document.getElementById(accordionId);
+    const accordionHeader = accordionContent.previousElementSibling;
+    const accordionArrow = document.getElementById('arrow-' + accordionId);
     
-    // Remove active class from all tabs
-    document.getElementById('bet-option-direct').classList.remove('active');
-    document.getElementById('bet-option-virtual').classList.remove('active');
-    document.getElementById('bet-option-direct').style.background = '#e2e8f0';
-    document.getElementById('bet-option-direct').style.color = '#4a5568';
-    document.getElementById('bet-option-virtual').style.background = '#e2e8f0';
-    document.getElementById('bet-option-virtual').style.color = '#4a5568';
-    
-    // Show selected option content
-    if (option === 'direct') {
-        document.getElementById('betting-content-direct').style.display = 'block';
-        document.getElementById('bet-option-direct').classList.add('active');
-        document.getElementById('bet-option-direct').style.background = '#4299e1';
-        document.getElementById('bet-option-direct').style.color = 'white';
-        // Hide players section for direct bet
-        document.getElementById('players-section').style.display = 'none';
-    } else if (option === 'virtual') {
-        document.getElementById('betting-content-virtual').style.display = 'block';
-        document.getElementById('bet-option-virtual').classList.add('active');
-        document.getElementById('bet-option-virtual').style.background = '#4299e1';
-        document.getElementById('bet-option-virtual').style.color = 'white';
-        // Show players section for virtual batsmen
-        document.getElementById('players-section').style.display = 'block';
+    if (accordionContent.classList.contains('show')) {
+        // Close accordion
+        accordionContent.classList.remove('show');
+        if (accordionHeader) accordionHeader.classList.remove('active');
+        if (accordionArrow) {
+            accordionArrow.style.transform = 'rotate(0deg)';
+            accordionArrow.textContent = '▶';
+        }
+        // Hide players section if closing virtual batsmen
+        if (accordionId === 'choose-virtual') {
+            const playersSection = document.getElementById('players-section');
+            if (playersSection) playersSection.style.display = 'none';
+        }
+    } else {
+        // Open accordion
+        accordionContent.classList.add('show');
+        if (accordionHeader) accordionHeader.classList.add('active');
+        if (accordionArrow) {
+            accordionArrow.style.transform = 'rotate(90deg)';
+            accordionArrow.textContent = '▼';
+        }
+        // Show players section if opening virtual batsmen
+        if (accordionId === 'choose-virtual') {
+            const playersSection = document.getElementById('players-section');
+            if (playersSection) playersSection.style.display = 'block';
+        } else {
+            // Hide players section for bet on match
+            const playersSection = document.getElementById('players-section');
+            if (playersSection) playersSection.style.display = 'none';
+        }
     }
 }
 
@@ -634,7 +666,9 @@ function submitBetDropdown(button) {
     const amount = parseFloat(stakeInput.value);
     const odds = parseFloat(oddsInput.value);
     
+    // Validate minimum stake
     if (!amount || amount < 100) {
+        alert(`Minimum stake amount is ₹100. You entered ₹${amount || 0}.`);
         return;
     }
     
@@ -656,18 +690,70 @@ function submitBetDropdown(button) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            // Update balances if provided
+            if (data.balances) {
+                updateBalances(data.balances);
+            }
+            
             closeBetDropdown(dropdown);
             stakeInput.value = '';
             const stakeDisplay = dropdown.querySelector('.stake-display-dropdown');
             if (stakeDisplay) stakeDisplay.textContent = '0';
+            
+            // Reload page to show updated bets
             window.location.reload();
         } else {
-            console.error('Error placing bet:', data.error || 'Failed to place bet');
+            // Show error message to user
+            const errorMsg = data.error || 'Failed to place bet. Please try again.';
+            alert(errorMsg);
+            console.error('Error placing bet:', errorMsg);
         }
     })
     .catch(error => {
         console.error('Error placing bet:', error);
     });
+}
+
+function updateBalances(balances) {
+    // Update balances for each selection
+    Object.keys(balances).forEach(selection => {
+        const balance = balances[selection];
+        updateBalanceDisplay(selection, balance);
+    });
+}
+
+function updateBalanceDisplay(selection, balance) {
+    // Find the runner row that matches the selection
+    const runnerRows = document.querySelectorAll('.runner-row[data-runner]');
+    let targetRow = null;
+    
+    runnerRows.forEach((row) => {
+        if (row.getAttribute('data-runner') === selection) {
+            targetRow = row;
+        }
+    });
+    
+    if (!targetRow) return;
+    
+    // Find or create balance display element
+    let balanceDisplay = targetRow.querySelector('.balance-display');
+    
+    if (!balanceDisplay) {
+        const runnerName = targetRow.querySelector('.runner-name');
+        if (runnerName) {
+            balanceDisplay = document.createElement('div');
+            balanceDisplay.className = 'balance-display';
+            balanceDisplay.id = 'balance-' + selection.toLowerCase().replace(/\s+/g, '-');
+            runnerName.appendChild(balanceDisplay);
+        }
+    }
+    
+    if (balanceDisplay) {
+        const formattedBalance = balance >= 0 ? `+${Math.round(balance)}` : `${Math.round(balance)}`;
+        balanceDisplay.textContent = formattedBalance;
+        balanceDisplay.className = 'balance-display ' + (balance >= 0 ? 'balance-positive' : 'balance-negative');
+        balanceDisplay.classList.remove('hidden');
+    }
 }
 
 function getCookie(name) {
@@ -908,12 +994,92 @@ document.addEventListener('DOMContentLoaded', function() {
     box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
 }
 
-.betting-option-tab.active {
-    background: #4299e1 !important;
-    color: white !important;
+/* Back Button Styles */
+.back-button:hover {
+    background: #edf2f7 !important;
+    border-color: #cbd5e0 !important;
+    transform: translateX(-2px);
 }
-.betting-option-tab:hover:not(.active) {
-    background: #cbd5e0 !important;
+
+/* Betting Accordions Styles */
+.betting-accordions-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.betting-accordion-item {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+.betting-accordion-header {
+    padding: 20px 24px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+    background: #f7fafc;
+    border-bottom: 1px solid #e2e8f0;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.betting-accordion-header:hover {
+    background: #edf2f7;
+}
+
+.betting-accordion-header.active {
+    background: #4299e1;
+    color: white;
+}
+
+.betting-accordion-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2d3748;
+}
+
+.betting-accordion-header.active .betting-accordion-title {
+    color: white;
+}
+
+.betting-accordion-arrow {
+    font-size: 16px;
+    color: #718096;
+    transition: transform 0.3s ease;
+    font-weight: 700;
+}
+
+.betting-accordion-header.active .betting-accordion-arrow {
+    color: white;
+    transform: rotate(90deg);
+}
+
+.betting-accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease, padding 0.3s ease;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.betting-accordion-content.show {
+    max-height: 10000px;
+    padding: 24px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.virtual-batsmen-content {
+    width: 100%;
+    min-height: 0;
 }
 
 /* Betting Interface Styles */
@@ -966,6 +1132,25 @@ document.addEventListener('DOMContentLoaded', function() {
     color: #48bb78;
 }
 .stake-info.hidden {
+    display: none;
+}
+.balance-display {
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+}
+.balance-display.balance-positive {
+    color: #48bb78;
+    background: #c6f6d5;
+}
+.balance-display.balance-negative {
+    color: #f56565;
+    background: #fed7d7;
+}
+.balance-display.hidden {
     display: none;
 }
 .odds-cell-wrapper {
@@ -1357,9 +1542,41 @@ document.addEventListener('DOMContentLoaded', function() {
         justify-content: flex-start;
     }
     
-    .betting-option-tab {
-        padding: 12px 16px !important;
-        font-size: 14px !important;
+    .betting-accordions-container {
+        gap: 12px;
+    }
+    
+    .betting-accordion-item {
+        border-radius: 10px;
+    }
+    
+    .betting-accordion-header {
+        padding: 16px 18px;
+    }
+    
+    .betting-accordion-title {
+        font-size: 16px;
+    }
+    
+    .betting-accordion-arrow {
+        font-size: 14px;
+    }
+    
+    .betting-accordion-content {
+        padding: 0 18px;
+    }
+    
+    .betting-accordion-content.show {
+        padding: 18px;
+        max-height: 80vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+    
+    .back-button {
+        padding: 8px 16px !important;
+        font-size: 13px !important;
     }
     
     .runner-row {
@@ -1482,6 +1699,91 @@ document.addEventListener('DOMContentLoaded', function() {
     .vs-divider-detail span {
         font-size: 12px;
         padding: 8px 16px;
+    }
+    
+    .betting-accordions-container {
+        gap: 10px;
+    }
+    
+    .betting-accordion-item {
+        border-radius: 8px;
+    }
+    
+    .betting-accordion-header {
+        padding: 14px 16px;
+    }
+    
+    .betting-accordion-title {
+        font-size: 15px;
+    }
+    
+    .betting-accordion-arrow {
+        font-size: 13px;
+    }
+    
+    .betting-accordion-content {
+        padding: 0 16px;
+    }
+    
+    .betting-accordion-content.show {
+        padding: 16px;
+        max-height: 75vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+    
+    .back-button {
+        padding: 8px 14px !important;
+        font-size: 12px !important;
+    }
+    
+    /* Fix form elements in mobile accordion */
+    .virtual-batsmen-content {
+        width: 100%;
+    }
+    
+    #choose-virtual .form-group {
+        margin-bottom: 16px;
+    }
+    
+    #choose-virtual .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #2d3748;
+        font-size: 14px;
+    }
+    
+    #choose-virtual .form-control {
+        width: 100%;
+        padding: 12px;
+        font-size: 16px; /* Prevents zoom on iOS */
+        border-radius: 8px;
+        border: 2px solid #e2e8f0;
+        box-sizing: border-box;
+    }
+    
+    #choose-virtual .form-control:focus {
+        outline: none;
+        border-color: #4299e1;
+        box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+    }
+    
+    #choose-virtual .btn {
+        width: 100%;
+        padding: 14px;
+        font-size: 16px;
+        margin-top: 8px;
+    }
+    
+    #choose-virtual .card-header h3 {
+        font-size: 18px;
+    }
+    
+    #choose-virtual p {
+        font-size: 14px;
+        line-height: 1.5;
     }
     
     .runner-row, .session-detail-row {

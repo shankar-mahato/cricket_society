@@ -97,9 +97,19 @@ class MatchBetAdmin(admin.ModelAdmin):
 
 @admin.register(MatchBetBalance)
 class MatchBetBalanceAdmin(admin.ModelAdmin):
-    list_display = ['id', 'match', 'user', 'selection', 'balance', 'updated_at']
+    list_display = ['id', 'match', 'user', 'selection', 'bet_type', 'balance', 'updated_at']
     search_fields = ['user__username', 'selection', 'match__match_title']
-    list_filter = ['match', 'updated_at']
+    list_filter = ['match', 'bet_type', 'updated_at']
     raw_id_fields = ['match', 'user']
     readonly_fields = ['created_at', 'updated_at']
     ordering = ['-updated_at']
+    
+    def formfield_for_choice_field(self, db_field, request, **kwargs):
+        if db_field.name == 'bet_type':
+            kwargs['choices'] = [
+                ('', '---------'),  # Empty choice
+                ('back', 'Back'),
+                ('lay', 'Lay'),
+                ('session', 'Session'),
+            ]
+        return super().formfield_for_choice_field(db_field, request, **kwargs)

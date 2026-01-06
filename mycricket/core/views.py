@@ -140,6 +140,19 @@ def match_detail(request, match_id):
         {'label': 'Total Runs Under', 'not': '1.90', 'yes': '1.85'},
     ]
     
+    # Get balances for current user from MatchBetBalance
+    from .models import MatchBetBalance
+    user_balances = {}
+    if request.user.is_authenticated:
+        balances = MatchBetBalance.objects.filter(match=match, user=request.user)
+        for balance in balances:
+            # Aggregate balances by selection (sum all bet_types for same selection)
+            if balance.selection not in user_balances:
+                user_balances[balance.selection] = Decimal('0.00')
+            user_balances[balance.selection] += balance.balance
+        # Convert Decimal to float for template rendering
+        user_balances = {k: float(v) for k, v in user_balances.items()}
+    
     context = {
         'match': match,
         'team_a_players': team_a_players,
@@ -148,6 +161,7 @@ def match_detail(request, match_id):
         'available_sessions': available_sessions,
         'match_odds': match_odds,
         'session_details': session_details,
+        'user_balances': user_balances,
     }
     return render(request, 'core/match_detail.html', context)
 
@@ -2872,7 +2886,13 @@ def dl_match_detail(request, match_id):
     if request.user.is_authenticated:
         balances = MatchBetBalance.objects.filter(match=match, user=request.user)
         for balance in balances:
-            user_balances[balance.selection] = float(balance.balance)
+            # Store with bet_type if available
+            key = f"{balance.selection}_{balance.bet_type}" if balance.bet_type else balance.selection
+            user_balances[key] = {
+                'balance': float(balance.balance),
+                'bet_type': balance.bet_type,
+                'selection': balance.selection
+            }
     
     # Organize bets by selection and bet_type for easy lookup (as JSON for JavaScript)
     bets_by_selection = {}
@@ -2956,15 +2976,19 @@ def dl_place_match_bet(request, match_id):
         if odds < Decimal('1.01'):
             return JsonResponse({'success': False, 'error': 'Invalid odds'})
         
-        if stake < Decimal('0.01'):
-            return JsonResponse({'success': False, 'error': 'Invalid stake amount'})
+        # Check minimum stake amount
+        if stake < Decimal('100.00'):
+            return JsonResponse({
+                'success': False,
+                'error': f'Minimum stake amount is ₹100. You entered ₹{stake}.'
+            })
         
         # Check wallet balance (for end users)
         if hasattr(user, 'wallet'):
             if user.wallet.balance < stake:
                 return JsonResponse({
                     'success': False,
-                    'error': f'Insufficient balance. Required: ₹{stake}, Your balance: ₹{user.wallet.balance}'
+                    'error': f'Insufficient balance. Required: ₹{stake}, Your balance: ₹{user.wallet.balance}. Please add more funds to your wallet.'
                 })
             
             # Deduct from wallet
@@ -2990,14 +3014,20 @@ def dl_place_match_bet(request, match_id):
             other_selection = all_selections[1] if selection == all_selections[0] else all_selections[0]
         
         # Calculate balance changes
-        if bet_type == 'lay':
+        # For LAY/YES: liability = stake * (odds - 1), selection gets -liability
+        #   For team bets: other selection gets +stake
+        # For BACK/NOT: profit = stake * (odds - 1), selection gets +profit
+        #   For team bets: other selection gets -stake
+        if bet_type in ['lay', 'yes']:
+            # LAY or YES: You're laying/accepting the bet, so you owe liability if selection wins
             liability = stake * (odds - Decimal('1.0'))
-            selection_change = -liability
-            other_change = stake if other_selection else Decimal('0.00')
-        else:  # back, not, yes
+            selection_change = -liability  # Negative because you lose this if selection wins
+            other_change = stake if other_selection else Decimal('0.00')  # You win stake if other wins
+        else:  # back, not
+            # BACK or NOT: You're backing the selection, so you win profit if selection wins
             profit = stake * (odds - Decimal('1.0'))
-            selection_change = profit
-            other_change = -stake if other_selection else Decimal('0.00')
+            selection_change = profit  # Positive because you win this if selection wins
+            other_change = -stake if other_selection else Decimal('0.00')  # You lose stake if other wins
         
         # Create the bet
         match_bet = MatchBet.objects.create(
@@ -3009,36 +3039,58 @@ def dl_place_match_bet(request, match_id):
             stake=stake
         )
         
-        # Update balances - fetch, update, and save (atomic operation)
-        # For selection
+        # Determine bet_type for balance entry
+        # For team bets: LAY on one team means BACK on the other, and vice versa
+        # For session bets (not/yes): use 'session' as bet_type
+        balance_bet_type = None
+        other_balance_bet_type = None
+        
+        if bet_type in ['not', 'yes']:
+            # Session bet: use 'session' as bet_type
+            balance_bet_type = 'session'
+        elif bet_type in ['back', 'lay'] and other_selection:
+            # Team bet: set bet_type for selection and opposite for other team
+            balance_bet_type = bet_type
+            # If LAY on one team, the other team gets BACK (and vice versa)
+            other_balance_bet_type = 'back' if bet_type == 'lay' else 'lay'
+        elif bet_type in ['back', 'lay']:
+            # Team bet without other selection (shouldn't happen, but handle it)
+            balance_bet_type = bet_type
+        
+        # Ensure MatchBetBalance entry exists and update it
+        # This will create a new entry if it doesn't exist, or update existing one
         balance_obj, created = MatchBetBalance.objects.get_or_create(
             match=match,
             user=user,
             selection=selection,
+            bet_type=balance_bet_type,
             defaults={'balance': Decimal('0.00')}
         )
         balance_obj.balance += selection_change
         balance_obj.save()
         selection_balance = balance_obj.balance
         
-        # For other selection (if team bet)
+        # For other selection (if team bet - BACK/LAY on teams affects both teams)
         other_balance_obj = None
         other_balance_value = None
-        if other_selection:
+        if other_selection and other_balance_bet_type:
+            # Create or update balance for the opposing team with opposite bet_type
             other_balance_obj, created = MatchBetBalance.objects.get_or_create(
                 match=match,
                 user=user,
                 selection=other_selection,
+                bet_type=other_balance_bet_type,
                 defaults={'balance': Decimal('0.00')}
             )
             other_balance_obj.balance += other_change
             other_balance_obj.save()
             other_balance_value = other_balance_obj.balance
         
-        # Prepare response balances
+        # Prepare response balances - always include the selection balance
         response_balances = {
             selection: float(selection_balance)
         }
+        # Include other selection balance if it exists (for team bets)
         if other_selection and other_balance_value is not None:
             response_balances[other_selection] = float(other_balance_value)
         
@@ -3051,6 +3103,41 @@ def dl_place_match_bet(request, match_id):
         
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def dl_get_match_balances(request, match_id):
+    """API endpoint to get current match balances for the logged-in user"""
+    match = get_object_or_404(Match, id=match_id)
+    
+    # Check if user is DL or end user
+    if hasattr(request.user, 'profile') and request.user.profile.user_type == 'dl':
+        user = request.user
+    else:
+        # End users - check if they belong to a DL
+        if not hasattr(request.user, 'profile') or not request.user.profile.dl_user:
+            return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+        user = request.user
+    
+    try:
+        from .models import MatchBetBalance
+        
+        balances = {}
+        user_balances = MatchBetBalance.objects.filter(match=match, user=user)
+        for bal in user_balances:
+            # Include bet_type in the key to differentiate back/lay balances
+            key = f"{bal.selection}_{bal.bet_type}" if bal.bet_type else bal.selection
+            balances[key] = {
+                'balance': float(bal.balance),
+                'bet_type': bal.bet_type,
+                'selection': bal.selection
+            }
+        
+        return JsonResponse({'success': True, 'balances': balances})
     except Exception as e:
         import traceback
         traceback.print_exc()
