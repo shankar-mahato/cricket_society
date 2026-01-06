@@ -542,6 +542,31 @@ function toggleBetDropdown(element) {
         document.body.classList.add('bet-dropdown-open');
         document.documentElement.classList.add('bet-dropdown-open');
         
+        // Ensure page can scroll - remove any blocking styles
+        document.body.style.overflow = 'auto';
+        document.body.style.position = 'relative';
+        document.body.style.height = 'auto';
+        document.documentElement.style.overflow = 'auto';
+        document.documentElement.style.position = 'relative';
+        document.documentElement.style.height = 'auto';
+        
+        // Make container scrollable and add bottom padding so content isn't hidden
+        const container = document.querySelector('.container');
+        if (container) {
+            container.style.overflowY = 'auto';
+            container.style.webkitOverflowScrolling = 'touch';
+            container.style.touchAction = 'pan-y';
+            // Add padding at bottom so users can scroll to see content below dropdown
+            container.style.paddingBottom = '75vh';
+        }
+        
+        // Ensure page content is scrollable
+        const pageContent = document.querySelector('.betting-accordions-container');
+        if (pageContent) {
+            pageContent.style.pointerEvents = 'auto';
+            pageContent.style.touchAction = 'pan-y';
+        }
+        
         // Always allow page scrolling, even when dropdown is open
         const dropdownBody = dropdown.querySelector('.bet-dropdown-body');
         if (dropdownBody) {
@@ -550,7 +575,7 @@ function toggleBetDropdown(element) {
             dropdown.style.flexDirection = 'column';
             
             if (window.innerWidth <= 768) {
-                dropdown.style.maxHeight = '90vh';
+                dropdown.style.maxHeight = '70vh';
             }
             
             // Make body scrollable with proper constraints
@@ -618,6 +643,12 @@ function closeBetDropdown(dropdownElement) {
         if (!document.querySelector('.bet-dropdown.show')) {
             document.body.classList.remove('bet-dropdown-open');
             document.documentElement.classList.remove('bet-dropdown-open');
+            
+            // Remove bottom padding from container
+            const container = document.querySelector('.container');
+            if (container) {
+                container.style.paddingBottom = '';
+            }
         }
     }
 }
@@ -834,6 +865,18 @@ body {
     position: relative;
     width: 100%;
     min-height: 100vh;
+}
+
+/* Ensure page content is always scrollable, even when dropdown is open */
+body.bet-dropdown-open {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+}
+
+html.bet-dropdown-open {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
 }
 
 /* Main content wrapper for smooth scrolling */
@@ -1261,6 +1304,8 @@ body {
     opacity: 0;
     border: 1px solid #e2e8f0;
     flex-direction: column;
+    /* Allow page scrolling even when dropdown is visible */
+    pointer-events: auto;
 }
 .bet-dropdown.show {
     display: flex !important;
@@ -1709,17 +1754,33 @@ body {
         border-radius: 20px 20px 0 0;
         display: flex !important;
         flex-direction: column !important;
-        max-height: 90vh !important;
+        max-height: 70vh !important;
         z-index: 10000 !important;
         overflow: hidden;
         transform: none;
         animation: slideUpFromBottom 0.3s ease-out;
+        /* Allow page to scroll - only capture touches on dropdown content */
+        pointer-events: none;
+        /* Add shadow to make it clear it's above content */
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
     }
+    
     .bet-dropdown.show {
         display: flex !important;
         visibility: visible;
         opacity: 1;
         animation: slideUpFromBottom 0.3s ease-out;
+        /* Allow touches to pass through to page, but make content interactive */
+        pointer-events: none;
+    }
+    
+    /* Make dropdown content interactive */
+    .bet-dropdown.show .bet-dropdown-header,
+    .bet-dropdown.show .bet-dropdown-body,
+    .bet-dropdown.show .bet-dropdown-body *,
+    .bet-dropdown.show button,
+    .bet-dropdown.show input {
+        pointer-events: auto;
     }
     @keyframes slideUpFromBottom {
         from {
@@ -1729,13 +1790,45 @@ body {
             transform: translateY(0);
         }
     }
-    /* Allow page scrolling even when dropdown is open */
+    /* Allow page scrolling even when dropdown is open - CRITICAL */
     body.bet-dropdown-open,
     html.bet-dropdown-open {
         overflow-y: auto !important;
         overflow-x: hidden !important;
         position: relative !important;
         height: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        touch-action: pan-y !important;
+    }
+    
+    /* Make container scrollable and add padding at bottom so content isn't hidden */
+    body.bet-dropdown-open .container {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        touch-action: pan-y !important;
+        height: auto !important;
+        max-height: none !important;
+        padding-bottom: 75vh !important;
+    }
+    
+    /* Ensure all page content is scrollable and touchable */
+    body.bet-dropdown-open .match-detail-header,
+    body.bet-dropdown-open .betting-accordions-container,
+    body.bet-dropdown-open .betting-accordion-content,
+    body.bet-dropdown-open .runner-row,
+    body.bet-dropdown-open .session-detail-row,
+    body.bet-dropdown-open .betting-market {
+        pointer-events: auto !important;
+        touch-action: pan-y !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
+    /* Ensure page content is scrollable and touchable */
+    body.bet-dropdown-open > *,
+    body.bet-dropdown-open .match-detail-header,
+    body.bet-dropdown-open .betting-accordions-container {
+        pointer-events: auto !important;
+        touch-action: pan-y !important;
     }
     .bet-dropdown-header {
         padding: 16px 20px;
