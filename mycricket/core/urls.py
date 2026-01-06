@@ -52,6 +52,7 @@ urlpatterns = [
     path('dl/match/<int:match_id>/', views.dl_match_detail, name='dl_match_detail'),
     path('dl/match/<int:match_id>/place-bet/', views.dl_place_match_bet, name='dl_place_match_bet'),
     path('dl/match/<int:match_id>/balances/', views.dl_get_match_balances, name='dl_get_match_balances'),
+    path('match/<int:match_id>/settle-bets/', views.settle_match_bets, name='settle_match_bets'),
     path('dl/reports/', views.dl_reports, name='dl_reports'),
     path('dl/approve-deposit/<int:request_id>/', views.approve_deposit_request, name='approve_deposit'),
     path('dl/reject-deposit/<int:request_id>/', views.reject_deposit_request, name='reject_deposit'),

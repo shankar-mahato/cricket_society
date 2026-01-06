@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Team, Player, Match, PlayerMatchStats, Wallet, Transaction,
-    BettingSession, PickedPlayer, Bet, MatchBet, MatchBetBalance
+    BettingSession, PickedPlayer, Bet, MatchBet, MatchBetBalance, MatchUserExposure
 )
 
 
@@ -26,10 +26,10 @@ class PlayerAdmin(admin.ModelAdmin):
 
 @admin.register(Match)
 class MatchAdmin(admin.ModelAdmin):
-    list_display = ['match_title', 'team_a', 'team_b', 'status', 'match_date', 'venue']
+    list_display = ['match_title', 'team_a', 'team_b', 'status', 'winner', 'is_settled', 'match_date', 'venue']
     search_fields = ['match_title', 'venue']
-    list_filter = ['status', 'match_date']
-    raw_id_fields = ['team_a', 'team_b']
+    list_filter = ['status', 'is_settled', 'match_date']
+    raw_id_fields = ['team_a', 'team_b', 'winner']
 
 
 @admin.register(PlayerMatchStats)
@@ -113,3 +113,13 @@ class MatchBetBalanceAdmin(admin.ModelAdmin):
                 ('session', 'Session'),
             ]
         return super().formfield_for_choice_field(db_field, request, **kwargs)
+
+
+@admin.register(MatchUserExposure)
+class MatchUserExposureAdmin(admin.ModelAdmin):
+    list_display = ['id', 'match', 'user', 'exposure', 'is_settled', 'updated_at']
+    search_fields = ['user__username', 'match__match_title']
+    list_filter = ['is_settled', 'match', 'updated_at']
+    raw_id_fields = ['match', 'user']
+    readonly_fields = ['created_at', 'updated_at']
+    ordering = ['-updated_at']

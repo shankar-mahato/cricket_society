@@ -219,8 +219,8 @@
                     </div>
                 </div>
                 {% endfor %}
-            </div>
-            
+        </div>
+
             <!-- Session Details Section -->
             <div class="session-details">
                 <div class="market-title">Session Details</div>
@@ -401,6 +401,107 @@
     </div>
 {% endif %}
 
+<!-- Bet History Tabs (Match Odds, Session Odds, Toss Odds) -->
+<div class="bet-history-tabs-container" style="margin-top: 30px;">
+    <div class="bet-history-tabs">
+        <button class="bet-history-tab active" onclick="showBetHistoryTab('match-odds')">Match Odds</button>
+        <button class="bet-history-tab" onclick="showBetHistoryTab('session-odds')">Session Odds</button>
+        <button class="bet-history-tab" onclick="showBetHistoryTab('toss-odds')">Toss Odds</button>
+    </div>
+    
+    <!-- Match Odds Tab -->
+    <div id="match-odds-tab" class="bet-history-tab-content active">
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Odds</th>
+                            <th>Amount</th>
+                            <th>Team</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bet in match_odds_bets %}
+                        <tr>
+                            <td>{{ bet.odds|floatformat:2 }}</td>
+                            <td>₹{{ bet.stake|floatformat:2 }}</td>
+                            <td>{{ bet.selection }} ({{ bet.get_bet_type_display }})</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="empty-state">No match odds bets found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Session Odds Tab -->
+    <div id="session-odds-tab" class="bet-history-tab-content">
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Team</th>
+                            <th>Odds</th>
+                            <th>Session</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bet in session_odds_bets %}
+                        <tr>
+                            <td>{{ bet.user.username }}</td>
+                            <td>{{ bet.odds|floatformat:2 }}</td>
+                            <td>{{ bet.selection }} ({{ bet.get_bet_type_display }})</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="empty-state">No session odds bets found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toss Odds Tab -->
+    <div id="toss-odds-tab" class="bet-history-tab-content">
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Team</th>
+                            <th>Odds</th>
+                            <th>Win</th>
+                            <th>Loss</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bet in toss_odds_bets %}
+                        <tr>
+                            <td>{{ bet.selection }}</td>
+                            <td>{{ bet.odds|floatformat:2 }}</td>
+                            <td>-</td>
+                            <td>-</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="empty-state">No toss odds bets found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Players Section - Show when virtual batsmen option is selected or session exists -->
 <div id="players-section" {% if existing_session %}style="display: block;"{% else %}style="display: none;"{% endif %}>
     {% if team_a_players or team_b_players %}
@@ -459,6 +560,24 @@
 </div>
 
 <script>
+function showBetHistoryTab(tabName) {
+    // Hide all tab contents
+    document.querySelectorAll('.bet-history-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // Remove active class from all tabs
+    document.querySelectorAll('.bet-history-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Show selected tab content
+    document.getElementById(tabName + '-tab').classList.add('active');
+    
+    // Add active class to clicked tab
+    event.target.classList.add('active');
+}
+
 function toggleBettingAccordion(accordionId) {
     const accordionContent = document.getElementById(accordionId);
     const accordionHeader = accordionContent.previousElementSibling;
@@ -1165,6 +1284,101 @@ html.bet-dropdown-open {
 .virtual-batsmen-content {
     width: 100%;
     min-height: 0;
+}
+
+/* Bet History Tabs Styles */
+.bet-history-tabs-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+.bet-history-tabs {
+    display: flex;
+    border-bottom: 2px solid #e2e8f0;
+    background: #f7fafc;
+}
+
+.bet-history-tab {
+    flex: 1;
+    padding: 16px 24px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    color: #718096;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.bet-history-tab:hover {
+    background: #edf2f7;
+    color: #2d3748;
+}
+
+.bet-history-tab.active {
+    color: #4299e1;
+    border-bottom-color: #4299e1;
+    background: white;
+}
+
+.bet-history-tab-content {
+    display: none;
+    padding: 24px;
+}
+
+.bet-history-tab-content.active {
+    display: block;
+}
+
+.bet-history-tab-content .table-container {
+    margin: 0;
+}
+
+.bet-history-tab-content .table-wrapper {
+    overflow-x: auto;
+}
+
+.bet-history-tab-content table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.bet-history-tab-content thead {
+    background: #f7fafc;
+}
+
+.bet-history-tab-content th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    color: #4a5568;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.bet-history-tab-content td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #2d3748;
+    font-size: 14px;
+}
+
+.bet-history-tab-content tbody tr:hover {
+    background: #f7fafc;
+}
+
+.bet-history-tab-content .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #718096;
+    font-style: italic;
 }
 
 /* Match Not Started Message Styles */

@@ -940,7 +940,7 @@
                     if (type === 'credit') {
                         content += '<div style="text-align: center;"><h2 style="font-size: 32px; color: #10b981; margin: 20px 0;">₹' + parseFloat(data.value).toFixed(2) + '</h2><p style="color: #718096;">Current Wallet Balance</p></div>';
                     } else if (type === 'exposure') {
-                        content += '<div style="text-align: center;"><h2 style="font-size: 32px; color: #4299e1; margin: 20px 0;">₹' + parseFloat(data.value).toFixed(2) + '</h2><p style="color: #718096;">Total Exposure (Liability in Ongoing Sessions)</p></div>';
+                        content += '<div style="text-align: center;"><h2 style="font-size: 32px; color: #4299e1; margin: 20px 0;">₹' + parseFloat(data.value).toFixed(2) + '</h2><p style="color: #718096;">Total Exposure (Ongoing Sessions + Match Bets)</p></div>';
                     } else if (type === 'profit-loss') {
                         const value = parseFloat(data.value);
                         content += '<div style="text-align: center;"><h2 style="font-size: 32px; color: ' + (value >= 0 ? '#10b981' : '#f56565') + '; margin: 20px 0;">' + (value >= 0 ? '+' : '') + '₹' + value.toFixed(2) + '</h2><p style="color: #718096;">Total Profit & Loss</p></div>';

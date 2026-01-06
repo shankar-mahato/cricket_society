@@ -58,6 +58,9 @@ class Match(models.Model):
     venue = models.CharField(max_length=200, null=True, blank=True)
     match_date = models.DateTimeField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='upcoming')
+    winner = models.ForeignKey(Team, on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name='matches_won', help_text="Winning team (set when match is completed)")
+    is_settled = models.BooleanField(default=False, help_text="Whether all bets for this match have been settled")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -735,3 +738,25 @@ class MatchBetBalance(models.Model):
     def __str__(self):
         bet_type_display = f" ({self.bet_type.upper()})" if self.bet_type else ""
         return f"{self.user.username} - {self.selection}{bet_type_display}: ₹{self.balance}"
+
+
+class MatchUserExposure(models.Model):
+    """Track total exposure (stake amount) per user per match"""
+    match = models.ForeignKey(Match, on_delete=models.CASCADE, related_name='user_exposures')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='match_exposures')
+    exposure = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'),
+                                   help_text="Total stake amount exposed in this match")
+    is_settled = models.BooleanField(default=False, help_text="Whether this exposure has been settled")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ['match', 'user']
+        ordering = ['-updated_at']
+        indexes = [
+            models.Index(fields=['match', 'user']),
+            models.Index(fields=['user', '-updated_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.match}: ₹{self.exposure}"

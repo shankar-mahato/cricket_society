@@ -18,7 +18,7 @@ import json
 from .models import (
     Match, Team, Player, Wallet, BettingSession, PickedPlayer, Bet,
     Transaction, PlayerMatchStats, SessionInvite, DLWallet, DLTransaction, DepositRequest,
-    MatchBet, MatchBetBalance, MatchUserExposure
+    MatchBet, MatchBetBalance
 )
 from .services import cricket_api, entitysport_api
 
@@ -151,30 +151,6 @@ def match_detail(request, match_id):
                 user_balances[balance.selection] = Decimal('0.00')
             user_balances[balance.selection] += balance.balance
         # Convert Decimal to float for template rendering
-    
-    # Get all bets for this match to display in tabs
-    all_match_bets = MatchBet.objects.filter(match=match).select_related('user').order_by('-created_at')
-    
-    # Filter bets by type:
-    # Match Odds: back/lay bets on teams (team_a.name or team_b.name)
-    team_names = [match.team_a.name, match.team_b.name]
-    match_odds_bets = all_match_bets.filter(
-        selection__in=team_names,
-        bet_type__in=['back', 'lay']
-    )
-    
-    # Session Odds: not/yes bets on sessions (not team names)
-    session_odds_bets = all_match_bets.filter(
-        bet_type__in=['not', 'yes']
-    ).exclude(selection__in=team_names)
-    
-    # Toss Odds: bets on toss (we'll need to identify these - for now, assume any bet with "toss" in selection)
-    # Or we can add a separate field later. For now, let's assume toss bets are also team bets but marked differently
-    # Actually, let's check if there's a way to identify toss bets. For now, we'll create an empty queryset
-    toss_odds_bets = all_match_bets.none()  # Will be populated when toss betting is implemented
-    
-    # Convert Decimal to float for template rendering
-    if request.user.is_authenticated:
         user_balances = {k: float(v) for k, v in user_balances.items()}
     
     context = {
@@ -186,9 +162,6 @@ def match_detail(request, match_id):
         'match_odds': match_odds,
         'session_details': session_details,
         'user_balances': user_balances,
-        'match_odds_bets': match_odds_bets,
-        'session_odds_bets': session_odds_bets,
-        'toss_odds_bets': toss_odds_bets,
     }
     return render(request, 'core/match_detail.html', context)
 
@@ -1150,28 +1123,14 @@ def wallet_info_api(request, info_type):
         return JsonResponse({'value': str(wallet.balance)})
     
     elif info_type == 'exposure':
-        # Calculate exposure from two sources:
-        # 1. Liability in ongoing betting sessions
+        # Calculate exposure (liability in ongoing sessions)
         sessions = BettingSession.objects.filter(
             Q(better_a=request.user) | Q(better_b=request.user),
             status__in=['picking', 'betting', 'live']
         ).exclude(status='cancelled')
         
-        session_exposure = sessions.aggregate(total=Sum('fixed_bet_amount'))['total'] or Decimal('0.00')
-        
-        # 2. Exposure from match bets (MatchUserExposure)
-        # Get all unsettled match exposures for this user
-        match_exposures = MatchUserExposure.objects.filter(
-            user=request.user,
-            is_settled=False
-        )
-        
-        match_exposure = match_exposures.aggregate(total=Sum('exposure'))['total'] or Decimal('0.00')
-        
-        # Total exposure = session exposure + match bet exposure
-        total_exposure = session_exposure + match_exposure
-        
-        return JsonResponse({'value': str(total_exposure)})
+        exposure = sessions.aggregate(total=Sum('fixed_bet_amount'))['total'] or Decimal('0.00')
+        return JsonResponse({'value': str(exposure)})
     
     elif info_type == 'profit-loss':
         # Calculate total profit/loss
@@ -3046,72 +3005,23 @@ def dl_place_match_bet(request, match_id):
                 'error': f'Minimum stake amount is ₹100. You entered ₹{stake}.'
             })
         
-        # Check wallet balance and deduct for end users only
-        # First, check if user has positive balances (winnings) that can cover the bet
-        from accounts.models import UserProfile
-        is_end_user = hasattr(user, 'profile') and user.profile.user_type == 'end_user'
-        
-        if is_end_user:
-            wallet, _ = Wallet.objects.get_or_create(user=user)
-            
-            # Get all positive balances (winnings) for this match
-            positive_balances = MatchBetBalance.objects.filter(
-                match=match,
-                user=user,
-                balance__gt=Decimal('0.00')
-            )
-            
-            # Calculate total available winnings
-            total_winnings = positive_balances.aggregate(total=Sum('balance'))['total'] or Decimal('0.00')
-            
-            # Calculate how much needs to come from wallet
-            wallet_amount_needed = max(Decimal('0.00'), stake - total_winnings)
-            
-            # Check if wallet has enough for the amount needed
-            if wallet_amount_needed > Decimal('0.00') and wallet.balance < wallet_amount_needed:
+        # Check wallet balance (for end users)
+        if hasattr(user, 'wallet'):
+            if user.wallet.balance < stake:
                 return JsonResponse({
                     'success': False,
-                    'error': f'Insufficient balance. Required: ₹{wallet_amount_needed}, Your balance: ₹{wallet.balance}, Available winnings: ₹{total_winnings}. Please add more funds to your wallet.'
+                    'error': f'Insufficient balance. Required: ₹{stake}, Your balance: ₹{user.wallet.balance}. Please add more funds to your wallet.'
                 })
             
-            # Use winnings first, then wallet
-            remaining_stake = stake
-            exposure_amount = Decimal('0.00')
-            
-            # Use positive balances first (in order of largest first)
-            if total_winnings > 0 and remaining_stake > 0:
-                for balance_obj in positive_balances.order_by('-balance'):
-                    if remaining_stake <= 0:
-                        break
-                    
-                    # Use as much as possible from this balance
-                    amount_to_use = min(remaining_stake, balance_obj.balance)
-                    balance_obj.balance -= amount_to_use
-                    balance_obj.save()
-                    remaining_stake -= amount_to_use
-            
-            # Deduct remaining amount from wallet (if any)
-            if remaining_stake > 0:
-                wallet.withdraw(remaining_stake)
-                exposure_amount = remaining_stake
-                
-                Transaction.objects.create(
-                    user=user,
-                    transaction_type='bet_placed',
-                    amount=remaining_stake,
-                    balance_after=wallet.balance,
-                    description=f'Match bet: {bet_type.upper()} {selection} @ {odds} for match {match.id}'
-                )
-            
-            # Add to exposure only the amount deducted from wallet
-            if exposure_amount > 0:
-                exposure, _ = MatchUserExposure.objects.get_or_create(
-                    match=match,
-                    user=user,
-                    defaults={'exposure': Decimal('0.00')}
-                )
-                exposure.exposure += exposure_amount
-                exposure.save()
+            # Deduct from wallet
+            user.wallet.withdraw(stake)
+            Transaction.objects.create(
+                user=user,
+                transaction_type='bet_placed',
+                amount=stake,
+                balance_after=user.wallet.balance,
+                description=f'Match bet: {bet_type.upper()} {selection} @ {odds}'
+            )
         
         # Calculate balance changes
         # For LAY: liability = stake * (odds - 1), selection gets -liability, other gets +stake
@@ -3215,101 +3125,6 @@ def dl_place_match_bet(request, match_id):
         
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
-
-
-@login_required
-@require_http_methods(["POST"])
-def settle_match_bets(request, match_id):
-    """Settle all bets for a completed match and calculate winnings/losses"""
-    match = get_object_or_404(Match, id=match_id)
-    
-    if match.status != 'completed':
-        return JsonResponse({'success': False, 'error': 'Match is not completed yet'})
-    
-    if match.is_settled:
-        return JsonResponse({'success': False, 'error': 'Match bets have already been settled'})
-    
-    if not match.winner:
-        return JsonResponse({'success': False, 'error': 'Match winner must be set before settling bets'})
-    
-    try:
-        with db_transaction.atomic():
-            # Get all users with exposure for this match
-            exposures = MatchUserExposure.objects.filter(match=match, is_settled=False)
-            
-            for exposure in exposures:
-                user = exposure.user
-                
-                # Get all balances for this user in this match
-                balances = MatchBetBalance.objects.filter(match=match, user=user)
-                
-                # Calculate total profit/loss based on winner
-                total_pnl = Decimal('0.00')
-                
-                for balance in balances:
-                    # Skip session bets for now - they need separate logic
-                    if balance.bet_type == 'session':
-                        continue
-                    
-                    # Check if this selection is the winner
-                    selection_won = (balance.selection == match.winner.name)
-                    
-                    if selection_won:
-                        # Selection won
-                        if balance.balance > 0:
-                            # User backed the winner - they win the profit
-                            total_pnl += balance.balance
-                        elif balance.balance < 0:
-                            # User laid the winner - they lose the liability
-                            total_pnl += balance.balance  # balance is already negative
-                    else:
-                        # Selection lost
-                        if balance.balance > 0:
-                            # User backed the loser - they lose (stake was already deducted)
-                            total_pnl -= abs(balance.balance)
-                        elif balance.balance < 0:
-                            # User laid the loser - they win the stake
-                            total_pnl += abs(balance.balance)
-                
-                # Update wallet for end users only
-                from accounts.models import UserProfile
-                if hasattr(user, 'profile') and user.profile.user_type == 'end_user':
-                    wallet, _ = Wallet.objects.get_or_create(user=user)
-                    
-                    if total_pnl > 0:
-                        # User won - add winnings to wallet
-                        wallet.deposit(total_pnl)
-                        Transaction.objects.create(
-                            user=user,
-                            transaction_type='bet_won',
-                            amount=total_pnl,
-                            balance_after=wallet.balance,
-                            description=f'Match bet winnings for {match.team_a.name} vs {match.team_b.name} - Winner: {match.winner.name}'
-                        )
-                    elif total_pnl < 0:
-                        # User lost - stake was already deducted, just record the loss
-                        Transaction.objects.create(
-                            user=user,
-                            transaction_type='bet_lost',
-                            amount=abs(total_pnl),
-                            balance_after=wallet.balance,
-                            description=f'Match bet loss for {match.team_a.name} vs {match.team_b.name} - Winner: {match.winner.name}'
-                        )
-                
-                # Mark exposure as settled
-                exposure.is_settled = True
-                exposure.save()
-            
-            # Mark match as settled
-            match.is_settled = True
-            match.save()
-            
-            return JsonResponse({'success': True, 'message': 'Match bets settled successfully'})
-            
     except Exception as e:
         import traceback
         traceback.print_exc()
