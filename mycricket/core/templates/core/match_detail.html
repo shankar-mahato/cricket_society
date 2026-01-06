@@ -158,11 +158,11 @@
                                     </div>
                                 </div>
                                 <div class="quick-stake-buttons">
-                                    <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 1000)">+1000</button>
-                                    <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 5000)">+5000</button>
+                                    <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 100)">+100</button>
+                                    <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 200)">+200</button>
+                                    <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 500)">+500</button>
                                     <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 10000)">+10000</button>
                                     <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 25000)">+25000</button>
-                                    <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 50000)">+50000</button>
                                     <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 100000)">+100000</button>
                                 </div>
                                 <div class="bet-dropdown-actions">
@@ -203,12 +203,12 @@
                                     </div>
                                 </div>
                                 <div class="quick-stake-buttons">
-                                    <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 1000)">+1000</button>
-                                    <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 5000)">+5000</button>
-                                    <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 10000)">+10000</button>
-                                    <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 25000)">+25000</button>
-                                    <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 50000)">+50000</button>
-                                    <button class="quick-stake-btn lay-stake" onclick="addStakeDropdown(this, 100000)">+100000</button>
+                                    <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 100)">+100</button>
+                                    <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 200)">+200</button>
+                                    <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 500)">+500</button>
+                                    <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 10000)">+10000</button>
+                                    <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 25000)">+25000</button>
+                                    <button class="quick-stake-btn back-stake" onclick="addStakeDropdown(this, 100000)">+100000</button>
                                 </div>
                                 <div class="bet-dropdown-actions">
                                     <button class="bet-cancel-btn" onclick="event.stopPropagation(); event.preventDefault(); closeBetDropdown(this.closest('.bet-dropdown'));" type="button">CANCEL</button>
@@ -426,7 +426,7 @@
                         <tr>
                             <td>{{ bet.odds|floatformat:2 }}</td>
                             <td>₹{{ bet.stake|floatformat:2 }}</td>
-                            <td>{{ bet.selection }} ({{ bet.get_bet_type_display }})</td>
+                            <td>{{ bet.selection }} ({{ bet.get_bet_type_display }}) - {{ bet.user.username }}</td>
                         </tr>
                         {% empty %}
                         <tr>
@@ -870,8 +870,8 @@ function submitBetDropdown(button) {
             const stakeDisplay = dropdown.querySelector('.stake-display-dropdown');
             if (stakeDisplay) stakeDisplay.textContent = '0';
             
-            // Reload page to show updated bets
-            window.location.reload();
+            // Refresh balances from server and update match odds tab
+            refreshBalancesAndBets();
         } else {
             // Show error message to user
             const errorMsg = data.error || 'Failed to place bet. Please try again.';
@@ -919,9 +919,11 @@ function updateBalanceDisplay(selection, balance) {
     }
     
     if (balanceDisplay) {
-        const formattedBalance = balance >= 0 ? `+${Math.round(balance)}` : `${Math.round(balance)}`;
+        // Handle both number and object with balance property
+        const balanceValue = typeof balance === 'object' && balance.balance !== undefined ? balance.balance : balance;
+        const formattedBalance = balanceValue >= 0 ? `+${Math.round(balanceValue)}` : `${Math.round(balanceValue)}`;
         balanceDisplay.textContent = formattedBalance;
-        balanceDisplay.className = 'balance-display ' + (balance >= 0 ? 'balance-positive' : 'balance-negative');
+        balanceDisplay.className = 'balance-display ' + (balanceValue >= 0 ? 'balance-positive' : 'balance-negative');
         balanceDisplay.classList.remove('hidden');
     }
 }
@@ -957,6 +959,44 @@ document.addEventListener('keydown', function(e) {
         closeBetDropdown(openDropdown);
     }
 });
+
+function refreshBalancesAndBets() {
+    // Fetch updated balances from server
+    const matchId = {{ match.id }};
+    
+    fetch(`/dl/match/${matchId}/balances/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.balances) {
+            // Update all balances
+            Object.keys(data.balances).forEach(selection => {
+                const balanceData = data.balances[selection];
+                // Handle both object format and direct number
+                const balance = typeof balanceData === 'object' && balanceData.balance !== undefined 
+                    ? balanceData.balance 
+                    : balanceData;
+                updateBalanceDisplay(selection, balance);
+            });
+        }
+        
+        // Reload page to refresh match odds tab and all data
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    })
+    .catch(error => {
+        console.error('Error refreshing balances:', error);
+        // Still reload page to show updates
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    });
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.bet-dropdown').forEach(dropdown => {

@@ -123,13 +123,13 @@ def match_detail(request, match_id):
     match_odds = [
         {
             'runner': match.team_a.name,
-            'back_odds': '1.85',  # Placeholder
-            'lay_odds': '1.90',   # Placeholder
+            'back_odds': '1.25',  # Placeholder
+            'lay_odds': '1.30',   # Placeholder
         },
         {
             'runner': match.team_b.name,
-            'back_odds': '1.95',  # Placeholder
-            'lay_odds': '2.00',   # Placeholder
+            'back_odds': '1.25',  # Placeholder
+            'lay_odds': '1.30',   # Placeholder
         },
     ]
     
@@ -147,10 +147,13 @@ def match_detail(request, match_id):
         balances = MatchBetBalance.objects.filter(match=match, user=request.user)
         for balance in balances:
             # Aggregate balances by selection (sum all bet_types for same selection)
+            # This gives the total balance for each team/selection
             if balance.selection not in user_balances:
                 user_balances[balance.selection] = Decimal('0.00')
             user_balances[balance.selection] += balance.balance
+        
         # Convert Decimal to float for template rendering
+        user_balances = {k: float(v) for k, v in user_balances.items()}
     
     # Get all bets for this match to display in tabs
     all_match_bets = MatchBet.objects.filter(match=match).select_related('user').order_by('-created_at')
@@ -3051,6 +3054,10 @@ def dl_place_match_bet(request, match_id):
         from accounts.models import UserProfile
         is_end_user = hasattr(user, 'profile') and user.profile.user_type == 'end_user'
         
+        # Store the balance object that was used for funding (if any) so we can update it later
+        balance_used_for_funding = None
+        amount_used_from_balance = Decimal('0.00')
+        
         if is_end_user:
             wallet, _ = Wallet.objects.get_or_create(user=user)
             
@@ -3075,20 +3082,44 @@ def dl_place_match_bet(request, match_id):
                 })
             
             # Use winnings first, then wallet
+            # First, determine other_selection for team bets
+            all_selections_temp = [match.team_a.name, match.team_b.name]
+            other_selection_temp = None
+            if selection in all_selections_temp:
+                other_selection_temp = all_selections_temp[1] if selection == all_selections_temp[0] else all_selections_temp[0]
+            
             remaining_stake = stake
             exposure_amount = Decimal('0.00')
             
-            # Use positive balances first (in order of largest first)
-            if total_winnings > 0 and remaining_stake > 0:
-                for balance_obj in positive_balances.order_by('-balance'):
-                    if remaining_stake <= 0:
-                        break
-                    
-                    # Use as much as possible from this balance
-                    amount_to_use = min(remaining_stake, balance_obj.balance)
-                    balance_obj.balance -= amount_to_use
-                    balance_obj.save()
-                    remaining_stake -= amount_to_use
+            # For LAY bets on teams: check if other team has positive balance
+            if bet_type in ['lay', 'yes'] and other_selection_temp:
+                # Get other team's balance (opposite bet_type)
+                other_team_bet_type = 'back' if bet_type == 'lay' else 'lay'
+                other_team_balance = MatchBetBalance.objects.filter(
+                    match=match,
+                    user=user,
+                    selection=other_selection_temp,
+                    bet_type=other_team_bet_type
+                ).first()
+                
+                if other_team_balance and other_team_balance.balance > 0:
+                    # Use positive balance from other team to fund this bet
+                    amount_used_from_balance = min(remaining_stake, other_team_balance.balance)
+                    # Store the balance object for later update (don't deduct yet - we'll do it when updating balances)
+                    balance_used_for_funding = other_team_balance
+                    remaining_stake -= amount_used_from_balance
+            else:
+                # For other bet types, use any positive balances
+                if total_winnings > 0 and remaining_stake > 0:
+                    for balance_obj in positive_balances.order_by('-balance'):
+                        if remaining_stake <= 0:
+                            break
+                        
+                        # Use as much as possible from this balance
+                        amount_to_use = min(remaining_stake, balance_obj.balance)
+                        balance_obj.balance -= amount_to_use
+                        balance_obj.save()
+                        remaining_stake -= amount_to_use
             
             # Deduct remaining amount from wallet (if any)
             if remaining_stake > 0:
@@ -3152,7 +3183,7 @@ def dl_place_match_bet(request, match_id):
         )
         
         # Determine bet_type for balance entry
-        # For team bets: LAY on one team means BACK on the other, and vice versa
+        # For team bets: We need to track balances separately for back and lay
         # For session bets (not/yes): use 'session' as bet_type
         balance_bet_type = None
         other_balance_bet_type = None
@@ -3160,17 +3191,14 @@ def dl_place_match_bet(request, match_id):
         if bet_type in ['not', 'yes']:
             # Session bet: use 'session' as bet_type
             balance_bet_type = 'session'
-        elif bet_type in ['back', 'lay'] and other_selection:
-            # Team bet: set bet_type for selection and opposite for other team
-            balance_bet_type = bet_type
-            # If LAY on one team, the other team gets BACK (and vice versa)
-            other_balance_bet_type = 'back' if bet_type == 'lay' else 'lay'
         elif bet_type in ['back', 'lay']:
-            # Team bet without other selection (shouldn't happen, but handle it)
+            # For team bets, use the actual bet_type (back or lay)
             balance_bet_type = bet_type
+            # Other team gets the opposite bet_type
+            if other_selection:
+                other_balance_bet_type = 'back' if bet_type == 'lay' else 'lay'
         
-        # Ensure MatchBetBalance entry exists and update it
-        # This will create a new entry if it doesn't exist, or update existing one
+        # Ensure MatchBetBalance entry exists and update it for the selection
         balance_obj, created = MatchBetBalance.objects.get_or_create(
             match=match,
             user=user,
@@ -3185,26 +3213,65 @@ def dl_place_match_bet(request, match_id):
         # For other selection (if team bet - BACK/LAY on teams affects both teams)
         other_balance_obj = None
         other_balance_value = None
+        
+        # Debug: Log the values
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Bet: {bet_type} on {selection}, other_selection: {other_selection}, other_balance_bet_type: {other_balance_bet_type}, other_change: {other_change}")
+        logger.info(f"all_selections: {all_selections}, selection in all_selections: {selection in all_selections}")
+        
         if other_selection and other_balance_bet_type:
             # Create or update balance for the opposing team with opposite bet_type
-            other_balance_obj, created = MatchBetBalance.objects.get_or_create(
-                match=match,
-                user=user,
-                selection=other_selection,
-                bet_type=other_balance_bet_type,
-                defaults={'balance': Decimal('0.00')}
-            )
+            # IMPORTANT: If we used this balance to fund the bet, use that same object
+            if balance_used_for_funding and balance_used_for_funding.selection == other_selection and balance_used_for_funding.bet_type == other_balance_bet_type:
+                # Use the same balance object that was used for funding
+                other_balance_obj = balance_used_for_funding
+                # Deduct the amount that was used for funding
+                other_balance_obj.balance -= amount_used_from_balance
+            else:
+                # Get or create the balance object
+                other_balance_obj, created = MatchBetBalance.objects.get_or_create(
+                    match=match,
+                    user=user,
+                    selection=other_selection,
+                    bet_type=other_balance_bet_type,
+                    defaults={'balance': Decimal('0.00')}
+                )
+            
+            # Add the change (stake for lay, -stake for back)
             other_balance_obj.balance += other_change
             other_balance_obj.save()
             other_balance_value = other_balance_obj.balance
+            
+            # Debug: Log the update
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Updated {other_selection} ({other_balance_bet_type}) balance: {other_balance_obj.balance} (change: {other_change})")
         
-        # Prepare response balances - always include the selection balance
-        response_balances = {
-            selection: float(selection_balance)
-        }
-        # Include other selection balance if it exists (for team bets)
-        if other_selection and other_balance_value is not None:
-            response_balances[other_selection] = float(other_balance_value)
+        # Prepare response balances - get all balances for this match and user
+        # Calculate total balance for each selection (sum all bet_types)
+        # IMPORTANT: Refresh from database to ensure we have the latest values
+        # Use select_for_update or refresh_from_db to ensure we get the latest data
+        all_user_balances = MatchBetBalance.objects.filter(match=match, user=user)
+        response_balances = {}
+        for bal in all_user_balances:
+            # Refresh the balance object to ensure we have the latest value
+            bal.refresh_from_db()
+            if bal.selection not in response_balances:
+                response_balances[bal.selection] = Decimal('0.00')
+            response_balances[bal.selection] += bal.balance
+        
+        # Debug: Log all balances
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Response balances before conversion: {response_balances}")
+        logger.info(f"All balance entries: {[(b.selection, b.bet_type, b.balance) for b in all_user_balances]}")
+        
+        # Convert to float for JSON response
+        response_balances = {k: float(v) for k, v in response_balances.items()}
+        
+        # Debug: Log final response balances
+        logger.info(f"Response balances after conversion: {response_balances}")
         
         return JsonResponse({
             'success': True,
