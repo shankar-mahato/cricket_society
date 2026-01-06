@@ -1371,12 +1371,34 @@ def master_dl_dashboard(request):
     
     # Statistics
     total_dl_users = dl_users.count()
-    total_dl_balance = DLWallet.objects.aggregate(
-        total=Sum('balance')
-    )['total'] or Decimal('0.00')
-    total_credited = DLWallet.objects.aggregate(
-        total=Sum('total_credited')
-    )['total'] or Decimal('0.00')
+    
+    # Safely aggregate balances - handle None and invalid values
+    from decimal import InvalidOperation
+    try:
+        balance_sum = DLWallet.objects.aggregate(
+            total=Sum('balance')
+        )['total']
+        if balance_sum is None:
+            total_dl_balance = Decimal('0.00')
+        elif isinstance(balance_sum, Decimal):
+            total_dl_balance = balance_sum
+        else:
+            total_dl_balance = Decimal(str(balance_sum))
+    except (ValueError, TypeError, InvalidOperation):
+        total_dl_balance = Decimal('0.00')
+    
+    try:
+        credited_sum = DLWallet.objects.aggregate(
+            total=Sum('total_credited')
+        )['total']
+        if credited_sum is None:
+            total_credited = Decimal('0.00')
+        elif isinstance(credited_sum, Decimal):
+            total_credited = credited_sum
+        else:
+            total_credited = Decimal(str(credited_sum))
+    except (ValueError, TypeError, InvalidOperation):
+        total_credited = Decimal('0.00')
     
     context = {
         'total_dl_users': total_dl_users,

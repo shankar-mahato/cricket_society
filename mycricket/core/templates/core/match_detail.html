@@ -92,7 +92,15 @@
                 <span class="betting-accordion-title">Bet on Match</span>
                 <span class="betting-accordion-arrow" id="arrow-bet-on-match">▼</span>
             </div>
-            <div id="bet-on-match" class="betting-accordion-content show" style="padding: 24px;">
+            <div id="bet-on-match" class="betting-accordion-content show">
+            {% if match.status == 'upcoming' %}
+            <!-- Message for upcoming matches -->
+            <div class="match-not-started-message">
+                <div class="message-icon">⏳</div>
+                <div class="message-title">Match Not Yet Started</div>
+                <div class="message-text">Betting options will be available once the match begins. Please check back later.</div>
+            </div>
+            {% else %}
             <!-- Runner Section -->
             <div class="betting-market">
                 <div class="market-title">Runner</div>
@@ -317,6 +325,7 @@
                 </div>
                 {% endfor %}
             </div>
+            {% endif %}
             </div>
         </div>
 
@@ -328,30 +337,30 @@
             </div>
             <div id="choose-virtual" class="betting-accordion-content">
                 <div class="virtual-batsmen-content">
-                <div class="card-header" style="margin-bottom: 20px;">
-                    <h3 style="margin: 0;">Create New Betting Session</h3>
+            <div class="card-header" style="margin-bottom: 20px;">
+                <h3 style="margin: 0;">Create New Betting Session</h3>
+            </div>
+            <p style="margin: 0 0 20px 0; color: #4a5568;">Create a betting session and invite a friend to play. You'll pick players and bet on how many runs they'll score.</p>
+            <form method="post" action="{% url 'core:create_betting_session' match.id %}">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label class="form-label" for="players_per_side">Number of players per side</label>
+                    <input type="number" id="players_per_side" name="players_per_side" value="5" min="1" max="11" required class="form-control">
+                    <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;">You'll pick this many players from each team ({{ match.team_a.name }} and {{ match.team_b.name }})</p>
                 </div>
-                <p style="margin: 0 0 20px 0; color: #4a5568;">Create a betting session and invite a friend to play. You'll pick players and bet on how many runs they'll score.</p>
-                <form method="post" action="{% url 'core:create_betting_session' match.id %}">
-                    {% csrf_token %}
-                    <div class="form-group">
-                        <label class="form-label" for="players_per_side">Number of players per side</label>
-                        <input type="number" id="players_per_side" name="players_per_side" value="5" min="1" max="11" required class="form-control">
-                        <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;">You'll pick this many players from each team ({{ match.team_a.name }} and {{ match.team_b.name }})</p>
-                    </div>
-                    <div class="form-group" style="margin-top: 16px;">
-                        <label class="form-label" for="fixed_bet_amount">Fixed Bet Amount (₹)</label>
-                        <input type="number" id="fixed_bet_amount" name="fixed_bet_amount" value="100" min="0.01" step="0.01" required class="form-control">
-                        <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;">Fixed bet amount for the entire session. Winner gets both bet amounts (₹<span id="total_pot">200</span>).</p>
-                    </div>
-                    <button type="submit" class="btn">Create Session</button>
-                </form>
-                <script>
-                    document.getElementById('fixed_bet_amount').addEventListener('input', function() {
-                        const amount = parseFloat(this.value) || 0;
-                        document.getElementById('total_pot').textContent = (amount * 2).toFixed(2);
-                    });
-                </script>
+                <div class="form-group" style="margin-top: 16px;">
+                    <label class="form-label" for="fixed_bet_amount">Fixed Bet Amount (₹)</label>
+                    <input type="number" id="fixed_bet_amount" name="fixed_bet_amount" value="100" min="0.01" step="0.01" required class="form-control">
+                    <p style="margin: 8px 0 0 0; color: #718096; font-size: 13px;">Fixed bet amount for the entire session. Winner gets both bet amounts (₹<span id="total_pot">200</span>).</p>
+                </div>
+                <button type="submit" class="btn">Create Session</button>
+            </form>
+            <script>
+                document.getElementById('fixed_bet_amount').addEventListener('input', function() {
+                    const amount = parseFloat(this.value) || 0;
+                    document.getElementById('total_pot').textContent = (amount * 2).toFixed(2);
+                });
+            </script>
                 </div>
             </div>
         </div>
@@ -530,12 +539,22 @@ function toggleBetDropdown(element) {
         openDropdown = dropdown;
         
         if (window.innerWidth <= 768) {
-            const scrollY = window.scrollY;
+            const scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
             dropdown.dataset.scrollY = scrollY;
+            
+            // Prevent body scroll but keep smooth scrolling behavior
             document.body.style.overflow = 'hidden';
             document.body.style.position = 'fixed';
             document.body.style.width = '100%';
             document.body.style.top = `-${scrollY}px`;
+            document.body.style.left = '0';
+            document.body.style.right = '0';
+            
+            // Prevent scrolling on html element too
+            document.documentElement.style.overflow = 'hidden';
+            document.documentElement.style.position = 'fixed';
+            document.documentElement.style.width = '100%';
+            document.documentElement.style.top = `-${scrollY}px`;
             
             const dropdownBody = dropdown.querySelector('.bet-dropdown-body');
             if (dropdownBody) {
@@ -543,6 +562,7 @@ function toggleBetDropdown(element) {
                 dropdownBody.style.webkitOverflowScrolling = 'touch';
                 dropdownBody.style.touchAction = 'pan-y';
                 dropdownBody.style.overscrollBehavior = 'contain';
+                dropdownBody.style.scrollBehavior = 'smooth';
             }
         }
         
@@ -588,16 +608,31 @@ function closeBetDropdown(dropdownElement) {
         }
         
         if (window.innerWidth <= 768) {
+            // Restore body scroll position
             const scrollY = dropdown.dataset.scrollY || 0;
             document.body.style.overflow = '';
             document.body.style.position = '';
             document.body.style.width = '';
             document.body.style.top = '';
-            setTimeout(() => {
-                window.scrollTo(0, parseInt(scrollY) || 0);
-            }, 10);
+            document.body.style.left = '';
+            document.body.style.right = '';
+            
+            // Restore html element scrolling
+            document.documentElement.style.overflow = '';
+            document.documentElement.style.position = '';
+            document.documentElement.style.width = '';
+            document.documentElement.style.top = '';
+            
+            // Restore scroll position smoothly
+            requestAnimationFrame(() => {
+                window.scrollTo({
+                    top: parseInt(scrollY) || 0,
+                    behavior: 'auto'
+                });
+            });
         } else {
             document.body.style.overflow = 'auto';
+            document.documentElement.style.overflow = 'auto';
         }
     }
 }
@@ -799,8 +834,27 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
+/* Smooth scrolling for the entire page */
+html {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+}
+
+body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+}
+
+/* Main content wrapper for smooth scrolling */
 .match-detail-header {
     margin-bottom: 24px;
+    width: 100%;
 }
 
 .match-detail-card {
@@ -1071,15 +1125,51 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 .betting-accordion-content.show {
-    max-height: 10000px;
+    max-height: 50000px; /* Very large value to allow full content expansion */
     padding: 24px;
-    overflow-y: auto;
+    overflow-y: visible; /* Let page scroll handle overflow */
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scroll-behavior: smooth;
+    will-change: scroll-position;
 }
 
 .virtual-batsmen-content {
     width: 100%;
     min-height: 0;
+}
+
+/* Match Not Started Message Styles */
+.match-not-started-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 24px;
+    text-align: center;
+    background: #f7fafc;
+    border-radius: 12px;
+    border: 2px dashed #cbd5e0;
+}
+
+.message-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+    opacity: 0.7;
+}
+
+.message-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #2d3748;
+    margin-bottom: 12px;
+}
+
+.message-text {
+    font-size: 16px;
+    color: #718096;
+    line-height: 1.6;
+    max-width: 500px;
 }
 
 /* Betting Interface Styles */
@@ -1251,6 +1341,8 @@ document.addEventListener('DOMContentLoaded', function() {
     padding: 16px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    will-change: scroll-position;
 }
 .bet-dropdown-actions {
     display: flex;
@@ -1568,10 +1660,31 @@ document.addEventListener('DOMContentLoaded', function() {
     
     .betting-accordion-content.show {
         padding: 18px;
-        max-height: 80vh;
-        overflow-y: auto;
+        max-height: 50000px; /* Very large value to allow full content expansion */
+        overflow-y: visible; /* Let page scroll handle overflow */
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
+        scroll-behavior: smooth;
+        will-change: scroll-position;
+    }
+    
+    /* Match Not Started Message Mobile Styles */
+    .match-not-started-message {
+        padding: 40px 20px;
+    }
+    
+    .message-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+    
+    .message-title {
+        font-size: 20px;
+        margin-bottom: 10px;
+    }
+    
+    .message-text {
+        font-size: 14px;
     }
     
     .back-button {
@@ -1640,6 +1753,8 @@ document.addEventListener('DOMContentLoaded', function() {
         overflow-y: auto;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+        will-change: scroll-position;
         flex: 1;
         min-height: 0;
         max-height: calc(90vh - 60px);
@@ -1723,14 +1838,43 @@ document.addEventListener('DOMContentLoaded', function() {
     
     .betting-accordion-content {
         padding: 0 16px;
+        position: relative;
     }
     
     .betting-accordion-content.show {
         padding: 16px;
-        max-height: 75vh;
-        overflow-y: auto;
+        max-height: 50000px; /* Very large value to allow full content expansion */
+        overflow-y: visible; /* Let page scroll handle overflow */
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
+        scroll-behavior: smooth;
+        will-change: scroll-position;
+    }
+    
+    /* Allow full page scrolling - don't restrict accordion height */
+    body {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scroll-behavior: smooth !important;
+        position: relative !important;
+    }
+    
+    html {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scroll-behavior: smooth !important;
+        height: 100%;
+    }
+    
+    /* Main container should allow full scrolling */
+    .container, [class*="container"] {
+        overflow: visible !important;
+    }
+    
+    /* Ensure betting accordions container doesn't restrict scrolling */
+    .betting-accordions-container {
+        overflow: visible !important;
+        min-height: auto;
     }
     
     .back-button {
@@ -1741,6 +1885,25 @@ document.addEventListener('DOMContentLoaded', function() {
     /* Fix form elements in mobile accordion */
     .virtual-batsmen-content {
         width: 100%;
+    }
+    
+    /* Match Not Started Message Mobile Styles */
+    .match-not-started-message {
+        padding: 40px 20px;
+    }
+    
+    .message-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+    
+    .message-title {
+        font-size: 20px;
+        margin-bottom: 10px;
+    }
+    
+    .message-text {
+        font-size: 14px;
     }
     
     #choose-virtual .form-group {
