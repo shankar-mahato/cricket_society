@@ -8,7 +8,8 @@ from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 
-from core.models import Team, Player, Match, Wallet, PlayerMatchStats, MatchBet, MatchBetBalance
+from core.models import Team, Player, Match, Wallet, PlayerMatchStats, MatchBet, MatchBetBalance, DLWallet, DLTransaction
+from accounts.models import UserProfile
 
 
 class Command(BaseCommand):
@@ -26,6 +27,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('Clearing existing data...'))
             MatchBetBalance.objects.all().delete()
             MatchBet.objects.all().delete()
+            DLTransaction.objects.all().delete()
+            DLWallet.objects.all().delete()
             Match.objects.all().delete()
             Player.objects.all().delete()
             Team.objects.all().delete()
@@ -332,6 +335,65 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f'Created {users_created} users and {wallets_created} wallets.'))
 
+        # Create DL Users
+        self.stdout.write(self.style.SUCCESS('\nCreating DL users...'))
+        dl_users_data = [
+            {'username': 'dl_user1', 'email': 'dl1@test.com', 'password': 'testpass123'},
+            {'username': 'dl_user2', 'email': 'dl2@test.com', 'password': 'testpass123'},
+            {'username': 'dl_user3', 'email': 'dl3@test.com', 'password': 'testpass123'},
+        ]
+
+        dl_users_created = 0
+        dl_wallets_created = 0
+        dl_transactions_created = 0
+        for dl_user_data in dl_users_data:
+            user, created = User.objects.get_or_create(
+                username=dl_user_data['username'],
+                defaults={
+                    'email': dl_user_data['email'],
+                }
+            )
+            if created:
+                user.set_password(dl_user_data['password'])
+                user.save()
+                dl_users_created += 1
+                self.stdout.write(self.style.SUCCESS(f'Created DL user: {user.username}'))
+                
+                # Create UserProfile with user_type='dl'
+                profile, profile_created = UserProfile.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        'user_type': 'dl',
+                    }
+                )
+                if not profile_created:
+                    profile.user_type = 'dl'
+                    profile.save()
+                
+                # Create DLWallet
+                dl_wallet, wallet_created = DLWallet.objects.get_or_create(dl_user=user)
+                if wallet_created:
+                    # Add initial balance to some DL wallets
+                    if user.username in ['dl_user1', 'dl_user2']:
+                        initial_balance = Decimal('5000.00') if user.username == 'dl_user1' else Decimal('3000.00')
+                        dl_wallet.balance = initial_balance
+                        dl_wallet.total_credited = initial_balance
+                        dl_wallet.save()
+                        
+                        # Create a credit transaction
+                        DLTransaction.objects.create(
+                            dl_user=user,
+                            transaction_type='credit',
+                            amount=initial_balance,
+                            balance_after=initial_balance,
+                            description='Initial credit for testing'
+                        )
+                        dl_transactions_created += 1
+                    dl_wallets_created += 1
+                    self.stdout.write(self.style.SUCCESS(f'  Created DL wallet with balance: ₹{dl_wallet.balance}'))
+
+        self.stdout.write(self.style.SUCCESS(f'Created {dl_users_created} DL users, {dl_wallets_created} DL wallets, and {dl_transactions_created} transactions.'))
+
         # Create MatchBet test data
         self.stdout.write(self.style.SUCCESS('\nCreating MatchBet test data...'))
         matches = Match.objects.all()[:5]  # Use first 5 matches
@@ -410,6 +472,8 @@ class Command(BaseCommand):
         total_stats = PlayerMatchStats.objects.count()
         total_match_bets = MatchBet.objects.count()
         total_match_bet_balances = MatchBetBalance.objects.count()
+        total_dl_wallets = DLWallet.objects.count()
+        total_dl_transactions = DLTransaction.objects.count()
         
         self.stdout.write(self.style.SUCCESS('\nDatabase Summary:'))
         self.stdout.write(self.style.SUCCESS(f'  Teams: {total_teams}'))
@@ -419,6 +483,8 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'  Match Bets: {total_match_bets}'))
         self.stdout.write(self.style.SUCCESS(f'  Match Bet Balances: {total_match_bet_balances}'))
         self.stdout.write(self.style.SUCCESS(f'  Wallets: {total_wallets}'))
+        self.stdout.write(self.style.SUCCESS(f'  DL Wallets: {total_dl_wallets}'))
+        self.stdout.write(self.style.SUCCESS(f'  DL Transactions: {total_dl_transactions}'))
         self.stdout.write(self.style.SUCCESS(f'  Player Match Stats: {total_stats}'))
         
         self.stdout.write(self.style.SUCCESS('\nTest Users (all passwords: testpass123):'))
@@ -426,6 +492,12 @@ class Command(BaseCommand):
             wallet = Wallet.objects.filter(user__username=user_data['username']).first()
             balance_info = f' (Balance: ₹{wallet.balance})' if wallet and wallet.balance > 0 else ''
             self.stdout.write(self.style.SUCCESS(f'  • {user_data["username"]}{balance_info}'))
+        
+        self.stdout.write(self.style.SUCCESS('\nDL Users (all passwords: testpass123):'))
+        for dl_user_data in dl_users_data:
+            dl_wallet = DLWallet.objects.filter(dl_user__username=dl_user_data['username']).first()
+            balance_info = f' (Balance: ₹{dl_wallet.balance})' if dl_wallet and dl_wallet.balance > 0 else ''
+            self.stdout.write(self.style.SUCCESS(f'  • {dl_user_data["username"]}{balance_info}'))
         
         self.stdout.write(self.style.SUCCESS('\nMatch Statuses:'))
         upcoming = Match.objects.filter(status='upcoming').count()
